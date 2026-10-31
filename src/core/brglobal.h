@@ -1,0 +1,134 @@
+/*
+ * BrReport - Band-oriented report generator for C++/Qt
+ * Copyright 2026 João Elson
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef BRGLOBAL_H
+#define BRGLOBAL_H
+
+#include <QtGlobal>
+
+#include "brreport_config.h"
+
+#if defined(BRREPORT_STATIC)
+#  define BRREPORT_EXPORT
+#elif defined(BRREPORT_CORE_LIBRARY)
+#  define BRREPORT_EXPORT Q_DECL_EXPORT
+#else
+#  define BRREPORT_EXPORT Q_DECL_IMPORT
+#endif
+
+/*!
+ * Common enumerations used across BrReport.
+ *
+ * All geometry in BrReport is expressed in millimeters (mm) and font sizes in points (pt).
+ */
+namespace Br {
+
+/*! Role of a band inside a pager (report, group or sub-detail). */
+enum class BandType {
+    Header,       //!< Printed at the top of every page (and when a group/sub-detail starts).
+    Title,        //!< Printed once, when the pager starts (first page for the report).
+    ColumnHeader, //!< Printed after Header/Title on every page.
+    Detail,       //!< Printed once for every data record.
+    ColumnFooter, //!< Printed after the last detail of every page.
+    Summary,      //!< Printed once, when the pager finishes (after the last record).
+    Footer        //!< Report: bottom of every page. Group/sub-detail: at page breaks and at the end.
+};
+
+/*! Automatic placement of a control inside its parent (band or panel). */
+enum class Align {
+    None,   //!< Uses the control geometry as is.
+    Top,    //!< Stacked at the top, full width.
+    Bottom, //!< Stacked at the bottom, full width.
+    Left,   //!< Stacked at the left, fills the remaining height.
+    Right,  //!< Stacked at the right, fills the remaining height.
+    Client  //!< Fills the remaining area.
+};
+
+/*! Horizontal text alignment. */
+enum class TextAlign { Left, Center, Right, Justify };
+
+/*! Vertical text alignment. */
+enum class TextLayout { Top, Center, Bottom };
+
+/*! Page breaking behavior for bands and pagers. */
+enum class PageBreak {
+    None,   //!< No forced page break.
+    Before, //!< Starts a new page before printing (unless the page is still empty).
+    After   //!< Starts a new page after printing (only if something else is printed).
+};
+
+/*! System information displayed by BrSystemInfo. */
+enum class InfoType {
+    Date,           //!< Report date.
+    Time,           //!< Report time.
+    DateTime,       //!< Report date and time.
+    PageNumber,     //!< Current page number.
+    LastPageNumber, //!< Total number of pages.
+    PagePreview,    //!< "page / total" (see BrSystemInfo::setFormat()).
+    Title,          //!< Report title.
+    RecNo,          //!< Current record number of the innermost data pager.
+    DetailCount,    //!< Number of records printed so far.
+    CarbonCopy      //!< Current carbon copy index (1-based) of the band.
+};
+
+/*! Aggregation computed by BrDBResult. */
+enum class ResultType { Sum, Count, Average, Min, Max, First, Last };
+
+/*! Shape drawn by BrDraw. */
+enum class DrawKind {
+    Rectangle,
+    RoundedRectangle,
+    Ellipse,
+    HorizontalLine, //!< Line across the vertical center.
+    VerticalLine,   //!< Line across the horizontal center.
+    DiagonalDown,   //!< Top-left to bottom-right.
+    DiagonalUp,     //!< Bottom-left to top-right.
+    Triangle        //!< Pointing up.
+};
+
+/*! How an image fits into the control rectangle. */
+enum class ImageScale {
+    None,       //!< Original size (at 96 dpi), anchored at the top-left corner.
+    Stretch,    //!< Fills the whole rectangle.
+    KeepAspect, //!< Fits the rectangle keeping the aspect ratio, centered.
+    Center      //!< Original size (at 96 dpi), centered.
+};
+
+/*! Supported barcode symbologies. */
+enum class BarcodeType {
+    Code128,        //!< Full ASCII, automatic B/C code set switching.
+    Ean13,          //!< 12 or 13 digits (check digit computed/validated).
+    Interleaved2of5, //!< Numeric (used e.g. by Brazilian bank slips / "boletos").
+    QrCode           //!< 2D QR Code (URLs, PIX, NFC-e...). See BrQrEncoder.
+};
+
+/*! QR Code error correction level (share of the symbol that can be recovered). */
+enum class QrErrorCorrection {
+    Low,      //!< ~7%
+    Medium,   //!< ~15%
+    Quartile, //!< ~25%
+    High      //!< ~30%
+};
+
+/*! Converts typographic points to millimeters. */
+constexpr double ptToMm(double pt) { return pt * 25.4 / 72.0; }
+/*! Converts millimeters to typographic points. */
+constexpr double mmToPt(double mm) { return mm * 72.0 / 25.4; }
+
+} // namespace Br
+
+#endif // BRGLOBAL_H

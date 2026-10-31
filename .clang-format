@@ -1,0 +1,13 @@
+BasedOnStyle: WebKit
+ColumnLimit: 100
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: Inline
+AlwaysBreakTemplateDeclarations: Yes
+BreakConstructorInitializers: BeforeColon
+Cpp11BracedListStyle: true
+FixNamespaceComments: true
+IncludeBlocks: Preserve
+NamespaceIndentation: None
+PointerAlignment: Right
+SortIncludes: true
+SpaceBeforeCpp11BracedList: false

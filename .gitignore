@@ -1,0 +1,10 @@
+build*/
+.cache/
+.vscode/
+.idea/
+*.user
+*.autosave
+CMakeLists.txt.user*
+compile_commands.json
+*.pdf
+*.brp

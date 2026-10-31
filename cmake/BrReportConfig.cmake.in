@@ -1,0 +1,14 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+set(_brreport_qt_components Core Gui)
+if(@BRREPORT_WITH_SQL@)
+    list(APPEND _brreport_qt_components Sql)
+endif()
+if(@BRREPORT_BUILD_WIDGETS@)
+    list(APPEND _brreport_qt_components Widgets PrintSupport)
+endif()
+find_dependency(Qt@QT_VERSION_MAJOR@ COMPONENTS ${_brreport_qt_components})
+
+include("${CMAKE_CURRENT_LIST_DIR}/BrReportTargets.cmake")
+check_required_components(BrReport)

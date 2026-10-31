@@ -1,0 +1,12 @@
+function(brreport_add_test name)
+    add_executable(${name} ${name}.cpp)
+    target_link_libraries(${name} PRIVATE BrReportCore ${BRREPORT_QT}::Test)
+    add_test(NAME ${name} COMMAND ${name})
+    set_tests_properties(${name} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endfunction()
+
+brreport_add_test(tst_expression)
+brreport_add_test(tst_format)
+brreport_add_test(tst_barcode)
+brreport_add_test(tst_engine)
+brreport_add_test(tst_document)
