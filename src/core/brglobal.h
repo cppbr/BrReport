@@ -18,6 +18,7 @@
 #ifndef BRGLOBAL_H
 #define BRGLOBAL_H
 
+#include <QObject>
 #include <QtGlobal>
 
 #include "brreport_config.h"
@@ -36,6 +37,7 @@
  * All geometry in BrReport is expressed in millimeters (mm) and font sizes in points (pt).
  */
 namespace Br {
+Q_NAMESPACE_EXPORT(BRREPORT_EXPORT)
 
 /*! Role of a band inside a pager (report, group or sub-detail). */
 enum class BandType {
@@ -47,6 +49,7 @@ enum class BandType {
     Summary,      //!< Printed once, when the pager finishes (after the last record).
     Footer        //!< Report: bottom of every page. Group/sub-detail: at page breaks and at the end.
 };
+Q_ENUM_NS(BandType)
 
 /*! Automatic placement of a control inside its parent (band or panel). */
 enum class Align {
@@ -57,12 +60,15 @@ enum class Align {
     Right,  //!< Stacked at the right, fills the remaining height.
     Client  //!< Fills the remaining area.
 };
+Q_ENUM_NS(Align)
 
 /*! Horizontal text alignment. */
 enum class TextAlign { Left, Center, Right, Justify };
+Q_ENUM_NS(TextAlign)
 
 /*! Vertical text alignment. */
 enum class TextLayout { Top, Center, Bottom };
+Q_ENUM_NS(TextLayout)
 
 /*! Page breaking behavior for bands and pagers. */
 enum class PageBreak {
@@ -70,6 +76,7 @@ enum class PageBreak {
     Before, //!< Starts a new page before printing (unless the page is still empty).
     After   //!< Starts a new page after printing (only if something else is printed).
 };
+Q_ENUM_NS(PageBreak)
 
 /*! System information displayed by BrSystemInfo. */
 enum class InfoType {
@@ -86,9 +93,11 @@ enum class InfoType {
     DocumentPageNumber, //!< Page number in the whole document (ignores page number resets).
     DocumentPageCount   //!< Number of pages of the whole document.
 };
+Q_ENUM_NS(InfoType)
 
 /*! Aggregation computed by BrDBResult. */
 enum class ResultType { Sum, Count, Average, Min, Max, First, Last };
+Q_ENUM_NS(ResultType)
 
 /*! Shape drawn by BrDraw. */
 enum class DrawKind {
@@ -101,6 +110,7 @@ enum class DrawKind {
     DiagonalUp,     //!< Bottom-left to top-right.
     Triangle        //!< Pointing up.
 };
+Q_ENUM_NS(DrawKind)
 
 /*! How an image fits into the control rectangle. */
 enum class ImageScale {
@@ -109,6 +119,7 @@ enum class ImageScale {
     KeepAspect, //!< Fits the rectangle keeping the aspect ratio, centered.
     Center      //!< Original size (at 96 dpi), centered.
 };
+Q_ENUM_NS(ImageScale)
 
 /*! Supported barcode symbologies. */
 enum class BarcodeType {
@@ -117,6 +128,7 @@ enum class BarcodeType {
     Interleaved2of5, //!< Numeric (used e.g. by Brazilian bank slips / "boletos").
     QrCode           //!< 2D QR Code (URLs, PIX, NFC-e...). See BrQrEncoder.
 };
+Q_ENUM_NS(BarcodeType)
 
 /*! QR Code error correction level (share of the symbol that can be recovered). */
 enum class QrErrorCorrection {
@@ -125,6 +137,7 @@ enum class QrErrorCorrection {
     Quartile, //!< ~25%
     High      //!< ~30%
 };
+Q_ENUM_NS(QrErrorCorrection)
 
 /*! Chart drawn by BrChart. */
 enum class ChartType {
@@ -133,6 +146,7 @@ enum class ChartType {
     HorizontalBar, //!< Horizontal bars, one group per label.
     Line           //!< One line per series.
 };
+Q_ENUM_NS(ChartType)
 
 /*! Converts typographic points to millimeters. */
 constexpr double ptToMm(double pt) { return pt * 25.4 / 72.0; }

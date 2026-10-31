@@ -36,6 +36,7 @@
 #include "brrendercontext.h"
 #include "brrenderer.h"
 #include "brreport.h"
+#include "brreportfile.h"
 #include "brtextcontrols.h"
 #include "brtextmetrics.h"
 #ifdef BRREPORT_HAS_SQL

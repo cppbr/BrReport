@@ -17,9 +17,14 @@
 
 #include "brreport.h"
 
+#include "brband.h"
 #include "brdatasource.h"
 #include "brengine_p.h"
 #include "brexport.h"
+#include "brreportfile.h"
+
+#include <QFile>
+#include <QSaveFile>
 
 BrReport::BrReport(QObject *parent) : BrPager(nullptr), m_font(QStringLiteral("Arial"), 10)
 {
@@ -132,4 +137,84 @@ bool BrReport::saveDocument(const QString &fileName)
         return false;
     }
     return true;
+}
+
+BrDataSource *BrReport::dataSource() const
+{
+    if (m_dataSource)
+        return m_dataSource;
+    return m_dataSourceName.isEmpty() ? nullptr : findDataSource(m_dataSourceName);
+}
+
+void BrReport::setDataSource(const QString &name, BrDataSource *dataSource)
+{
+    addDataSource(name, dataSource);
+    m_dataSource = nullptr;
+    m_dataSourceName = name;
+}
+
+void BrReport::addDataSource(const QString &name, BrDataSource *dataSource)
+{
+    if (!dataSource) {
+        m_dataSources.remove(name.toLower());
+        return;
+    }
+    dataSource->setObjectName(name);
+    m_dataSources.insert(name.toLower(), dataSource);
+}
+
+BrDataSource *BrReport::findDataSource(const QString &name) const
+{
+    return m_dataSources.value(name.toLower());
+}
+
+void BrReport::setPaperSize(const QSizeF &mm)
+{
+    m_pageSize = QPageSize(mm, QPageSize::Millimeter, QString(), QPageSize::FuzzyMatch);
+}
+
+void BrReport::setLocaleName(const QString &name)
+{
+    m_localeName = name;
+    m_locale = name.isEmpty() ? QLocale() : QLocale(name);
+}
+
+void BrReport::clearLayout()
+{
+    const QObjectList kids = children();
+    for (QObject *o : kids)
+        if (qobject_cast<BrBand *>(o) || qobject_cast<BrPager *>(o))
+            delete o;
+    clearDocument();
+}
+
+bool BrReport::loadFromJson(const QByteArray &json)
+{
+    clearDocument();
+    if (!BrReportFile::fromJson(this, json, &m_error))
+        return false;
+    return true;
+}
+
+QByteArray BrReport::toJson() const
+{
+    return BrReportFile::toJson(this);
+}
+
+bool BrReport::load(const QString &fileName)
+{
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly)) {
+        m_error = QStringLiteral("Could not open '%1'.").arg(fileName);
+        return false;
+    }
+    return loadFromJson(file.readAll());
+}
+
+bool BrReport::save(const QString &fileName) const
+{
+    QSaveFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly) || file.write(toJson()) < 0)
+        return false;
+    return file.commit();
 }

@@ -146,6 +146,14 @@ the innermost data source first (or `dataSourceName.field`), then report variabl
 (`page()`, `pages()`, `recno()`, `title()`...) and functions registered with
 `BrReport::registerFunction()` are available alongside the built-ins.
 
+## Report files
+
+Every layout property is a `Q_PROPERTY`. `BrReportFile` walks the object tree and writes, for each
+object, its type, name, the properties that differ from a freshly created object of the same type,
+and its children; loading creates the objects through a type registry and writes the properties
+back. The same metadata will drive the property editor of the visual designer. See
+[report-file-format.md](report-file-format.md).
+
 ## Extending
 
 - **Custom control**: subclass `BrControl` (or `BrCustomText` for text) and override `prepare()`,

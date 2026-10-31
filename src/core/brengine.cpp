@@ -323,11 +323,28 @@ void BrEngine::advance()
         if ((*it)->ownsDataSource) {
             if ((*it)->dataSource) {
                 (*it)->dataSource->next();
+                skipUnlinked((*it)->dataSource, (*it)->linkFields, (*it)->linkValues);
                 ++(*it)->recNo;
             }
             return;
         }
     }
+}
+
+bool BrEngine::linkMatches(BrDataSource *ds, const QStringList &fields, const QStringList &values)
+{
+    for (int i = 0; i < fields.size(); ++i)
+        if (ds->value(fields.at(i).trimmed()).toString() != values.value(i))
+            return false;
+    return true;
+}
+
+void BrEngine::skipUnlinked(BrDataSource *ds, const QStringList &fields, const QStringList &values)
+{
+    if (fields.isEmpty())
+        return;
+    while (!ds->eof() && !linkMatches(ds, fields, values))
+        ds->next();
 }
 
 bool BrEngine::groupBroken()
@@ -388,11 +405,23 @@ void BrEngine::runSubDetail(BrSubDetail *sub)
     if (!ds || !ds->first())
         return;
 
+    // Declarative master/detail link (evaluated in the master context)
+    const QStringList linkFields = sub->detailFields().split(QLatin1Char(';'), Qt::SkipEmptyParts);
+    const QStringList masterFields = sub->masterFields().split(QLatin1Char(';'), Qt::SkipEmptyParts);
+    QStringList linkValues;
+    for (int i = 0; i < linkFields.size(); ++i)
+        linkValues << fieldValue(masterFields.value(i, linkFields.at(i)).trimmed()).toString();
+    skipUnlinked(ds, linkFields, linkValues);
+    if (ds->eof())
+        return;
+
     if (sub->pageBreak() == Br::PageBreak::Before && pageHasBody())
         newPage();
 
     Frame *f = push(sub, ds, true);
     f->recNo = 1;
+    f->linkFields = linkFields;
+    f->linkValues = linkValues;
     resetPager(sub);
     keepHeaderWithDetail(sub);
     if (sub->resetPageNumber())

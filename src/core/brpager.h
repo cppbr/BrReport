@@ -43,6 +43,10 @@ class BrReport;
 class BRREPORT_EXPORT BrPager : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(Br::PageBreak pageBreak READ pageBreak WRITE setPageBreak)
+    Q_PROPERTY(bool enabled READ isEnabled WRITE setEnabled)
+    Q_PROPERTY(bool keepHeaderWithDetail READ keepHeaderWithDetail WRITE setKeepHeaderWithDetail)
+    Q_PROPERTY(bool resetPageNumber READ resetPageNumber WRITE setResetPageNumber)
 public:
     explicit BrPager(BrPager *parent = nullptr);
     ~BrPager() override;
@@ -106,6 +110,8 @@ private:
 class BRREPORT_EXPORT BrGroup : public BrPager
 {
     Q_OBJECT
+    Q_PROPERTY(QString dataFields READ dataFields WRITE setDataFields)
+    Q_PROPERTY(QString dataFormula READ dataFormula WRITE setDataFormula)
 public:
     using KeyFunction = std::function<QVariant(BrRenderContext &ctx)>;
 
@@ -142,13 +148,33 @@ private:
 class BRREPORT_EXPORT BrSubDetail : public BrPager
 {
     Q_OBJECT
+    Q_PROPERTY(QString dataSourceName READ dataSourceName WRITE setDataSourceName)
+    Q_PROPERTY(Br::BandType positioning READ positioning WRITE setPositioning)
+    Q_PROPERTY(QString masterFields READ masterFields WRITE setMasterFields)
+    Q_PROPERTY(QString detailFields READ detailFields WRITE setDetailFields)
 public:
     using BeforeOpenHandler = std::function<void(BrSubDetail &subDetail, BrRenderContext &ctx)>;
 
     explicit BrSubDetail(BrPager *parent, BrDataSource *dataSource = nullptr);
 
-    BrDataSource *dataSource() const { return m_dataSource; }
+    /*! The data source: the one set with setDataSource(), or the report's data source named dataSourceName(). */
+    BrDataSource *dataSource() const;
     void setDataSource(BrDataSource *dataSource) { m_dataSource = dataSource; }
+
+    /*! Name of a data source registered with BrReport::addDataSource() (used by report files). */
+    QString dataSourceName() const { return m_dataSourceName; }
+    void setDataSourceName(const QString &name) { m_dataSourceName = name; }
+
+    /*!
+     * Declarative master/detail link: only the records whose detailFields() values
+     * equal the masterFields() values of the current master record are printed.
+     * Fields are separated by ';' and matched by position. Example:
+     * setMasterFields("id"); setDetailFields("order_id");
+     */
+    QString masterFields() const { return m_masterFields; }
+    void setMasterFields(const QString &fields) { m_masterFields = fields; }
+    QString detailFields() const { return m_detailFields; }
+    void setDetailFields(const QString &fields) { m_detailFields = fields; }
 
     /*! Which band slot of the parent the sub-detail occupies (default: Detail). */
     Br::BandType positioning() const { return m_positioning; }
@@ -159,6 +185,9 @@ public:
 
 private:
     BrDataSource *m_dataSource = nullptr;
+    QString m_dataSourceName;
+    QString m_masterFields;
+    QString m_detailFields;
     Br::BandType m_positioning = Br::BandType::Detail;
     BeforeOpenHandler m_beforeOpen;
 };

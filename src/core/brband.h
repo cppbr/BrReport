@@ -33,6 +33,16 @@ class BrPager;
 class BRREPORT_EXPORT BrBand : public BrContainer
 {
     Q_OBJECT
+    Q_PROPERTY(QRectF geometry READ geometry WRITE setGeometry STORED false)
+    Q_PROPERTY(double height READ height WRITE setHeight)
+    Q_PROPERTY(Br::BandType bandType READ bandType WRITE setBandType)
+    Q_PROPERTY(Br::PageBreak pageBreak READ pageBreak WRITE setPageBreak)
+    Q_PROPERTY(int carbonCopies READ carbonCopies WRITE setCarbonCopies)
+    Q_PROPERTY(QColor alternateBackground READ alternateBackground WRITE setAlternateBackground)
+    Q_PROPERTY(bool printOnFirstPage READ printOnFirstPage WRITE setPrintOnFirstPage)
+    Q_PROPERTY(bool printOnLastPage READ printOnLastPage WRITE setPrintOnLastPage)
+    Q_PROPERTY(int columns READ columns WRITE setColumnCount)
+    Q_PROPERTY(double columnSpacing READ columnSpacing WRITE setColumnSpacing)
 public:
     using AfterPrintHandler = std::function<void(BrBand &band)>;
 
@@ -77,6 +87,8 @@ public:
         m_columnSpacing = qMax(0.0, spacing);
     }
     double columnSpacing() const { return m_columnSpacing; }
+    void setColumnCount(int count) { m_columns = qMax(1, count); }
+    void setColumnSpacing(double spacing) { m_columnSpacing = qMax(0.0, spacing); }
 
     void setAfterPrint(const AfterPrintHandler &handler) { m_afterPrint = handler; }
     void callAfterPrint();

@@ -23,6 +23,13 @@ follows [Semantic Versioning](https://semver.org/).
 - Text search in the preview window (Ctrl+F, F3).
 - `brview` tool to view, print and convert `.brp` documents.
 - `dashboard` and `receipt` examples.
+- Report files: layouts saved/loaded as JSON (`BrReport::save()`/`load()`, `BrReportFile`), with
+  every object property exposed as `Q_PROPERTY` and custom object types.
+- Data sources registered by name (`BrReport::addDataSource()`, `dataSourceName` properties).
+- Declarative behavior: `printIf` on every object and band, conditional highlight on texts
+  (`highlightIf`, `highlightColor`, `highlightBackground`, `highlightBold`) and master/detail links
+  (`BrSubDetail::setMasterFields()`/`setDetailFields()`).
+- `report_file` example; every example accepts `--save file.brt`.
 - Page numbering per group/sub-detail (`BrPager::setResetPageNumber()`), with
   `Br::InfoType::DocumentPageNumber`/`DocumentPageCount` and the `documentpage()`/`documentpages()`
   formula functions for the whole document.

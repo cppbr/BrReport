@@ -26,6 +26,8 @@
 class BRREPORT_EXPORT BrImage : public BrControl
 {
     Q_OBJECT
+    Q_PROPERTY(QImage image READ image WRITE setImage)
+    Q_PROPERTY(Br::ImageScale scaling READ scaling WRITE setScaling)
 public:
     explicit BrImage(BrContainer *parent = nullptr);
 
@@ -55,6 +57,7 @@ private:
 class BRREPORT_EXPORT BrDBImage : public BrImage
 {
     Q_OBJECT
+    Q_PROPERTY(QString dataField READ dataField WRITE setDataField)
 public:
     explicit BrDBImage(BrContainer *parent = nullptr);
     BrDBImage(const QString &dataField, BrContainer *parent);
@@ -73,6 +76,12 @@ private:
 class BRREPORT_EXPORT BrDraw : public BrControl
 {
     Q_OBJECT
+    Q_PROPERTY(Br::DrawKind kind READ kind WRITE setKind)
+    Q_PROPERTY(QColor penColor READ penColor WRITE setPenColor)
+    Q_PROPERTY(double penWidth READ penWidth WRITE setPenWidth)
+    Q_PROPERTY(Qt::PenStyle penStyle READ penStyle WRITE setPenStyle)
+    Q_PROPERTY(QColor fillColor READ fillColor WRITE setFillColor)
+    Q_PROPERTY(double radius READ radius WRITE setRadius)
 public:
     explicit BrDraw(BrContainer *parent = nullptr);
     BrDraw(Br::DrawKind kind, BrContainer *parent);

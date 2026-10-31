@@ -29,6 +29,8 @@
 #include <QMarginsF>
 #include <QPageLayout>
 #include <QPageSize>
+#include <QSizeF>
+#include <QStringList>
 #include <QVariantMap>
 
 #include <functional>
@@ -71,6 +73,22 @@ struct BRREPORT_EXPORT BrWatermark
 class BRREPORT_EXPORT BrReport : public BrPager
 {
     Q_OBJECT
+    Q_PROPERTY(QString title READ title WRITE setTitle)
+    Q_PROPERTY(QSizeF paperSize READ paperSize WRITE setPaperSize)
+    Q_PROPERTY(bool landscape READ isLandscape WRITE setLandscape)
+    Q_PROPERTY(QMarginsF margins READ margins WRITE setMargins)
+    Q_PROPERTY(bool continuous READ isContinuous WRITE setContinuous)
+    Q_PROPERTY(QFont font READ font WRITE setFont)
+    Q_PROPERTY(QString localeName READ localeName WRITE setLocaleName)
+    Q_PROPERTY(QString dataSourceName READ dataSourceName WRITE setDataSourceName)
+    Q_PROPERTY(QVariantMap variables READ variables WRITE setVariables)
+    Q_PROPERTY(int maxPages READ maxPages WRITE setMaxPages)
+    Q_PROPERTY(QString watermarkText READ watermarkText WRITE setWatermarkText)
+    Q_PROPERTY(QFont watermarkFont READ watermarkFont WRITE setWatermarkFont)
+    Q_PROPERTY(QColor watermarkColor READ watermarkColor WRITE setWatermarkColor)
+    Q_PROPERTY(double watermarkAngle READ watermarkAngle WRITE setWatermarkAngle)
+    Q_PROPERTY(QImage watermarkImage READ watermarkImage WRITE setWatermarkImage)
+    Q_PROPERTY(double watermarkImageOpacity READ watermarkImageOpacity WRITE setWatermarkImageOpacity)
 public:
     using CustomFunction = std::function<QVariant(const QVariantList &args)>;
     using PageHandler = std::function<void(int pageNumber)>;
@@ -116,6 +134,25 @@ public:
         m_watermark.text = text;
     }
 
+    /*! Paper size in mm, portrait dimensions (width <= height for standard sizes). */
+    QSizeF paperSize() const { return m_pageSize.size(QPageSize::Millimeter); }
+    void setPaperSize(const QSizeF &mm);
+    bool isLandscape() const { return m_orientation == QPageLayout::Landscape; }
+    void setLandscape(bool on) { m_orientation = on ? QPageLayout::Landscape : QPageLayout::Portrait; }
+
+    QString watermarkText() const { return m_watermark.text; }
+    void setWatermarkText(const QString &text) { m_watermark.text = text; }
+    QFont watermarkFont() const { return m_watermark.font; }
+    void setWatermarkFont(const QFont &font) { m_watermark.font = font; }
+    QColor watermarkColor() const { return m_watermark.color; }
+    void setWatermarkColor(const QColor &color) { m_watermark.color = color; }
+    double watermarkAngle() const { return m_watermark.angle; }
+    void setWatermarkAngle(double degrees) { m_watermark.angle = degrees; }
+    QImage watermarkImage() const { return m_watermark.image; }
+    void setWatermarkImage(const QImage &image) { m_watermark.image = image; }
+    double watermarkImageOpacity() const { return m_watermark.imageOpacity; }
+    void setWatermarkImageOpacity(double opacity) { m_watermark.imageOpacity = opacity; }
+
     /*! Page size in mm, already oriented. */
     QSizeF pageSizeMm() const;
     /*! Printable area (page minus margins), in mm. */
@@ -127,20 +164,64 @@ public:
 
     /*! Locale used to format numbers and dates (default: QLocale()). */
     QLocale locale() const { return m_locale; }
-    void setLocale(const QLocale &locale) { m_locale = locale; }
+    void setLocale(const QLocale &locale)
+    {
+        m_locale = locale;
+        m_localeName = locale.name();
+    }
+    /*! Locale as a name ("pt_BR", "en_US"); empty = system locale. */
+    QString localeName() const { return m_localeName; }
+    void setLocaleName(const QString &name);
 
     /*! Date/time shown by BrSystemInfo; if invalid, the time of prepare() is used. */
     QDateTime reportDateTime() const { return m_dateTime; }
     void setReportDateTime(const QDateTime &dateTime) { m_dateTime = dateTime; }
 
-    /*! Main data source. Without one, the detail bands print exactly once. */
-    BrDataSource *dataSource() const { return m_dataSource; }
+    /*!
+     * Main data source: the one set with setDataSource(), or the registered data
+     * source named dataSourceName(). Without one, the detail bands print exactly once.
+     */
+    BrDataSource *dataSource() const;
     void setDataSource(BrDataSource *dataSource) { m_dataSource = dataSource; }
+    /*! Registers \a dataSource as the main data source under \a name. */
+    void setDataSource(const QString &name, BrDataSource *dataSource);
+
+    QString dataSourceName() const { return m_dataSourceName; }
+    void setDataSourceName(const QString &name) { m_dataSourceName = name; }
+
+    /*!
+     * Registers a data source by name, so that report files (and sub-details,
+     * charts and qualified fields "name.field") can refer to it. The data source's
+     * objectName() is set to \a name. Not owned by the report.
+     */
+    void addDataSource(const QString &name, BrDataSource *dataSource);
+    BrDataSource *findDataSource(const QString &name) const;
+    QStringList dataSourceNames() const { return m_dataSources.keys(); }
+
+    // -- Report files (layout as JSON, see docs/report-file-format.md) --
+
+    /*! Replaces the layout with the one in \a fileName (.brt). Data sources are kept. */
+    bool load(const QString &fileName);
+    /*! Saves the layout (not the data) to \a fileName. */
+    bool save(const QString &fileName) const;
+    bool loadFromJson(const QByteArray &json);
+    QByteArray toJson() const;
+
+    /*! Finds an object of the layout by name (e.g. to attach handlers after load()). */
+    template<class T = QObject>
+    T *object(const QString &name) const
+    {
+        return findChild<T *>(name);
+    }
+
+    /*! Removes every band, group and sub-detail (the layout). */
+    void clearLayout();
 
     /*! Values available to expressions by name (checked after data fields). */
     void setVariable(const QString &name, const QVariant &value);
     QVariant variable(const QString &name) const;
     QVariantMap variables() const { return m_variables; }
+    void setVariables(const QVariantMap &variables) { m_variables = variables; }
 
     /*! Registers a function callable from expressions (overrides built-ins). */
     void registerFunction(const QString &name, const CustomFunction &function);
@@ -190,6 +271,9 @@ private:
     QLocale m_locale;
     QDateTime m_dateTime;
     BrDataSource *m_dataSource = nullptr;
+    QString m_dataSourceName;
+    QHash<QString, BrDataSource *> m_dataSources;
+    QString m_localeName;
     QVariantMap m_variables;
     QHash<QString, CustomFunction> m_functions;
     int m_maxPages = 10000;

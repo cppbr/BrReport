@@ -21,6 +21,7 @@
 #include "brcontrol.h"
 
 #include <QStringList>
+#include <QVariantList>
 
 class BrDataSource;
 
@@ -44,6 +45,16 @@ class BrDataSource;
 class BRREPORT_EXPORT BrChart : public BrControl
 {
     Q_OBJECT
+    Q_PROPERTY(Br::ChartType chartType READ chartType WRITE setChartType)
+    Q_PROPERTY(QString title READ title WRITE setTitle)
+    Q_PROPERTY(QStringList labels READ labels WRITE setLabels)
+    Q_PROPERTY(QVariantList seriesData READ seriesData WRITE setSeriesData)
+    Q_PROPERTY(QString dataSourceName READ dataSourceName WRITE setDataSourceName)
+    Q_PROPERTY(QString labelField READ labelField WRITE setLabelField)
+    Q_PROPERTY(QStringList valueFields READ valueFields WRITE setValueFields)
+    Q_PROPERTY(bool showLegend READ showLegend WRITE setShowLegend)
+    Q_PROPERTY(bool showValues READ showValues WRITE setShowValues)
+    Q_PROPERTY(QString valueFormat READ valueFormat WRITE setValueFormat)
 public:
     struct Series
     {
@@ -76,6 +87,18 @@ public:
     void setDataSource(BrDataSource *dataSource, const QString &labelField,
                        const QStringList &valueFields);
 
+    /*! Data source registered in the report under this name (used by report files). */
+    QString dataSourceName() const { return m_dataSourceName; }
+    void setDataSourceName(const QString &name) { m_dataSourceName = name; }
+    QString labelField() const { return m_labelField; }
+    void setLabelField(const QString &field) { m_labelField = field; }
+    QStringList valueFields() const { return m_valueFields; }
+    void setValueFields(const QStringList &fields) { m_valueFields = fields; }
+
+    /*! Static series as a list of maps {name, values, color} (used by report files). */
+    QVariantList seriesData() const;
+    void setSeriesData(const QVariantList &data);
+
     // -- Appearance --
     bool showLegend() const { return m_showLegend; }
     void setShowLegend(bool show) { m_showLegend = show; }
@@ -107,6 +130,7 @@ private:
     QStringList m_labels;
     QList<Series> m_series;
     BrDataSource *m_dataSource = nullptr;
+    QString m_dataSourceName;
     QString m_labelField;
     QStringList m_valueFields;
     bool m_showLegend = true;

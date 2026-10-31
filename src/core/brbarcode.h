@@ -59,6 +59,14 @@ public:
 class BRREPORT_EXPORT BrBarcode : public BrControl
 {
     Q_OBJECT
+    Q_PROPERTY(Br::BarcodeType barcodeType READ barcodeType WRITE setBarcodeType)
+    Q_PROPERTY(QString text READ text WRITE setText)
+    Q_PROPERTY(bool showText READ showText WRITE setShowText)
+    Q_PROPERTY(double moduleWidth READ moduleWidth WRITE setModuleWidth)
+    Q_PROPERTY(int ratio READ ratio WRITE setRatio)
+    Q_PROPERTY(QColor barColor READ barColor WRITE setBarColor)
+    Q_PROPERTY(Br::QrErrorCorrection qrErrorCorrection READ qrErrorCorrection WRITE setQrErrorCorrection)
+    Q_PROPERTY(int quietZone READ quietZone WRITE setQuietZone)
 public:
     explicit BrBarcode(BrContainer *parent = nullptr);
     BrBarcode(Br::BarcodeType type, const QString &text, BrContainer *parent);
@@ -122,6 +130,7 @@ private:
 class BRREPORT_EXPORT BrDBBarcode : public BrBarcode
 {
     Q_OBJECT
+    Q_PROPERTY(QString dataField READ dataField WRITE setDataField)
 public:
     explicit BrDBBarcode(BrContainer *parent = nullptr);
     BrDBBarcode(Br::BarcodeType type, const QString &dataField, BrContainer *parent);

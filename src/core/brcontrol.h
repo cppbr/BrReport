@@ -19,6 +19,7 @@
 #define BRCONTROL_H
 
 #include "brdocument.h"
+#include "brexpression.h"
 #include "brglobal.h"
 
 #include <QColor>
@@ -51,7 +52,15 @@ struct BRREPORT_EXPORT BrBorders
     static BrBorders all(double width = 0.2, const QColor &color = Qt::black);
     /*! Only the bottom side (common for column headers). */
     static BrBorders bottomOnly(double width = 0.2, const QColor &color = Qt::black);
+
+    bool operator==(const BrBorders &o) const
+    {
+        return left == o.left && top == o.top && right == o.right && bottom == o.bottom
+               && qFuzzyCompare(width + 1.0, o.width + 1.0) && color == o.color && style == o.style;
+    }
+    bool operator!=(const BrBorders &o) const { return !(*this == o); }
 };
+Q_DECLARE_METATYPE(BrBorders)
 
 /*!
  * Base class of every printable element.
@@ -62,6 +71,15 @@ struct BRREPORT_EXPORT BrBorders
 class BRREPORT_EXPORT BrControl : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QRectF geometry READ geometry WRITE setGeometry)
+    Q_PROPERTY(Br::Align align READ align WRITE setAlign)
+    Q_PROPERTY(bool visible READ isVisible WRITE setVisible)
+    Q_PROPERTY(QString printIf READ printIf WRITE setPrintIf)
+    Q_PROPERTY(QColor background READ background WRITE setBackground)
+    Q_PROPERTY(QColor color READ color WRITE setColor)
+    Q_PROPERTY(QFont font READ font WRITE setFont RESET resetFont)
+    Q_PROPERTY(BrBorders borders READ borders WRITE setBorders)
+    Q_PROPERTY(bool stretchToBand READ stretchToBand WRITE setStretchToBand)
 public:
     /*!
      * Called once per print. Change the control (text, colors, visibility...) or
@@ -90,6 +108,13 @@ public:
 
     bool isVisible() const { return m_visible; }
     void setVisible(bool visible) { m_visible = visible; }
+
+    /*!
+     * Expression evaluated before printing; the control (or band) prints only when
+     * it is true. Example: "balance < 0". Empty = always (default).
+     */
+    QString printIf() const { return m_printIf.source(); }
+    void setPrintIf(const QString &expression) { m_printIf.setSource(expression); }
 
     /*! Background color; an invalid color (default) means transparent. */
     QColor background() const { return m_background; }
@@ -151,6 +176,7 @@ private:
     bool m_visible = true;
     bool m_willPrint = true;
     bool m_stretchToBand = false;
+    BrExpression m_printIf;
     QColor m_background;
     QColor m_color = Qt::black;
     BrBorders m_borders;
@@ -165,6 +191,8 @@ private:
 class BRREPORT_EXPORT BrContainer : public BrControl
 {
     Q_OBJECT
+    Q_PROPERTY(bool autoExpand READ autoExpand WRITE setAutoExpand)
+    Q_PROPERTY(bool shiftOnStretch READ shiftOnStretch WRITE setShiftOnStretch)
 public:
     explicit BrContainer(BrContainer *parent = nullptr);
 

@@ -28,6 +28,7 @@
  * Shared by the examples:
  *   example                 -> opens the preview window
  *   example --pdf out.pdf   -> exports to PDF (also --html, --png "page-%1.png", --brp)
+ *   example --save out.brt  -> saves the layout as a report file
  */
 inline int runExample(BrReport &report)
 {
@@ -39,10 +40,17 @@ inline int runExample(BrReport &report)
                       QStringLiteral("pattern")});
     parser.addOption({QStringLiteral("brp"), QStringLiteral("Save the prepared document."),
                       QStringLiteral("file")});
+    parser.addOption({QStringLiteral("save"), QStringLiteral("Save the layout as a report file (.brt)."),
+                      QStringLiteral("file")});
     parser.process(*QCoreApplication::instance());
 
     QTextStream out(stdout);
     bool exported = false;
+    if (parser.isSet(QStringLiteral("save"))) {
+        exported = true;
+        if (!report.save(parser.value(QStringLiteral("save"))))
+            return out << "Could not save the report file." << Qt::endl, 1;
+    }
     if (parser.isSet(QStringLiteral("pdf"))) {
         exported = true;
         if (!report.exportToPdf(parser.value(QStringLiteral("pdf"))))
@@ -64,7 +72,8 @@ inline int runExample(BrReport &report)
             return out << report.errorString() << Qt::endl, 1;
     }
     if (exported) {
-        out << report.document().pageCount() << " page(s) exported." << Qt::endl;
+        if (report.isPrepared())
+            out << report.document().pageCount() << " page(s) exported." << Qt::endl;
         return 0;
     }
     BrPrinting::preview(&report);

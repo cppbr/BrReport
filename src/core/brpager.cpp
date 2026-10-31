@@ -117,6 +117,14 @@ BrSubDetail::BrSubDetail(BrPager *parent, BrDataSource *dataSource)
 {
 }
 
+BrDataSource *BrSubDetail::dataSource() const
+{
+    if (m_dataSource)
+        return m_dataSource;
+    BrReport *r = report();
+    return r && !m_dataSourceName.isEmpty() ? r->findDataSource(m_dataSourceName) : nullptr;
+}
+
 void BrSubDetail::callBeforeOpen(BrRenderContext &ctx)
 {
     if (m_beforeOpen)

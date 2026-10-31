@@ -63,6 +63,12 @@ applications with a ready-made preview window, or in console and server programs
 - Data on demand through a callback (`BrCallbackDataSource`)
 - Your own source: implement six methods of `BrDataSource`
 
+### Report files
+
+- Layouts stored as readable JSON (`.brt`), loaded at run time: change a report without recompiling.
+- Data sources referred to by name; conditional printing and highlighting written as formulas.
+- Foundation for the visual designer (see the roadmap).
+
 ### Expressions and formatting
 
 - Formulas in data objects and group keys: `qty * price`, `upper(name)`,
@@ -82,7 +88,8 @@ applications with a ready-made preview window, or in console and server programs
 
 ## Creating a report
 
-Reports are built in C++. All positions and sizes are in millimeters.
+Reports are built in C++ or loaded from **report files** (JSON). All positions and sizes are in
+millimeters.
 
 ```cpp
 #include <brreportwidgets.h>
@@ -209,6 +216,23 @@ qr->setQrErrorCorrection(Br::QrErrorCorrection::Medium);
 The QR Code encoder supports versions 1–40, the four error correction levels, numeric,
 alphanumeric and UTF-8 modes, and automatic mask selection.
 
+### Report files
+
+The layout can live in a `.brt` file (JSON), so reports can be changed without recompiling the
+application. The data stays in the application:
+
+```cpp
+BrReport report;
+report.addDataSource("customers", &customers);   // any BrDataSource, referred to by name
+report.load("customers.brt");
+BrPrinting::preview(&report);
+```
+
+Any report built in code can be saved with `report.save("customers.brt")`. Behavior that would need
+code is expressed with properties: `printIf` and `highlightIf` formulas, zebra rows, and declarative
+master/detail links (`masterFields`/`detailFields`). See the
+[report file format](docs/report-file-format.md).
+
 ## Exporting and printing
 
 ```cpp
@@ -301,6 +325,9 @@ The [`examples`](examples) folder contains complete programs:
 | `barcodes` | QR Code, Code 128, EAN-13, Interleaved 2 of 5, images, shapes, rotated text, copies |
 | `dashboard` | Charts, HTML text, table with stretched cells and zebra rows, labels in columns, watermark |
 | `receipt` | 80 mm continuous page for roll printers, wrapped descriptions, totals, QR Code |
+| `report_file` | Loads the layout from `customers.brt` and only provides the data |
+
+Every example except `quick_start` also accepts `--save file.brt` to save its layout as a report file.
 
 Every example except `quick_start` opens the preview window, or exports with `--pdf file.pdf`,
 `--html file.html`, `--png "page-%1.png"` or `--brp file.brp`.
@@ -308,13 +335,14 @@ Every example except `quick_start` opens the preview window, or exports with `--
 ## Documentation
 
 - [Architecture and print flow](docs/architecture.md)
+- [Report file format (.brt)](docs/report-file-format.md)
 - API reference: every public class is documented in its header in [`src/`](src)
 - [Changelog](CHANGELOG.md)
 
 ## Roadmap
 
 - More barcodes: PDF417, Data Matrix, Code 39
-- Report definitions in JSON and a visual designer
+- Visual report designer (standalone application and embeddable widget)
 - Bands split across pages (very long texts)
 - XLSX, RTF and plain-text export
 - Translations of the preview window

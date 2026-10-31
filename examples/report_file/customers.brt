@@ -1,0 +1,179 @@
+{
+    "format": "BrReport",
+    "version": 1,
+    "report": {
+        "dataSourceName": "customers",
+        "font": { "family": "Arial", "size": 9 },
+        "margins": [15, 12, 15, 12],
+        "title": "Customer List",
+        "children": [
+            {
+                "type": "Band",
+                "bandType": "Header",
+                "borders": { "color": "#000000", "sides": "b", "width": 0.5 },
+                "height": 14,
+                "children": [
+                    {
+                        "type": "SystemInfo",
+                        "font": { "bold": true, "family": "Arial", "size": 16 },
+                        "geometry": [0, 0, 120, 10],
+                        "info": "Title"
+                    },
+                    {
+                        "type": "SystemInfo",
+                        "alignment": "Right",
+                        "displayFormat": "yyyy-MM-dd HH:mm",
+                        "geometry": [120, 0, 60, 10],
+                        "info": "DateTime"
+                    }
+                ]
+            },
+            {
+                "type": "Band",
+                "background": "#2f5597",
+                "bandType": "ColumnHeader",
+                "height": 7,
+                "children": [
+                    {
+                        "type": "Label",
+                        "alignment": "Right",
+                        "color": "#ffffff",
+                        "font": { "bold": true, "family": "Arial", "size": 9 },
+                        "geometry": [0, 0, 15, 7],
+                        "text": "Code"
+                    },
+                    {
+                        "type": "Label",
+                        "color": "#ffffff",
+                        "font": { "bold": true, "family": "Arial", "size": 9 },
+                        "geometry": [18, 0, 60, 7],
+                        "text": "Name"
+                    },
+                    {
+                        "type": "Label",
+                        "color": "#ffffff",
+                        "font": { "bold": true, "family": "Arial", "size": 9 },
+                        "geometry": [80, 0, 45, 7],
+                        "text": "City"
+                    },
+                    {
+                        "type": "Label",
+                        "alignment": "Center",
+                        "color": "#ffffff",
+                        "font": { "bold": true, "family": "Arial", "size": 9 },
+                        "geometry": [125, 0, 25, 7],
+                        "text": "Customer since"
+                    },
+                    {
+                        "type": "Label",
+                        "alignment": "Right",
+                        "color": "#ffffff",
+                        "font": { "bold": true, "family": "Arial", "size": 9 },
+                        "geometry": [150, 0, 30, 7],
+                        "text": "Balance"
+                    }
+                ]
+            },
+            {
+                "type": "Band",
+                "alternateBackground": "#eef2f8",
+                "height": 6,
+                "children": [
+                    {
+                        "type": "DBText",
+                        "alignment": "Right",
+                        "dataField": "id",
+                        "geometry": [0, 0, 15, 6]
+                    },
+                    {
+                        "type": "DBText",
+                        "dataField": "name",
+                        "geometry": [18, 0, 60, 6]
+                    },
+                    {
+                        "type": "DBText",
+                        "dataField": "city",
+                        "geometry": [80, 0, 45, 6]
+                    },
+                    {
+                        "type": "DBText",
+                        "alignment": "Center",
+                        "dataField": "since",
+                        "displayFormat": "dd/MM/yyyy",
+                        "geometry": [125, 0, 25, 6]
+                    },
+                    {
+                        "type": "DBText",
+                        "alignment": "Right",
+                        "dataField": "balance",
+                        "displayFormat": "#,##0.00;(#,##0.00)",
+                        "geometry": [150, 0, 30, 6],
+                        "highlightColor": "#ff0000",
+                        "highlightIf": "balance < 0"
+                    }
+                ]
+            },
+            {
+                "type": "Band",
+                "bandType": "Footer",
+                "borders": { "color": "#000000", "sides": "t", "width": 0.2 },
+                "height": 7,
+                "children": [
+                    {
+                        "type": "Label",
+                        "alignment": "Right",
+                        "geometry": [100, 0, 48, 7],
+                        "text": "Page total:"
+                    },
+                    {
+                        "type": "DBResult",
+                        "alignment": "Right",
+                        "dataField": "balance",
+                        "displayFormat": "#,##0.00;(#,##0.00)",
+                        "geometry": [150, 0, 30, 7],
+                        "resetAfterPrint": true
+                    },
+                    {
+                        "format": "Page %1 of %2",
+                        "type": "SystemInfo",
+                        "geometry": [0, 0, 50, 7],
+                        "info": "PagePreview"
+                    }
+                ]
+            },
+            {
+                "type": "Band",
+                "bandType": "Summary",
+                "height": 12,
+                "children": [
+                    {
+                        "type": "DBResult",
+                        "dataField": "id",
+                        "font": { "bold": true, "family": "Arial", "size": 9 },
+                        "geometry": [0, 3, 80, 6],
+                        "prefix": "Customers: ",
+                        "resultType": "Count"
+                    },
+                    {
+                        "type": "DBResult",
+                        "dataField": "balance",
+                        "displayFormat": "#,##0.00",
+                        "geometry": [60, 3, 60, 6],
+                        "prefix": "Average: ",
+                        "resultType": "Average"
+                    },
+                    {
+                        "type": "DBResult",
+                        "alignment": "Right",
+                        "borders": { "color": "#000000", "sides": "t", "width": 0.2 },
+                        "dataField": "balance",
+                        "displayFormat": "#,##0.00;(#,##0.00)",
+                        "font": { "bold": true, "family": "Arial", "size": 9 },
+                        "geometry": [120, 3, 60, 6],
+                        "prefix": "Total: "
+                    }
+                ]
+            }
+        ]
+    }
+}

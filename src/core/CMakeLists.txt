@@ -17,6 +17,7 @@ set(BRREPORT_CORE_HEADERS
     brrendercontext.h
     brrenderer.h
     brreport.h
+    brreportfile.h
     brreportcore.h
     brtextcontrols.h
     brtextmetrics.h
@@ -41,6 +42,7 @@ set(BRREPORT_CORE_SOURCES
     brrendercontext.cpp
     brrenderer.cpp
     brreport.cpp
+    brreportfile.cpp
     brtextcontrols.cpp
     brtextmetrics.cpp
 )

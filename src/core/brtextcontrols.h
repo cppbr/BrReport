@@ -32,6 +32,19 @@ class BrPager;
 class BRREPORT_EXPORT BrCustomText : public BrControl
 {
     Q_OBJECT
+    Q_PROPERTY(Br::TextAlign alignment READ alignment WRITE setAlignment)
+    Q_PROPERTY(Br::TextLayout layout READ layout WRITE setLayout)
+    Q_PROPERTY(bool wordWrap READ wordWrap WRITE setWordWrap)
+    Q_PROPERTY(bool autoStretch READ autoStretch WRITE setAutoStretch)
+    Q_PROPERTY(double angle READ angle WRITE setAngle)
+    Q_PROPERTY(double padding READ padding WRITE setPadding)
+    Q_PROPERTY(bool hideIfEmpty READ hideIfEmpty WRITE setHideIfEmpty)
+    Q_PROPERTY(bool shrinkToFit READ shrinkToFit WRITE setShrinkToFit)
+    Q_PROPERTY(bool allowHtml READ allowHtml WRITE setAllowHtml)
+    Q_PROPERTY(QString highlightIf READ highlightIf WRITE setHighlightIf)
+    Q_PROPERTY(QColor highlightColor READ highlightColor WRITE setHighlightColor)
+    Q_PROPERTY(QColor highlightBackground READ highlightBackground WRITE setHighlightBackground)
+    Q_PROPERTY(bool highlightBold READ highlightBold WRITE setHighlightBold)
 public:
     explicit BrCustomText(BrContainer *parent = nullptr);
 
@@ -73,6 +86,19 @@ public:
     bool allowHtml() const { return m_allowHtml; }
     void setAllowHtml(bool on) { m_allowHtml = on; }
 
+    /*!
+     * Conditional highlight: when the expression is true (e.g. "balance < 0"), the
+     * text uses highlightColor(), highlightBackground() and/or bold.
+     */
+    QString highlightIf() const { return m_highlightIf.source(); }
+    void setHighlightIf(const QString &expression) { m_highlightIf.setSource(expression); }
+    QColor highlightColor() const { return m_highlightColor; }
+    void setHighlightColor(const QColor &color) { m_highlightColor = color; }
+    QColor highlightBackground() const { return m_highlightBackground; }
+    void setHighlightBackground(const QColor &color) { m_highlightBackground = color; }
+    bool highlightBold() const { return m_highlightBold; }
+    void setHighlightBold(bool on) { m_highlightBold = on; }
+
     /*! Text computed for the current print (after prepare()). */
     QString currentText() const { return m_currentText; }
 
@@ -95,6 +121,11 @@ private:
     bool m_hideIfEmpty = false;
     bool m_shrinkToFit = false;
     bool m_allowHtml = false;
+    BrExpression m_highlightIf;
+    QColor m_highlightColor;
+    QColor m_highlightBackground;
+    bool m_highlightBold = false;
+    bool m_highlighted = false;
     QString m_currentText;
 
     QFont fittingFont(const QRectF &inner) const;
@@ -104,6 +135,7 @@ private:
 class BRREPORT_EXPORT BrLabel : public BrCustomText
 {
     Q_OBJECT
+    Q_PROPERTY(QString text READ text WRITE setText)
 public:
     explicit BrLabel(BrContainer *parent = nullptr);
     BrLabel(const QString &text, BrContainer *parent);
@@ -138,6 +170,11 @@ public:
 class BRREPORT_EXPORT BrDBText : public BrCustomText
 {
     Q_OBJECT
+    Q_PROPERTY(QString dataField READ dataField WRITE setDataField)
+    Q_PROPERTY(QString dataFormula READ dataFormula WRITE setDataFormula)
+    Q_PROPERTY(QString displayFormat READ displayFormat WRITE setDisplayFormat)
+    Q_PROPERTY(QString prefix READ prefix WRITE setPrefix)
+    Q_PROPERTY(QString suffix READ suffix WRITE setSuffix)
 public:
     explicit BrDBText(BrContainer *parent = nullptr);
     BrDBText(const QString &dataField, BrContainer *parent);
@@ -196,6 +233,8 @@ public:
 class BRREPORT_EXPORT BrDBResult : public BrDBText
 {
     Q_OBJECT
+    Q_PROPERTY(Br::ResultType resultType READ resultType WRITE setResultType)
+    Q_PROPERTY(bool resetAfterPrint READ resetAfterPrint WRITE setResetAfterPrint)
 public:
     explicit BrDBResult(BrContainer *parent = nullptr);
     BrDBResult(const QString &dataField, Br::ResultType type, BrContainer *parent);
@@ -238,6 +277,9 @@ private:
 class BRREPORT_EXPORT BrSystemInfo : public BrCustomText
 {
     Q_OBJECT
+    Q_PROPERTY(Br::InfoType info READ info WRITE setInfo)
+    Q_PROPERTY(QString format READ format WRITE setFormat)
+    Q_PROPERTY(QString displayFormat READ displayFormat WRITE setDisplayFormat)
 public:
     explicit BrSystemInfo(BrContainer *parent = nullptr);
     BrSystemInfo(Br::InfoType info, BrContainer *parent);

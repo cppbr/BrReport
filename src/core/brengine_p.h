@@ -86,6 +86,8 @@ private:
         bool footerPrinted = false;
         QString key;
         int recNo = 0;
+        QStringList linkFields; //!< detail fields of a master/detail link
+        QStringList linkValues; //!< master values they must match
     };
 
     enum class Mode {
@@ -104,6 +106,8 @@ private:
     void finishPager(Frame &frame);
     void printRecord();
     void advance();
+    static bool linkMatches(BrDataSource *ds, const QStringList &fields, const QStringList &values);
+    static void skipUnlinked(BrDataSource *ds, const QStringList &fields, const QStringList &values);
     bool groupBroken();
 
     void printSlot(BrPager *pager, int bandType, Mode mode);

@@ -76,6 +76,7 @@ BrCustomText::BrCustomText(BrContainer *parent) : BrControl(parent) {}
 void BrCustomText::prepare(BrRenderContext &ctx)
 {
     m_currentText = computeText(ctx);
+    m_highlighted = m_highlightIf.isValid() && ctx.evaluate(m_highlightIf).toBool();
 }
 
 double BrCustomText::measureHeight(BrRenderContext &, double width)
@@ -124,11 +125,20 @@ void BrCustomText::render(BrRenderContext &, const QRectF &rect, BrPage &page)
             renderFrame(rect, page);
         return;
     }
-    renderFrame(rect, page);
+    if (m_highlighted && m_highlightBackground.isValid()) {
+        const QColor saved = background();
+        setBackground(m_highlightBackground);
+        renderFrame(rect, page);
+        setBackground(saved);
+    } else {
+        renderFrame(rect, page);
+    }
 
     const QRectF inner = rect.adjusted(m_padding, m_padding, -m_padding, -m_padding);
-    const QFont f = fittingFont(inner);
-    const QColor c = color();
+    QFont f = fittingFont(inner);
+    if (m_highlighted && m_highlightBold)
+        f.setBold(true);
+    const QColor c = m_highlighted && m_highlightColor.isValid() ? m_highlightColor : color();
     const int hflag = horizontalFlag(m_alignment);
     const int vflag = verticalFlag(m_layout);
 

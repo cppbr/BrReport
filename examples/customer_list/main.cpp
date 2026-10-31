@@ -17,6 +17,7 @@
 
 // A classic listing: page header, column headers, zebra rows, page footer with
 // "Page X of Y", per-page totals and a summary with grand totals.
+// Everything is declarative, so the layout can be saved with --save customers.brt.
 
 #include "exampleutil.h"
 
@@ -56,7 +57,7 @@ int main(int argc, char *argv[])
 
     BrReport report;
     report.setTitle(QStringLiteral("Customer List"));
-    report.setDataSource(&customers);
+    report.setDataSource(QStringLiteral("customers"), &customers);
     report.setMargins(15, 12, 15, 12);
     report.setFont(QFont(QStringLiteral("Arial"), 9));
     const double width = report.contentRect().width(); // 180 mm on A4
@@ -99,17 +100,12 @@ int main(int argc, char *argv[])
         t->setAlignment(c.align);
         t->setDisplayFormat(QString::fromLatin1(c.format));
         if (QByteArray(c.field) == "balance") {
-            // Negative balances in red (BeforePrint event).
-            t->setBeforePrint([&customers](BrControl &control, bool &) {
-                control.setColor(customers.value("balance").toDouble() < 0 ? Qt::red : Qt::black);
-            });
+            // Negative balances in red
+            t->setHighlightIf(QStringLiteral("balance < 0"));
+            t->setHighlightColor(Qt::red);
         }
     }
-    // Zebra rows
-    int row = 0;
-    detail->setBeforePrint([&row](BrControl &band, bool &) {
-        band.setBackground(row++ % 2 ? QColor(0xee, 0xf2, 0xf8) : QColor());
-    });
+    detail->setAlternateBackground(QColor(0xee, 0xf2, 0xf8)); // zebra rows
 
     // --- Page footer: page totals and page numbers ------------------------
     BrBand *footer = report.addBand(Br::BandType::Footer, 7);

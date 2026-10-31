@@ -95,6 +95,36 @@ void BrChart::addSeries(const QString &name, const QList<double> &values, const 
     m_series << Series{name, values, color};
 }
 
+QVariantList BrChart::seriesData() const
+{
+    QVariantList list;
+    for (const Series &s : m_series) {
+        QVariantList values;
+        for (double v : s.values)
+            values << v;
+        QVariantMap map{{QStringLiteral("name"), s.name}, {QStringLiteral("values"), values}};
+        if (s.color.isValid())
+            map.insert(QStringLiteral("color"), s.color.name(QColor::HexArgb));
+        list << map;
+    }
+    return list;
+}
+
+void BrChart::setSeriesData(const QVariantList &data)
+{
+    m_series.clear();
+    for (const QVariant &item : data) {
+        const QVariantMap map = item.toMap();
+        Series s;
+        s.name = map.value(QStringLiteral("name")).toString();
+        for (const QVariant &v : map.value(QStringLiteral("values")).toList())
+            s.values << v.toDouble();
+        if (map.contains(QStringLiteral("color")))
+            s.color = QColor(map.value(QStringLiteral("color")).toString());
+        m_series << s;
+    }
+}
+
 void BrChart::setDataSource(BrDataSource *dataSource, const QString &labelField,
                             const QStringList &valueFields)
 {
@@ -114,9 +144,12 @@ void BrChart::prepare(BrRenderContext &ctx)
 {
     m_curLabels = m_labels;
     m_curSeries = m_series;
-    if (!m_dataSource)
+    BrDataSource *ds = m_dataSource;
+    if (!ds && !m_dataSourceName.isEmpty() && ctx.report())
+        ds = ctx.report()->findDataSource(m_dataSourceName);
+    if (!ds)
         return;
-    if (ctx.report() && m_dataSource == ctx.report()->dataSource()) {
+    if (ctx.report() && ds == ctx.report()->dataSource()) {
         qWarning("BrChart: the chart cannot iterate the report's own data source");
         return;
     }
@@ -124,10 +157,10 @@ void BrChart::prepare(BrRenderContext &ctx)
     m_curSeries.clear();
     for (const QString &f : m_valueFields)
         m_curSeries << Series{f, {}, QColor()};
-    for (bool ok = m_dataSource->first(); ok && !m_dataSource->eof(); ok = m_dataSource->next()) {
-        m_curLabels << BrFormat::format(m_dataSource->value(m_labelField), QString(), ctx.locale());
+    for (bool ok = ds->first(); ok && !ds->eof(); ok = ds->next()) {
+        m_curLabels << BrFormat::format(ds->value(m_labelField), QString(), ctx.locale());
         for (int i = 0; i < m_valueFields.size(); ++i)
-            m_curSeries[i].values << m_dataSource->value(m_valueFields.at(i)).toDouble();
+            m_curSeries[i].values << ds->value(m_valueFields.at(i)).toDouble();
     }
 }
 

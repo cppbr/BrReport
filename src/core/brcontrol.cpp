@@ -91,9 +91,11 @@ BrReport *BrControl::report() const
     return nullptr;
 }
 
-bool BrControl::checkPrint(BrRenderContext &)
+bool BrControl::checkPrint(BrRenderContext &ctx)
 {
     bool printIt = m_visible;
+    if (printIt && m_printIf.isValid())
+        printIt = ctx.evaluate(m_printIf).toBool();
     if (printIt && m_beforePrint)
         m_beforePrint(*this, printIt);
     m_willPrint = printIt;
