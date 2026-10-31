@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-// Master/detail with SQL: one invoice per page, read from an
+// Master/detail with SQL: every invoice starts on a new page and numbers its own
+// pages ("page 1 of 2"), read from an
 // in-memory SQLite database through BrSqlDataSource.
 
 #include "exampleutil.h"
@@ -57,7 +58,7 @@ bool createDatabase()
                            .arg(333 + i, 3, 10, QLatin1Char('0')).arg(44 + i));
         q.addBindValue(QDate(2026, 10, 1 + i * 5));
         q.exec();
-        const int lines = 3 + i * 4;
+        const int lines = i == 3 ? 48 : 3 + i * 4; // the last invoice needs two pages
         for (int l = 0; l < lines; ++l) {
             seed = (seed * 1103515245 + 12345) & 0x7fffffff;
             q.prepare(QStringLiteral("INSERT INTO item VALUES (?, ?, ?, ?)"));
@@ -121,6 +122,7 @@ int main(int argc, char *argv[])
 
     // Detail records: invoice items
     auto *lines = new BrSubDetail(&report, &items);
+    lines->setResetPageNumber(true); // "page X of Y" counts the pages of each invoice
     lines->setBeforeOpen([&items](BrSubDetail &, BrRenderContext &ctx) {
         QSqlQuery q;
         q.prepare(QStringLiteral("SELECT * FROM item WHERE invoice_id = ? ORDER BY description"));
@@ -172,10 +174,14 @@ int main(int argc, char *argv[])
     // Page footer
     BrBand *footer = report.addBand(Br::BandType::Footer, 8);
     auto *pages = new BrSystemInfo(Br::InfoType::PagePreview, footer);
-    pages->setGeometry(0, 0, 180, 8);
-    pages->setAlignment(Br::TextAlign::Center);
-    pages->setFormat(QStringLiteral("Page %1 of %2"));
+    pages->setGeometry(0, 0, 90, 8);
+    pages->setFormat(QStringLiteral("Invoice page %1 of %2"));
     pages->setFont(QFont(QStringLiteral("Arial"), 8));
+    auto *sheet = new BrDBText(footer);
+    sheet->setDataFormula(QStringLiteral("'Sheet ' + documentpage() + ' of ' + documentpages()"));
+    sheet->setGeometry(90, 0, 90, 8);
+    sheet->setAlignment(Br::TextAlign::Right);
+    sheet->setFont(QFont(QStringLiteral("Arial"), 8));
 
     return runExample(report);
 }

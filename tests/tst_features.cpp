@@ -295,6 +295,52 @@ private slots:
         QCOMPARE(count(page, BrPageItem::Rect, QColor(2, 2, 2)), 3 + 1);
         QVERIFY(findText(page, QStringLiteral("Feb")));
     }
+
+    void pageNumbersPerGroup()
+    {
+        // Group A: 40 rows (2 pages), group B: 10 rows (1 page), group C: 60 rows (3 pages)
+        QList<QVariantMap> data;
+        const QList<QPair<QString, int>> sizes = {{QStringLiteral("A"), 40}, {QStringLiteral("B"), 10},
+                                                  {QStringLiteral("C"), 60}};
+        for (const auto &g : sizes)
+            for (int i = 1; i <= g.second; ++i)
+                data << QVariantMap{{QStringLiteral("g"), g.first},
+                                    {QStringLiteral("name"), QStringLiteral("%1-%2").arg(g.first).arg(i)}};
+        BrListDataSource ds(data);
+        BrReport report;
+        report.setDataSource(&ds);
+        // Page header printed when the page starts (before the group resets the numbering)
+        auto *header = report.addBand(Br::BandType::Header, 10);
+        auto *pageInHeader = new BrSystemInfo(Br::InfoType::PagePreview, header);
+        pageInHeader->setFormat(QStringLiteral("H %1/%2"));
+        auto *group = new BrGroup(&report);
+        group->setDataFields(QStringLiteral("g"));
+        group->setPageBreak(Br::PageBreak::Before);
+        group->setResetPageNumber(true);
+        new BrDBText(QStringLiteral("name"), group->addBand(Br::BandType::Detail, 10));
+        auto *footer = report.addBand(Br::BandType::Footer, 10);
+        auto *page = new BrSystemInfo(Br::InfoType::PagePreview, footer);
+        page->setFormat(QStringLiteral("Page %1 of %2"));
+        auto *sheet = new BrDBText(footer);
+        sheet->setGeometry(100, 0, 60, 10);
+        sheet->setDataFormula(QStringLiteral("'Sheet ' + documentpage() + ' of ' + documentpages()"));
+
+        QVERIFY(report.prepare());
+        const BrDocument &doc = report.document();
+        QCOMPARE(doc.pageCount(), 6); // 25 rows per page: 2 + 1 + 3
+        const QStringList expected = {QStringLiteral("1 of 2"), QStringLiteral("2 of 2"),
+                                      QStringLiteral("1 of 1"), QStringLiteral("1 of 3"),
+                                      QStringLiteral("2 of 3"), QStringLiteral("3 of 3")};
+        for (int p = 0; p < 6; ++p) {
+            const QString text = doc.pageText(p);
+            QVERIFY2(text.contains(QStringLiteral("Page ") + expected.at(p)), qPrintable(text));
+            QVERIFY2(text.contains(QStringLiteral("H ") + QString(expected.at(p)).replace(QStringLiteral(" of "), QStringLiteral("/"))),
+                     qPrintable(text));
+            QVERIFY2(text.contains(QStringLiteral("Sheet %1 of 6").arg(p + 1)), qPrintable(text));
+            QVERIFY(!text.contains(QChar(0x0001)));
+        }
+        QVERIFY(doc.pageText(2).contains(QStringLiteral("B-1")));
+    }
 };
 
 QTEST_MAIN(TstFeatures)

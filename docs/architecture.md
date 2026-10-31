@@ -110,11 +110,17 @@ when the pager starts. Accumulation happens after the page-break decision of the
 band, so page totals in the report Footer (with `resetAfterPrint`) never include the record that moved
 to the next page.
 
-### Total number of pages
+### Page numbers
 
-The total is unknown until the end. `BrSystemInfo` (`LastPageNumber`, `PagePreview`) and the `pages()`
-expression function emit a placeholder that is replaced in every text item once the document is
-complete.
+Every page belongs to a numbering section. The document starts with one section; a group or
+sub-detail with `setResetPageNumber(true)` starts a new section on the page where it begins.
+
+Page numbers and page counts are unknown while the page is being filled (a page header is printed
+before the group that resets the numbering, and the total is only known at the end), so
+`BrSystemInfo` (`PageNumber`, `LastPageNumber`, `PagePreview`, `DocumentPageCount`) and the `pages()`
+/ `documentpages()` formula functions emit placeholders. When the document is complete, the engine
+replaces them page by page with the number within the section, the section's page count and the
+document's page count.
 
 ## The document
 

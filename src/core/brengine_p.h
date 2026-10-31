@@ -28,6 +28,7 @@
 #include "brrendercontext.h"
 
 #include <QHash>
+#include <QVector>
 
 #include <memory>
 #include <vector>
@@ -52,8 +53,11 @@ public:
 
     // BrRenderContext
     BrReport *report() const override { return m_report; }
-    int pageNumber() const override { return m_pageNumber; }
+    int pageNumber() const override;
+    int documentPageNumber() const override { return m_pageNumber; }
+    QString pageNumberText() const override;
     QString pageCountText() const override;
+    QString documentPageCountText() const override;
     int recNo() const override;
     int detailCount() const override { return m_detailCount; }
     int carbonCopy() const override { return m_carbon; }
@@ -65,7 +69,9 @@ public:
     QVariant function(const QString &name, const QVariantList &args, bool *found) const override;
     QLocale locale() const override;
 
+    static QString pageNumberToken();
     static QString pageCountToken();
+    static QString documentPageCountToken();
 
 private:
     struct Frame
@@ -114,6 +120,8 @@ private:
     bool bandPrintsOnThisPage(BrBand *band) const;
     void keepHeaderWithDetail(BrPager *pager);
     void drawWatermark();
+    void startNumberingSection();
+    void resolvePageNumbers();
     void accumulate();
     BrDataSource *currentDataSource() const;
     static BrPager *dataOwnerOf(BrPager *pager);
@@ -135,6 +143,9 @@ private:
     bool m_pendingAccumulate = false;
     bool m_abort = false;
     bool m_lastPage = false;
+    QVector<int> m_pageSection; // numbering section of every page
+    int m_section = 0;
+    int m_sectionCount = 1;
     QHash<BrBand *, int> m_zebra;
     // Multi-column detail state
     BrBand *m_columnBand = nullptr;

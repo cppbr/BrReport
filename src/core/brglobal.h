@@ -76,13 +76,15 @@ enum class InfoType {
     Date,           //!< Report date.
     Time,           //!< Report time.
     DateTime,       //!< Report date and time.
-    PageNumber,     //!< Current page number.
-    LastPageNumber, //!< Total number of pages.
+    PageNumber,     //!< Current page number (restarts with BrPager::setResetPageNumber()).
+    LastPageNumber, //!< Total number of pages (of the current numbering section).
     PagePreview,    //!< "page / total" (see BrSystemInfo::setFormat()).
     Title,          //!< Report title.
     RecNo,          //!< Current record number of the innermost data pager.
     DetailCount,    //!< Number of records printed so far.
-    CarbonCopy      //!< Current carbon copy index (1-based) of the band.
+    CarbonCopy,         //!< Current carbon copy index (1-based) of the band.
+    DocumentPageNumber, //!< Page number in the whole document (ignores page number resets).
+    DocumentPageCount   //!< Number of pages of the whole document.
 };
 
 /*! Aggregation computed by BrDBResult. */

@@ -74,8 +74,20 @@ public:
     bool keepHeaderWithDetail() const { return m_keepHeaderWithDetail; }
     void setKeepHeaderWithDetail(bool on) { m_keepHeaderWithDetail = on; }
 
+    /*!
+     * Groups and sub-details: page numbers restart at 1 when the pager starts, and
+     * the page count ("page 1 of 3") covers only its pages. Use it with
+     * setPageBreak(Br::PageBreak::Before) (or a page break in the band that
+     * precedes it) so that every section starts on a new page. Typical use: one
+     * invoice per group. BrSystemInfo's DocumentPageNumber/DocumentPageCount keep
+     * numbering the whole document.
+     */
+    bool resetPageNumber() const { return m_resetPageNumber; }
+    void setResetPageNumber(bool on) { m_resetPageNumber = on; }
+
 private:
     Br::PageBreak m_pageBreak = Br::PageBreak::None;
+    bool m_resetPageNumber = false;
     bool m_enabled = true;
     bool m_keepHeaderWithDetail = false;
 };

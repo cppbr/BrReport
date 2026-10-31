@@ -31,14 +31,77 @@ BrEngine::BrEngine(BrReport *report) : m_report(report) {}
 
 BrEngine::~BrEngine() = default;
 
+// Short placeholders (control characters) so that they hardly affect text measuring.
+QString BrEngine::pageNumberToken()
+{
+    return QStringLiteral("\u0001pn\u0001");
+}
+
 QString BrEngine::pageCountToken()
 {
-    return QStringLiteral("{{BR_PAGE_COUNT}}");
+    return QStringLiteral("\u0001pc\u0001");
+}
+
+QString BrEngine::documentPageCountToken()
+{
+    return QStringLiteral("\u0001dc\u0001");
+}
+
+QString BrEngine::pageNumberText() const
+{
+    return pageNumberToken();
 }
 
 QString BrEngine::pageCountText() const
 {
     return pageCountToken();
+}
+
+QString BrEngine::documentPageCountText() const
+{
+    return documentPageCountToken();
+}
+
+int BrEngine::pageNumber() const
+{
+    if (m_pageSection.isEmpty())
+        return m_pageNumber;
+    const int last = int(m_pageSection.size()) - 1;
+    const int section = m_pageSection.at(last);
+    int first = last;
+    while (first > 0 && m_pageSection.at(first - 1) == section)
+        --first;
+    return last - first + 1;
+}
+
+void BrEngine::startNumberingSection()
+{
+    m_section = m_sectionCount++;
+    if (!m_pageSection.isEmpty())
+        m_pageSection.last() = m_section; // the current page is the first of the section
+}
+
+void BrEngine::resolvePageNumbers()
+{
+    QHash<int, int> sectionPages;
+    for (int s : m_pageSection)
+        ++sectionPages[s];
+    const QString total = QString::number(m_doc->pageCount());
+    int number = 0;
+    for (int i = 0; i < m_doc->pages.size(); ++i) {
+        const int section = m_pageSection.value(i);
+        number = (i > 0 && m_pageSection.value(i - 1) == section) ? number + 1 : 1;
+        const QString pn = QString::number(number);
+        const QString pc = QString::number(sectionPages.value(section));
+        for (BrPageItem &item : m_doc->pages[i].items) {
+            if ((item.kind != BrPageItem::Text && item.kind != BrPageItem::RichText)
+                || !item.text.contains(QChar(0x0001)))
+                continue;
+            item.text.replace(pageNumberToken(), pn);
+            item.text.replace(pageCountToken(), pc);
+            item.text.replace(documentPageCountToken(), total);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -115,9 +178,13 @@ QVariant BrEngine::function(const QString &name, const QVariantList &args, bool 
     if (const BrReport::CustomFunction f = m_report->function(name))
         return f(args);
     if (name == QLatin1String("page"))
-        return m_pageNumber;
+        return pageNumber();
     if (name == QLatin1String("pages") || name == QLatin1String("pagecount"))
         return pageCountToken();
+    if (name == QLatin1String("documentpage"))
+        return m_pageNumber;
+    if (name == QLatin1String("documentpages"))
+        return documentPageCountToken();
     if (name == QLatin1String("recno"))
         return recNo();
     if (name == QLatin1String("detailcount"))
@@ -214,7 +281,7 @@ bool BrEngine::run(BrDocument *document, QString *error)
     closePage();
     pop();
 
-    m_doc->replaceText(pageCountToken(), QString::number(m_doc->pageCount()));
+    resolvePageNumbers();
 
     if (error)
         *error = m_error;
@@ -286,6 +353,8 @@ void BrEngine::runGroup(BrGroup *group)
     f->key = group->key(*this);
     resetPager(group);
     keepHeaderWithDetail(group);
+    if (group->resetPageNumber())
+        startNumberingSection();
     printSlot(group, int(Br::BandType::Title), Mode::Flow);
     printSlot(group, int(Br::BandType::Header), Mode::Flow);
     printSlot(group, int(Br::BandType::ColumnHeader), Mode::Flow);
@@ -326,6 +395,8 @@ void BrEngine::runSubDetail(BrSubDetail *sub)
     f->recNo = 1;
     resetPager(sub);
     keepHeaderWithDetail(sub);
+    if (sub->resetPageNumber())
+        startNumberingSection();
     printSlot(sub, int(Br::BandType::Title), Mode::Flow);
     printSlot(sub, int(Br::BandType::Header), Mode::Flow);
     printSlot(sub, int(Br::BandType::ColumnHeader), Mode::Flow);
@@ -570,6 +641,7 @@ void BrEngine::newPage()
     BrPage page;
     page.size = m_report->pageSizeMm();
     m_doc->pages.append(page);
+    m_pageSection.append(m_section);
     m_pageNumber = m_doc->pageCount();
     m_hasPage = true;
     m_pendingBreak = false;

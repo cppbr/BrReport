@@ -390,15 +390,15 @@ QString BrSystemInfo::computeText(BrRenderContext &ctx)
         value = BrFormat::format(dt, m_displayFormat, loc);
         break;
     case Br::InfoType::PageNumber:
-        value = QString::number(ctx.pageNumber());
+        value = ctx.pageNumberText();
         break;
     case Br::InfoType::LastPageNumber:
         value = ctx.pageCountText();
         break;
     case Br::InfoType::PagePreview:
         if (fmt.contains(QLatin1String("%2")))
-            return fmt.arg(QString::number(ctx.pageNumber()), ctx.pageCountText());
-        value = QString::number(ctx.pageNumber());
+            return fmt.arg(ctx.pageNumberText(), ctx.pageCountText());
+        value = ctx.pageNumberText();
         break;
     case Br::InfoType::Title:
         value = ctx.report() ? ctx.report()->title() : QString();
@@ -411,6 +411,12 @@ QString BrSystemInfo::computeText(BrRenderContext &ctx)
         break;
     case Br::InfoType::CarbonCopy:
         value = QString::number(ctx.carbonCopy());
+        break;
+    case Br::InfoType::DocumentPageNumber:
+        value = QString::number(ctx.documentPageNumber());
+        break;
+    case Br::InfoType::DocumentPageCount:
+        value = ctx.documentPageCountText();
         break;
     }
     return fmt.arg(value);

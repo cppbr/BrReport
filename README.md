@@ -48,6 +48,8 @@ applications with a ready-made preview window, or in console and server programs
   backgrounds.
 - **Band options**: zebra rows, multi-column details (labels and cards), group headers kept with
   their first record, bands on the first/last page only, carbon copies and forced page breaks.
+- **Page numbering per group**: every invoice (group or sub-report) can show its own "page 1 of 2",
+  while the document keeps its overall "sheet 4 of 5".
 - **Text options**: shrink the font to fit, hide when empty, word wrap, justification, rotation.
 - **Pages**: any paper size and orientation, **continuous pages** for receipt/roll printers, and
   **watermarks** (text or image).
@@ -177,6 +179,18 @@ report.setPageSizeMm(80, 200);      // paper width; the height grows with the co
 report.setContinuous(true);
 ```
 
+### Page numbers per group
+
+```cpp
+auto *invoice = new BrGroup(&report);
+invoice->setDataFields("invoice_id");
+invoice->setPageBreak(Br::PageBreak::Before);
+invoice->setResetPageNumber(true);  // "page 1 of 2" counts the pages of each invoice
+
+auto *page = new BrSystemInfo(Br::InfoType::PagePreview, footer);
+page->setFormat("Page %1 of %2");   // Br::InfoType::DocumentPageNumber/DocumentPageCount: whole document
+```
+
 ### Labels in columns
 
 ```cpp
@@ -283,7 +297,7 @@ The [`examples`](examples) folder contains complete programs:
 | `hello_world` | Console program that writes a PDF (core library only) |
 | `customer_list` | Column headers, striped rows, events, page totals, page *X* of *Y*, summary |
 | `grouped_sales` | Nested groups, subtotals, formulas, a page per group, localized formatting |
-| `master_detail_sql` | SQLite, sub-report per invoice, barcode, one invoice per page |
+| `master_detail_sql` | SQLite, sub-report per invoice, barcode, page numbering per invoice |
 | `barcodes` | QR Code, Code 128, EAN-13, Interleaved 2 of 5, images, shapes, rotated text, copies |
 | `dashboard` | Charts, HTML text, table with stretched cells and zebra rows, labels in columns, watermark |
 | `receipt` | 80 mm continuous page for roll printers, wrapped descriptions, totals, QR Code |
@@ -302,7 +316,6 @@ Every example except `quick_start` opens the preview window, or exports with `--
 - More barcodes: PDF417, Data Matrix, Code 39
 - Report definitions in JSON and a visual designer
 - Bands split across pages (very long texts)
-- Page numbering per group (e.g. "page 1 of 2" for each invoice)
 - XLSX, RTF and plain-text export
 - Translations of the preview window
 

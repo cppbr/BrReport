@@ -37,13 +37,24 @@ public:
     ~BrRenderContext() override;
 
     virtual BrReport *report() const = 0;
-    /*! Current page number (1-based). */
-    virtual int pageNumber() const = 0;
     /*!
-     * Placeholder text for the total number of pages. The real number is only
-     * known at the end, so the placeholder is replaced in the prepared document.
+     * Current page number (1-based) within the current numbering section. Sections
+     * start at groups/sub-details with BrPager::setResetPageNumber(); without them
+     * the whole document is one section.
      */
+    virtual int pageNumber() const = 0;
+    /*! Current page number (1-based) in the whole document. */
+    virtual int documentPageNumber() const = 0;
+    /*!
+     * Placeholder for the page number within the numbering section. Page numbers
+     * are resolved when the document is complete, so a page header printed before a
+     * section starts on the same page still shows the right number.
+     */
+    virtual QString pageNumberText() const = 0;
+    /*! Placeholder for the number of pages of the current numbering section. */
     virtual QString pageCountText() const = 0;
+    /*! Placeholder for the number of pages of the whole document. */
+    virtual QString documentPageCountText() const = 0;
     /*! Record number (1-based) of the innermost data pager. */
     virtual int recNo() const = 0;
     /*! Number of detail records processed so far. */

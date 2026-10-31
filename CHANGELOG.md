@@ -23,6 +23,9 @@ follows [Semantic Versioning](https://semver.org/).
 - Text search in the preview window (Ctrl+F, F3).
 - `brview` tool to view, print and convert `.brp` documents.
 - `dashboard` and `receipt` examples.
+- Page numbering per group/sub-detail (`BrPager::setResetPageNumber()`), with
+  `Br::InfoType::DocumentPageNumber`/`DocumentPageCount` and the `documentpage()`/`documentpages()`
+  formula functions for the whole document.
 
 ## [0.1.0] - 2026-10-31
 
