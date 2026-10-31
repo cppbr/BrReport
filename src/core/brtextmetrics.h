@@ -21,7 +21,12 @@
 #include "brglobal.h"
 
 #include <QFont>
+#include <QColor>
 #include <QStringList>
+
+#include <memory>
+
+class QTextDocument;
 
 /*!
  * Device-independent text measurement in millimeters.
@@ -45,6 +50,19 @@ public:
      */
     static QStringList wrap(const QFont &font, const QString &text, double widthMm, bool wordWrap,
                             QList<bool> *paragraphEnds = nullptr);
+
+    /*! Height in mm of HTML text laid out at \a widthMm. */
+    static double richTextHeight(const QFont &font, const QString &html, double widthMm);
+
+    /*!
+     * Creates a QTextDocument for HTML text laid out at \a widthMm on the reference
+     * device (units: reference pixels, see referenceDpi()).
+     */
+    static std::unique_ptr<QTextDocument> richDocument(const QFont &font, const QString &html,
+                                                       double widthMm, int alignment = Qt::AlignLeft);
+
+    /*! Resolution of the reference device used for measuring (dots per inch). */
+    static double referenceDpi();
 };
 
 #endif // BRTEXTMETRICS_H

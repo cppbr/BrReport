@@ -21,10 +21,14 @@ It is a native Qt library: no runtime, no scripting engine, no external tools. U
 applications with a ready-made preview window, or in console and server programs to generate PDFs.
 
 <p align="center">
-  <img src="docs/images/customer_list.png" width="24%" alt="Listing">
-  <img src="docs/images/grouped_sales.png" width="24%" alt="Groups">
-  <img src="docs/images/master_detail_sql.png" width="24%" alt="Master/detail">
-  <img src="docs/images/barcodes.png" width="24%" alt="Barcodes">
+  <img src="docs/images/dashboard.png" width="32%" alt="Dashboard with charts">
+  <img src="docs/images/customer_list.png" width="32%" alt="Listing">
+  <img src="docs/images/grouped_sales.png" width="32%" alt="Groups">
+</p>
+<p align="center">
+  <img src="docs/images/master_detail_sql.png" width="32%" alt="Master/detail">
+  <img src="docs/images/barcodes.png" width="32%" alt="Barcodes">
+  <img src="docs/images/receipt.png" width="20%" alt="Receipt on a continuous page">
 </p>
 
 ## Features
@@ -36,9 +40,17 @@ applications with a ready-made preview window, or in console and server programs
 - **Sub-reports** (`BrSubDetail`) for master/detail data such as invoices and their items.
 - **Objects**: label, memo, data text, data memo, aggregate result, system info (page *X* of *Y*,
   date, title, record number), image, data image, shapes, panel, rotated text.
+- **Rich text**: HTML inside texts (`<b>`, `<i>`, colors, lists, simple tables).
+- **Charts**: pie, bars, horizontal bars and lines, from static values or a data source.
 - **Barcodes**: QR Code, Code 128, EAN-13 and Interleaved 2 of 5.
-- **Automatic layout**: page breaks, growing bands for long texts, aligned objects, borders,
-  backgrounds, carbon copies and forced page breaks.
+- **Automatic layout**: page breaks, growing bands for long texts, objects pushed down by the ones
+  that grow above them, cells that stretch to the band height, aligned objects, borders and
+  backgrounds.
+- **Band options**: zebra rows, multi-column details (labels and cards), group headers kept with
+  their first record, bands on the first/last page only, carbon copies and forced page breaks.
+- **Text options**: shrink the font to fit, hide when empty, word wrap, justification, rotation.
+- **Pages**: any paper size and orientation, **continuous pages** for receipt/roll printers, and
+  **watermarks** (text or image).
 - **Events**: change any object before it prints (colors, text, visibility) with a C++ lambda.
 
 ### Data sources
@@ -62,8 +74,9 @@ applications with a ready-made preview window, or in console and server programs
 - Vector **PDF** with selectable text
 - **HTML** (pages as inline SVG), **SVG**, **PNG/JPEG**
 - **Printing** through Qt Print Support, with page ranges
-- **Preview window** with navigation, zoom, printing and "save as"
-- **`.brp` documents**: save a prepared report and open it later without the data
+- **Preview window** with navigation, zoom, text search, printing and "save as"
+- **`.brp` documents**: save a prepared report and open it later without the data, in your
+  application or with the `brview` viewer
 
 ## Creating a report
 
@@ -148,6 +161,29 @@ subtotal->setDataFormula("qty * price");                 // sum of the group, re
 subtotal->setDisplayFormat("#,##0.00");
 ```
 
+### Charts
+
+```cpp
+auto *chart = new BrChart(Br::ChartType::Bar, band);
+chart->setGeometry(0, 0, 190, 70);
+chart->setTitle("Revenue x costs");
+chart->setDataSource(&monthly, "month", {"revenue", "costs"});   // or setLabels() + addSeries()
+```
+
+### Receipts and roll printers
+
+```cpp
+report.setPageSizeMm(80, 200);      // paper width; the height grows with the content
+report.setContinuous(true);
+```
+
+### Labels in columns
+
+```cpp
+BrBand *card = report.addBand(Br::BandType::Detail, 30);
+card->setColumns(3, 4);             // 3 records per row, 4 mm apart
+```
+
 ### QR Code
 
 ```cpp
@@ -169,6 +205,13 @@ report.saveDocument("report.brp");              // prepared document, open it la
 
 BrPrinting::preview(&report);                   // preview window (BrReport::Widgets)
 BrPrinting::print(&report);                     // system print dialog
+```
+
+Prepared documents saved as `.brp` can be opened, printed or converted by the `brview` tool:
+
+```sh
+brview report.brp                  # preview window
+brview report.brp --pdf report.pdf # convert
 ```
 
 The core library depends only on QtCore and QtGui, so it also runs on servers without a display:
@@ -202,6 +245,7 @@ cmake --install build --prefix /usr/local
 | `BRREPORT_BUILD_WIDGETS` | `ON` | Preview and printing library |
 | `BRREPORT_WITH_SQL` | `ON` | SQL data source (links Qt SQL) |
 | `BRREPORT_BUILD_EXAMPLES` | `ON` | Example programs |
+| `BRREPORT_BUILD_TOOLS` | `ON` | `brview` document viewer |
 | `BRREPORT_BUILD_TESTS` | `ON` | Unit tests |
 
 ### Using BrReport in your project
@@ -241,6 +285,8 @@ The [`examples`](examples) folder contains complete programs:
 | `grouped_sales` | Nested groups, subtotals, formulas, a page per group, localized formatting |
 | `master_detail_sql` | SQLite, sub-report per invoice, barcode, one invoice per page |
 | `barcodes` | QR Code, Code 128, EAN-13, Interleaved 2 of 5, images, shapes, rotated text, copies |
+| `dashboard` | Charts, HTML text, table with stretched cells and zebra rows, labels in columns, watermark |
+| `receipt` | 80 mm continuous page for roll printers, wrapped descriptions, totals, QR Code |
 
 Every example except `quick_start` opens the preview window, or exports with `--pdf file.pdf`,
 `--html file.html`, `--png "page-%1.png"` or `--brp file.brp`.
@@ -255,9 +301,9 @@ Every example except `quick_start` opens the preview window, or exports with `--
 
 - More barcodes: PDF417, Data Matrix, Code 39
 - Report definitions in JSON and a visual designer
-- Multi-column details (labels)
+- Bands split across pages (very long texts)
+- Page numbering per group (e.g. "page 1 of 2" for each invoice)
 - XLSX, RTF and plain-text export
-- Objects that push the ones below them when they grow
 - Translations of the preview window
 
 ## Bug reports

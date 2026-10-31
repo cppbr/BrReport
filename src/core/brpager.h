@@ -66,9 +66,18 @@ public:
     bool isEnabled() const { return m_enabled; }
     void setEnabled(bool enabled) { m_enabled = enabled; }
 
+    /*!
+     * Groups and sub-details: never leave the Title/Header/ColumnHeader bands alone
+     * at the bottom of a page. If they do not fit together with the first detail
+     * band, a new page is started first (default false).
+     */
+    bool keepHeaderWithDetail() const { return m_keepHeaderWithDetail; }
+    void setKeepHeaderWithDetail(bool on) { m_keepHeaderWithDetail = on; }
+
 private:
     Br::PageBreak m_pageBreak = Br::PageBreak::None;
     bool m_enabled = true;
+    bool m_keepHeaderWithDetail = false;
 };
 
 /*!

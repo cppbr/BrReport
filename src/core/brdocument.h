@@ -46,7 +46,8 @@ struct BRREPORT_EXPORT BrPageItem
         Line,    //!< Line from points[0] to points[1].
         Ellipse, //!< Ellipse inscribed in rect.
         Polygon, //!< Closed polygon (points).
-        Image    //!< Image stretched into rect.
+        Image,   //!< Image stretched into rect.
+        RichText //!< HTML text (text) laid out in rect, using font and textColor as defaults.
     };
 
     Kind kind = Rect;

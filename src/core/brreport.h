@@ -24,6 +24,7 @@
 #include <QDateTime>
 #include <QFont>
 #include <QHash>
+#include <QImage>
 #include <QLocale>
 #include <QMarginsF>
 #include <QPageLayout>
@@ -33,6 +34,19 @@
 #include <functional>
 
 class BrDataSource;
+
+/*! Text and/or image printed behind the content of every page. */
+struct BRREPORT_EXPORT BrWatermark
+{
+    QString text;                                             //!< e.g. "DRAFT", "CANCELED"
+    QFont font = QFont(QStringLiteral("Arial"), 80, QFont::Bold);
+    QColor color = QColor(0, 0, 0, 38);                       //!< Use alpha for transparency.
+    double angle = 45.0;                                      //!< Counter-clockwise degrees.
+    QImage image;                                             //!< Centered in the printable area.
+    double imageOpacity = 0.15;                               //!< 0..1
+
+    bool isEnabled() const { return !text.isEmpty() || !image.isNull(); }
+};
 
 /*!
  * The report: page setup, main data source and the bands that make
@@ -82,6 +96,24 @@ public:
     void setMargins(double left, double top, double right, double bottom)
     {
         m_margins = QMarginsF(left, top, right, bottom);
+    }
+
+    /*!
+     * Continuous page: everything is printed on a single page whose height grows
+     * with the content (receipts, thermal/roll printers). Page breaks are ignored
+     * and the Footer follows the content. The page width comes from pageSize().
+     */
+    bool isContinuous() const { return m_continuous; }
+    void setContinuous(bool on) { m_continuous = on; }
+
+    /*! Watermark printed behind the content of every page. */
+    BrWatermark watermark() const { return m_watermark; }
+    void setWatermark(const BrWatermark &watermark) { m_watermark = watermark; }
+    /*! Convenience: text watermark with the default style. */
+    void setWatermark(const QString &text)
+    {
+        m_watermark = BrWatermark();
+        m_watermark.text = text;
     }
 
     /*! Page size in mm, already oriented. */
@@ -152,6 +184,8 @@ private:
     QPageSize m_pageSize = QPageSize(QPageSize::A4);
     QPageLayout::Orientation m_orientation = QPageLayout::Portrait;
     QMarginsF m_margins = QMarginsF(10, 10, 10, 10);
+    bool m_continuous = false;
+    BrWatermark m_watermark;
     QFont m_font;
     QLocale m_locale;
     QDateTime m_dateTime;

@@ -42,6 +42,14 @@ public:
     /*! Current page (0-based): the page at the top of the view. */
     int currentPage() const;
 
+    /*!
+     * Searches \a text (case-insensitive) in every page, highlights the matches and
+     * shows the first one. Returns the number of matches.
+     */
+    int find(const QString &text);
+    int matchCount() const { return int(m_matches.size()); }
+    int currentMatch() const { return m_matchIndex; }
+
     /*! Zoom factor (1.0 = real size). */
     double zoom() const { return m_zoom; }
     ZoomMode zoomMode() const { return m_zoomMode; }
@@ -56,8 +64,13 @@ public slots:
     void previousPage();
     void nextPage();
     void lastPage();
+    void findNext();
+    void findPrevious();
+    void clearFind();
 
 signals:
+    /*! Emitted after a search or when moving between matches (\a index is 0-based, -1 = none). */
+    void findResultChanged(int index, int count);
     void currentPageChanged(int page);
     void zoomChanged(double zoom);
 
@@ -81,6 +94,15 @@ private:
     double m_contentWidth = 0.0;
     double m_contentHeight = 0.0;
     int m_lastPage = -1;
+
+    struct Match
+    {
+        int page;
+        QRectF rect; // mm
+    };
+    QList<Match> m_matches;
+    int m_matchIndex = -1;
+    void showMatch(int index);
 };
 
 #endif // BRPREVIEWWIDGET_H

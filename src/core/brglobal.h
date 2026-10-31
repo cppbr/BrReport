@@ -124,6 +124,14 @@ enum class QrErrorCorrection {
     High      //!< ~30%
 };
 
+/*! Chart drawn by BrChart. */
+enum class ChartType {
+    Pie,           //!< Slices of the first series.
+    Bar,           //!< Vertical bars, one group per label.
+    HorizontalBar, //!< Horizontal bars, one group per label.
+    Line           //!< One line per series.
+};
+
 /*! Converts typographic points to millimeters. */
 constexpr double ptToMm(double pt) { return pt * 25.4 / 72.0; }
 /*! Converts millimeters to typographic points. */

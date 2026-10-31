@@ -19,7 +19,10 @@
 
 #include <QFontMetricsF>
 #include <QImage>
+#include <QAbstractTextDocumentLayout>
+#include <QTextDocument>
 #include <QTextLayout>
+#include <QTextOption>
 
 namespace {
 
@@ -110,4 +113,30 @@ QStringList BrTextMetrics::wrap(const QFont &font, const QString &text, double w
             paragraphEnds->last() = true;
     }
     return lines;
+}
+
+double BrTextMetrics::referenceDpi()
+{
+    return kRefDpi;
+}
+
+std::unique_ptr<QTextDocument> BrTextMetrics::richDocument(const QFont &font, const QString &html,
+                                                           double widthMm, int alignment)
+{
+    auto doc = std::make_unique<QTextDocument>();
+    doc->documentLayout()->setPaintDevice(const_cast<QPaintDevice *>(referenceDevice()));
+    doc->setDefaultFont(normalized(font));
+    doc->setDocumentMargin(0);
+    QTextOption option = doc->defaultTextOption();
+    option.setAlignment(Qt::Alignment(alignment & Qt::AlignHorizontal_Mask));
+    option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    doc->setDefaultTextOption(option);
+    doc->setHtml(html);
+    doc->setTextWidth(std::max(1.0, widthMm * kRefDpi / 25.4));
+    return doc;
+}
+
+double BrTextMetrics::richTextHeight(const QFont &font, const QString &html, double widthMm)
+{
+    return pxToMm(richDocument(font, html, widthMm)->size().height());
 }

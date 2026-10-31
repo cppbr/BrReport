@@ -80,25 +80,66 @@ void BrCustomText::prepare(BrRenderContext &ctx)
 
 double BrCustomText::measureHeight(BrRenderContext &, double width)
 {
-    if (!m_autoStretch || !qFuzzyIsNull(m_angle))
+    if (!m_autoStretch || !qFuzzyIsNull(m_angle) || m_shrinkToFit)
         return height();
+    if (m_currentText.isEmpty())
+        return m_hideIfEmpty ? 0.0 : height();
     const QFont f = font();
+    if (m_allowHtml)
+        return BrTextMetrics::richTextHeight(f, m_currentText, width - 2 * m_padding) + 2 * m_padding;
     const QStringList lines =
         BrTextMetrics::wrap(f, m_currentText, width - 2 * m_padding, m_wordWrap);
     return lines.size() * BrTextMetrics::lineHeight(f) + 2 * m_padding;
 }
 
+QFont BrCustomText::fittingFont(const QRectF &inner) const
+{
+    QFont f = font();
+    if (!m_shrinkToFit || m_currentText.isEmpty() || !qFuzzyIsNull(m_angle))
+        return f;
+    double size = f.pointSizeF() > 0 ? f.pointSizeF() : 10.0;
+    for (; size > 4.0; size -= 0.5) {
+        f.setPointSizeF(size);
+        bool fits;
+        if (m_allowHtml) {
+            fits = BrTextMetrics::richTextHeight(f, m_currentText, inner.width()) <= inner.height() + 0.01;
+        } else {
+            const QStringList lines = BrTextMetrics::wrap(f, m_currentText, inner.width(), m_wordWrap);
+            fits = lines.size() * BrTextMetrics::lineHeight(f) <= inner.height() + 0.01;
+            for (const QString &line : lines)
+                if (BrTextMetrics::width(f, line) > inner.width() + 0.01)
+                    fits = false;
+        }
+        if (fits)
+            return f;
+    }
+    f.setPointSizeF(4.0);
+    return f;
+}
+
 void BrCustomText::render(BrRenderContext &, const QRectF &rect, BrPage &page)
 {
-    renderFrame(rect, page);
-    if (m_currentText.isEmpty())
+    if (m_currentText.isEmpty()) {
+        if (!m_hideIfEmpty)
+            renderFrame(rect, page);
         return;
+    }
+    renderFrame(rect, page);
 
     const QRectF inner = rect.adjusted(m_padding, m_padding, -m_padding, -m_padding);
-    const QFont f = font();
+    const QFont f = fittingFont(inner);
     const QColor c = color();
     const int hflag = horizontalFlag(m_alignment);
     const int vflag = verticalFlag(m_layout);
+
+    if (m_allowHtml) {
+        BrPageItem item = BrPageItem::makeText(inner, m_currentText, f, c, hflag | Qt::AlignTop);
+        item.kind = BrPageItem::RichText;
+        if (m_alignment == Br::TextAlign::Justify)
+            item.alignment = Qt::AlignJustify | Qt::AlignTop;
+        page.items << item;
+        return;
+    }
 
     if (!qFuzzyIsNull(m_angle)) {
         page.items << BrPageItem::makeText(inner, m_currentText, f, c, hflag | vflag, m_angle);

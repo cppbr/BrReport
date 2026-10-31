@@ -22,6 +22,7 @@
 #include <QKeyEvent>
 #include <QPainter>
 #include <QScrollBar>
+#include <QTextDocumentFragment>
 #include <QWheelEvent>
 
 #include <cmath>
@@ -44,6 +45,8 @@ BrPreviewWidget::BrPreviewWidget(QWidget *parent) : QAbstractScrollArea(parent)
 void BrPreviewWidget::setDocument(const BrDocument &document)
 {
     m_document = document;
+    m_matches.clear();
+    m_matchIndex = -1;
     applyZoomMode();
     updateLayout();
     verticalScrollBar()->setValue(0);
@@ -115,6 +118,14 @@ void BrPreviewWidget::paintEvent(QPaintEvent *)
         p.save();
         p.setClipRect(onScreen);
         BrRenderer::renderPage(&p, m_document.pages.at(i), k, onScreen.topLeft());
+        for (int m = 0; m < m_matches.size(); ++m) {
+            if (m_matches.at(m).page != i)
+                continue;
+            const QRectF mr = m_matches.at(m).rect;
+            const QRectF hr(onScreen.left() + mr.left() * k, onScreen.top() + mr.top() * k,
+                            mr.width() * k, mr.height() * k);
+            p.fillRect(hr, m == m_matchIndex ? QColor(255, 140, 0, 110) : QColor(255, 230, 0, 90));
+        }
         p.restore();
     }
 }
@@ -275,4 +286,74 @@ void BrPreviewWidget::keyPressEvent(QKeyEvent *event)
         return;
     }
     event->accept();
+}
+
+int BrPreviewWidget::find(const QString &text)
+{
+    m_matches.clear();
+    m_matchIndex = -1;
+    const QString needle = text.trimmed();
+    if (!needle.isEmpty()) {
+        for (int p = 0; p < m_document.pageCount(); ++p) {
+            for (const BrPageItem &item : m_document.pages.at(p).items) {
+                QString content;
+                if (item.kind == BrPageItem::Text)
+                    content = item.text;
+                else if (item.kind == BrPageItem::RichText)
+                    content = QTextDocumentFragment::fromHtml(item.text).toPlainText();
+                if (!content.isEmpty() && content.contains(needle, Qt::CaseInsensitive))
+                    m_matches << Match{p, item.rect};
+            }
+        }
+    }
+    if (m_matches.isEmpty()) {
+        viewport()->update();
+        emit findResultChanged(-1, 0);
+        return 0;
+    }
+    // Start at the first match on or after the current page.
+    const int page = std::max(0, currentPage());
+    int start = 0;
+    for (int i = 0; i < m_matches.size(); ++i) {
+        if (m_matches.at(i).page >= page) {
+            start = i;
+            break;
+        }
+    }
+    showMatch(start);
+    return int(m_matches.size());
+}
+
+void BrPreviewWidget::showMatch(int index)
+{
+    if (m_matches.isEmpty())
+        return;
+    m_matchIndex = (index % int(m_matches.size()) + int(m_matches.size())) % int(m_matches.size());
+    const Match &m = m_matches.at(m_matchIndex);
+    const double k = pixelsPerMm();
+    const QRectF page = pageRect(m.page);
+    const double y = page.top() + m.rect.center().y() * k - viewport()->height() / 2.0;
+    const double x = page.left() + m.rect.center().x() * k - viewport()->width() / 2.0;
+    verticalScrollBar()->setValue(int(y));
+    horizontalScrollBar()->setValue(int(x));
+    viewport()->update();
+    emit findResultChanged(m_matchIndex, int(m_matches.size()));
+}
+
+void BrPreviewWidget::findNext()
+{
+    showMatch(m_matchIndex + 1);
+}
+
+void BrPreviewWidget::findPrevious()
+{
+    showMatch(m_matchIndex - 1);
+}
+
+void BrPreviewWidget::clearFind()
+{
+    m_matches.clear();
+    m_matchIndex = -1;
+    viewport()->update();
+    emit findResultChanged(-1, 0);
 }

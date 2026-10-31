@@ -57,6 +57,22 @@ public:
     double padding() const { return m_padding; }
     void setPadding(double mm) { m_padding = mm; }
 
+    /*! Does not print anything (not even background/borders) when the text is empty. */
+    bool hideIfEmpty() const { return m_hideIfEmpty; }
+    void setHideIfEmpty(bool on) { m_hideIfEmpty = on; }
+
+    /*! Reduces the font size (down to 4 pt) until the text fits the control. */
+    bool shrinkToFit() const { return m_shrinkToFit; }
+    void setShrinkToFit(bool on) { m_shrinkToFit = on; }
+
+    /*!
+     * Interprets the text as HTML: <b>, <i>, <u>, <font color=...>, <br>,
+     * <span style="...">, lists and simple tables. The control font and color are
+     * the defaults. Rich text always wraps.
+     */
+    bool allowHtml() const { return m_allowHtml; }
+    void setAllowHtml(bool on) { m_allowHtml = on; }
+
     /*! Text computed for the current print (after prepare()). */
     QString currentText() const { return m_currentText; }
 
@@ -76,7 +92,12 @@ private:
     bool m_autoStretch = false;
     double m_angle = 0.0;
     double m_padding = 0.0;
+    bool m_hideIfEmpty = false;
+    bool m_shrinkToFit = false;
+    bool m_allowHtml = false;
     QString m_currentText;
+
+    QFont fittingFont(const QRectF &inner) const;
 };
 
 /*! Static text. */

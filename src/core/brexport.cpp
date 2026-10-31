@@ -225,6 +225,20 @@ QString BrExport::toSvg(const BrPage &page)
             if (!it.image.isNull())
                 s << svgImage(it);
             break;
+        case BrPageItem::RichText: {
+            QString align = QStringLiteral("left");
+            if (it.alignment & Qt::AlignHCenter)
+                align = QStringLiteral("center");
+            else if (it.alignment & Qt::AlignRight)
+                align = QStringLiteral("right");
+            s << "<foreignObject x=\"" << num(it.rect.x()) << "\" y=\"" << num(it.rect.y())
+              << "\" width=\"" << num(it.rect.width()) << "\" height=\"" << num(it.rect.height())
+              << "\"><div xmlns=\"http://www.w3.org/1999/xhtml\" style=\"font-family:'"
+              << it.font.family().toHtmlEscaped() << "';font-size:" << num(Br::ptToMm(it.font.pointSizeF()))
+              << "px;color:" << svgColor(it.textColor) << ";text-align:" << align
+              << ";line-height:1.15\">" << it.text << "</div></foreignObject>\n";
+            break;
+        }
         }
     }
     s << "</svg>\n";

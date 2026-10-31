@@ -185,26 +185,47 @@ double BrContainer::layoutChildren(BrRenderContext &ctx, double width, double he
     double top = 0.0;
     double maxBottom = 0.0;
     QList<QPair<BrControl *, double>> bottoms;
+
+    // Free (non-aligned) controls, top to bottom, so that growth can push the ones below.
+    struct Free
+    {
+        BrControl *control;
+        QRectF rect;
+        double growth;
+    };
+    QList<Free> free;
+    QList<BrControl *> freeOrder;
+    for (BrControl *c : kids)
+        if (c->align() == Br::Align::None)
+            freeOrder << c;
+    std::stable_sort(freeOrder.begin(), freeOrder.end(),
+                     [](BrControl *a, BrControl *b) { return a->y() < b->y(); });
+    for (BrControl *c : freeOrder) {
+        const double h = heightOf(c, c->width());
+        double shift = 0.0;
+        if (shiftOnStretch()) {
+            for (const Free &f : free) {
+                const BrControl *o = f.control;
+                const bool below = c->y() >= o->y() + o->height() - 0.001;
+                const bool overlaps = c->x() < o->x() + o->width() && o->x() < c->x() + c->width();
+                const double pushed = f.rect.bottom() - (o->y() + o->height());
+                if (below && overlaps && pushed > 0.0)
+                    shift = std::max(shift, pushed);
+            }
+        }
+        const QRectF r(c->x(), c->y() + shift, c->width(), h);
+        free << Free{c, r, h - c->height()};
+        maxBottom = std::max(maxBottom, r.bottom());
+    }
+
     for (BrControl *c : kids) {
-        switch (c->align()) {
-        case Br::Align::Top: {
+        if (c->align() == Br::Align::Top) {
             const double h = heightOf(c, width);
             placed << Placement{c, QRectF(0, top, width, h)};
             top += h;
             maxBottom = std::max(maxBottom, top);
-            break;
-        }
-        case Br::Align::None: {
-            const double h = heightOf(c, c->width());
-            placed << Placement{c, QRectF(c->x(), c->y(), c->width(), h)};
-            maxBottom = std::max(maxBottom, c->y() + h);
-            break;
-        }
-        case Br::Align::Bottom:
+        } else if (c->align() == Br::Align::Bottom) {
             bottoms << qMakePair(c, heightOf(c, width));
-            break;
-        default:
-            break;
         }
     }
 
@@ -215,6 +236,12 @@ double BrContainer::layoutChildren(BrRenderContext &ctx, double width, double he
     double finalHeight = height;
     if (expand)
         finalHeight = std::max(height, std::max(maxBottom, top + bottomSum));
+
+    for (Free &f : free) {
+        if (f.control->stretchToBand())
+            f.rect.setBottom(std::max(f.rect.bottom(), finalHeight));
+        placed << Placement{f.control, f.rect};
+    }
 
     double b = finalHeight;
     for (int i = int(bottoms.size()) - 1; i >= 0; --i) {

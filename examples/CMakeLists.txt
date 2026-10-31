@@ -3,7 +3,7 @@ add_executable(hello_world hello_world/main.cpp)
 target_link_libraries(hello_world PRIVATE BrReportCore)
 
 if(BRREPORT_BUILD_WIDGETS)
-    foreach(example quick_start customer_list grouped_sales barcodes)
+    foreach(example quick_start customer_list grouped_sales barcodes receipt dashboard)
         add_executable(${example} ${example}/main.cpp common/exampleutil.h)
         target_include_directories(${example} PRIVATE common)
         target_link_libraries(${example} PRIVATE BrReportWidgets)

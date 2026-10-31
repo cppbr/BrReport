@@ -110,6 +110,13 @@ public:
 
     void setBeforePrint(const BeforePrintHandler &handler) { m_beforePrint = handler; }
 
+    /*!
+     * Stretches the control down to the bottom of its band/panel when the band
+     * grows (keeps table cells and vertical lines aligned). Default false.
+     */
+    bool stretchToBand() const { return m_stretchToBand; }
+    void setStretchToBand(bool on) { m_stretchToBand = on; }
+
     BrContainer *parentContainer() const;
     /*! The band this control belongs to (nullptr if not inside a band). */
     BrBand *band() const;
@@ -143,6 +150,7 @@ private:
     Br::Align m_align = Br::Align::None;
     bool m_visible = true;
     bool m_willPrint = true;
+    bool m_stretchToBand = false;
     QColor m_background;
     QColor m_color = Qt::black;
     BrBorders m_borders;
@@ -167,6 +175,13 @@ public:
     bool autoExpand() const { return m_autoExpand; }
     void setAutoExpand(bool on) { m_autoExpand = on; }
 
+    /*!
+     * When a child grows (stretched memo), move down the children placed below it
+     * that share part of its horizontal span (default true).
+     */
+    bool shiftOnStretch() const { return m_shiftOnStretch; }
+    void setShiftOnStretch(bool on) { m_shiftOnStretch = on; }
+
     bool checkPrint(BrRenderContext &ctx) override;
     void prepare(BrRenderContext &ctx) override;
     double measureHeight(BrRenderContext &ctx, double width) override;
@@ -189,6 +204,7 @@ protected:
 
 private:
     bool m_autoExpand = true;
+    bool m_shiftOnStretch = true;
 };
 
 /*! Plain container with optional background and borders. */

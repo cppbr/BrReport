@@ -18,7 +18,7 @@ The core library never touches widgets, so it can run in console programs and se
 BrReport (pager, page setup, main data source)
 ├── BrBand (Header / Title / ColumnHeader / Detail / ColumnFooter / Summary / Footer)
 │   ├── BrLabel, BrDBText, BrDBResult, BrSystemInfo, BrMemo, BrDBMemo
-│   ├── BrImage, BrDBImage, BrDraw, BrBarcode, BrDBBarcode (1D and QR Code)
+│   ├── BrImage, BrDBImage, BrDraw, BrBarcode, BrDBBarcode (1D and QR Code), BrChart
 │   └── BrPanel (container) ── more controls
 ├── BrGroup (pager: groups consecutive records with the same key)
 │   ├── BrBand ...
@@ -84,6 +84,13 @@ printRecord():
 
 The reserved bottom area is the sum of the report Footer bands plus the ColumnFooter bands of every
 open pager and the Footer bands of open groups/sub-details.
+
+### Multi-column details and continuous pages
+
+A Detail band with `setColumns(n)` is printed `n` records per row: each record gets a cell of
+`(width - spacing * (n - 1)) / n`, the row is as tall as its tallest cell and any other band ends
+the row. With `BrReport::setContinuous(true)` the engine never starts a second page; the report
+footer follows the content and the page height is set to the final content height.
 
 ### Page breaks
 

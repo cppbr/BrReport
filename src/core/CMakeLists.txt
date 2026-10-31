@@ -4,6 +4,7 @@ set(BRREPORT_CORE_HEADERS
     brglobal.h
     brband.h
     brbarcode.h
+    brchart.h
     brcontrol.h
     brdatasource.h
     brdocument.h
@@ -25,6 +26,7 @@ set(BRREPORT_CORE_HEADERS
 set(BRREPORT_CORE_SOURCES
     brband.cpp
     brbarcode.cpp
+    brchart.cpp
     brcontrol.cpp
     brdatasource.cpp
     brdocument.cpp

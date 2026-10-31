@@ -27,6 +27,8 @@
 #include "brdocument.h"
 #include "brrendercontext.h"
 
+#include <QHash>
+
 #include <memory>
 #include <vector>
 
@@ -103,11 +105,15 @@ private:
 
     void newPage();
     void closePage();
-    double bandsHeight(BrPager *pager, int bandType) const;
+    double bandsHeight(BrPager *pager, int bandType, bool onlyThisPage = false) const;
     double bottomLimit() const;
     bool pageHasBody() const;
 
+    void resetPager(BrPager *pager);
     void resetResults(BrPager *pager);
+    bool bandPrintsOnThisPage(BrBand *band) const;
+    void keepHeaderWithDetail(BrPager *pager);
+    void drawWatermark();
     void accumulate();
     BrDataSource *currentDataSource() const;
     static BrPager *dataOwnerOf(BrPager *pager);
@@ -128,6 +134,13 @@ private:
     bool m_pendingBreak = false;
     bool m_pendingAccumulate = false;
     bool m_abort = false;
+    bool m_lastPage = false;
+    QHash<BrBand *, int> m_zebra;
+    // Multi-column detail state
+    BrBand *m_columnBand = nullptr;
+    int m_column = 0;
+    double m_rowTop = 0.0;
+    double m_rowHeight = 0.0;
     int m_detailCount = 0;
     int m_carbon = 1;
     QString m_error;

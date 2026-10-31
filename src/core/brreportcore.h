@@ -23,6 +23,7 @@
 #include "brglobal.h"
 #include "brband.h"
 #include "brbarcode.h"
+#include "brchart.h"
 #include "brcontrol.h"
 #include "brdatasource.h"
 #include "brdocument.h"

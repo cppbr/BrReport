@@ -17,7 +17,11 @@
 
 #include "brrenderer.h"
 
+#include <QAbstractTextDocumentLayout>
 #include <QPaintDevice>
+#include <QTextDocument>
+
+#include "brtextmetrics.h"
 #include <QPainter>
 #include <QPainterPath>
 #include <QtMath>
@@ -113,6 +117,24 @@ void BrRenderer::renderItem(QPainter *p, const BrPageItem &item, double deviceDp
         if (!item.image.isNull())
             p->drawImage(toUnits(item.rect), item.image);
         break;
+    case BrPageItem::RichText: {
+        if (item.text.isEmpty())
+            return;
+        auto doc = BrTextMetrics::richDocument(item.font, item.text, item.rect.width(), item.alignment);
+        const double refPxToUnits = 25.4 * UnitsPerMm / BrTextMetrics::referenceDpi();
+        p->save();
+        p->translate(item.rect.topLeft() * UnitsPerMm);
+        p->scale(refPxToUnits, refPxToUnits);
+        const QRectF clip(0, 0, item.rect.width() * BrTextMetrics::referenceDpi() / 25.4,
+                          item.rect.height() * BrTextMetrics::referenceDpi() / 25.4);
+        QAbstractTextDocumentLayout::PaintContext context;
+        context.palette.setColor(QPalette::Text, item.textColor);
+        context.clip = clip;
+        p->setClipRect(clip, Qt::IntersectClip);
+        doc->documentLayout()->draw(p, context);
+        p->restore();
+        break;
+    }
     }
 }
 

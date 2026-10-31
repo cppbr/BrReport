@@ -25,6 +25,7 @@
 
 class BrPreviewWidget;
 class QComboBox;
+class QLineEdit;
 class QLabel;
 class QSpinBox;
 class QToolBar;
@@ -59,6 +60,9 @@ private:
     QSpinBox *m_pageSpin;
     QLabel *m_pageCountLabel;
     QComboBox *m_zoomCombo;
+    QLineEdit *m_findEdit;
+    QLabel *m_findLabel;
+    QString m_lastSearch;
 };
 
 #endif // BRPREVIEWDIALOG_H

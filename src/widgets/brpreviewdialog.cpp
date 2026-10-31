@@ -25,6 +25,7 @@
 #include <QComboBox>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -109,6 +110,56 @@ BrPreviewDialog::BrPreviewDialog(QWidget *parent) : QDialog(parent)
         &BrPreviewDialog::openDocument);
     openAction->setShortcut(QKeySequence::Open);
     m_toolBar->addSeparator();
+
+    m_findEdit = new QLineEdit(this);
+    m_findEdit->setPlaceholderText(tr("Find text"));
+    m_findEdit->setClearButtonEnabled(true);
+    m_findEdit->setMaximumWidth(200);
+    m_toolBar->addWidget(m_findEdit);
+    m_findLabel = new QLabel(this);
+    m_findLabel->setContentsMargins(4, 0, 4, 0);
+    m_toolBar->addWidget(m_findLabel);
+    auto *findAction = new QAction(this);
+    findAction->setShortcut(QKeySequence::Find);
+    connect(findAction, &QAction::triggered, this, [this]() {
+        m_findEdit->setFocus();
+        m_findEdit->selectAll();
+    });
+    addAction(findAction);
+    auto *findNextAction = new QAction(this);
+    findNextAction->setShortcut(QKeySequence::FindNext);
+    connect(findNextAction, &QAction::triggered, m_view, &BrPreviewWidget::findNext);
+    addAction(findNextAction);
+    auto *findPrevAction = new QAction(this);
+    findPrevAction->setShortcut(QKeySequence::FindPrevious);
+    connect(findPrevAction, &QAction::triggered, m_view, &BrPreviewWidget::findPrevious);
+    addAction(findPrevAction);
+    connect(m_findEdit, &QLineEdit::returnPressed, this, [this]() {
+        const QString text = m_findEdit->text();
+        if (text != m_lastSearch) {
+            m_lastSearch = text;
+            m_view->find(text);
+        } else if (QGuiApplication::keyboardModifiers() & Qt::ShiftModifier) {
+            m_view->findPrevious();
+        } else {
+            m_view->findNext();
+        }
+    });
+    connect(m_findEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (text.isEmpty()) {
+            m_lastSearch.clear();
+            m_view->clearFind();
+        }
+    });
+    connect(m_view, &BrPreviewWidget::findResultChanged, this, [this](int index, int count) {
+        if (m_lastSearch.isEmpty())
+            m_findLabel->clear();
+        else if (count == 0)
+            m_findLabel->setText(tr("not found"));
+        else
+            m_findLabel->setText(tr("%1 of %2").arg(index + 1).arg(count));
+    });
+    m_toolBar->addSeparator();
     m_toolBar->addAction(themeIcon("window-close", QStyle::SP_DialogCloseButton, st), tr("Close"),
                          this, &QDialog::reject);
 
@@ -150,6 +201,8 @@ void BrPreviewDialog::setDocument(const BrDocument &document)
     if (!document.title.isEmpty())
         setWindowTitle(tr("Print Preview - %1").arg(document.title));
     m_view->setDocument(document);
+    m_lastSearch.clear();
+    m_findLabel->clear();
     m_pageSpin->setMaximum(std::max(1, document.pageCount()));
     m_pageCountLabel->setText(tr("of %1").arg(document.pageCount()));
     updatePageControls(m_view->currentPage());

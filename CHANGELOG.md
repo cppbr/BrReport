@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Continuous pages for receipt/roll printers (`BrReport::setContinuous()`).
+- Watermarks with text and/or image (`BrReport::setWatermark()`).
+- Charts (`BrChart`): pie, bars, horizontal bars and lines, from static data or a data source.
+- Rich text: HTML in text objects (`BrCustomText::setAllowHtml()`), exported to PDF, images,
+  preview and HTML/SVG.
+- Multi-column detail bands (`BrBand::setColumns()`).
+- Zebra rows (`BrBand::setAlternateBackground()`).
+- Report header/footer bands only on the first/last page (`setPrintOnFirstPage()`,
+  `setPrintOnLastPage()`).
+- Group/sub-detail headers kept with their first record (`BrPager::setKeepHeaderWithDetail()`).
+- Objects pushed down by stretched objects above them (`BrContainer::setShiftOnStretch()`,
+  on by default) and objects stretched to the band height (`BrControl::setStretchToBand()`).
+- Text options: `setShrinkToFit()` and `setHideIfEmpty()`.
+- Text search in the preview window (Ctrl+F, F3).
+- `brview` tool to view, print and convert `.brp` documents.
+- `dashboard` and `receipt` examples.
+
 ## [0.1.0] - 2026-10-31
 
 ### Added

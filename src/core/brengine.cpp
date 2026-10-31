@@ -195,7 +195,7 @@ bool BrEngine::run(BrDocument *document, QString *error)
     const QRectF content = m_report->contentRect();
     m_left = content.left();
     m_width = content.width();
-    m_pageBottom = content.bottom();
+    m_pageBottom = m_report->isContinuous() ? content.top() + 1.0e7 : content.bottom();
     if (m_width <= 0 || content.height() <= 0) {
         if (error)
             *error = QStringLiteral("The page margins leave no printable area.");
@@ -206,10 +206,11 @@ bool BrEngine::run(BrDocument *document, QString *error)
 
     Frame *rf = push(m_report, m_report->dataSource(), true);
     rf->headersPrinted = true;
-    resetResults(m_report);
+    resetPager(m_report);
     newPage();
     iterateRecords(*rf);
     finishPager(*rf);
+    m_lastPage = true;
     closePage();
     pop();
 
@@ -283,7 +284,8 @@ void BrEngine::runGroup(BrGroup *group)
 
     Frame *f = push(group, ds, false);
     f->key = group->key(*this);
-    resetResults(group);
+    resetPager(group);
+    keepHeaderWithDetail(group);
     printSlot(group, int(Br::BandType::Title), Mode::Flow);
     printSlot(group, int(Br::BandType::Header), Mode::Flow);
     printSlot(group, int(Br::BandType::ColumnHeader), Mode::Flow);
@@ -322,7 +324,8 @@ void BrEngine::runSubDetail(BrSubDetail *sub)
 
     Frame *f = push(sub, ds, true);
     f->recNo = 1;
-    resetResults(sub);
+    resetPager(sub);
+    keepHeaderWithDetail(sub);
     printSlot(sub, int(Br::BandType::Title), Mode::Flow);
     printSlot(sub, int(Br::BandType::Header), Mode::Flow);
     printSlot(sub, int(Br::BandType::ColumnHeader), Mode::Flow);
@@ -404,43 +407,118 @@ void BrEngine::printBand(BrBand *band, Mode mode, double *fixedY)
 {
     if (mode == Mode::Flow && m_pendingBreak)
         newPage();
+    if (!bandPrintsOnThisPage(band))
+        return;
+
+    const bool multiColumn = mode == Mode::Flow && !fixedY && band->columns() > 1
+                             && band->bandType() == Br::BandType::Detail;
+    if (mode == Mode::Flow && m_columnBand != band)
+        m_columnBand = nullptr; // any other band ends a row of columns
+    const double width = multiColumn
+                             ? (m_width - band->columnSpacing() * (band->columns() - 1)) / band->columns()
+                             : m_width;
 
     for (int copy = 1; copy <= band->carbonCopies(); ++copy) {
         m_carbon = copy;
         if (!band->checkPrint(*this))
             continue;
         band->prepare(*this);
-        double h = band->measureHeight(*this, m_width);
+        double h = band->measureHeight(*this, width);
+        const bool newRow = !multiColumn || m_columnBand != band || m_column == 0;
 
         if (mode == Mode::Flow) {
             bool broke = false;
-            if (band->pageBreak() == Br::PageBreak::Before && pageHasBody()) {
-                newPage();
-                broke = true;
-            }
-            if (!broke && m_y + h > bottomLimit() + kEpsilon && pageHasBody()) {
-                newPage();
-                broke = true;
+            if (newRow) {
+                if (band->pageBreak() == Br::PageBreak::Before && pageHasBody()) {
+                    newPage();
+                    broke = true;
+                }
+                if (!broke && m_y + h > bottomLimit() + kEpsilon && pageHasBody()) {
+                    newPage();
+                    broke = true;
+                }
             }
             if (broke) { // page-dependent content (page numbers) must be recomputed
                 band->prepare(*this);
-                h = band->measureHeight(*this, m_width);
+                h = band->measureHeight(*this, width);
             }
             if (m_pendingAccumulate && band->bandType() == Br::BandType::Detail)
                 accumulate();
         }
 
-        const double y = fixedY ? *fixedY : m_y;
-        band->render(*this, QRectF(m_left, y, m_width, h), m_doc->pages.last());
-        if (fixedY)
+        // Zebra stripes
+        const QColor savedBackground = band->background();
+        if (band->alternateBackground().isValid() && band->bandType() == Br::BandType::Detail) {
+            if (m_zebra[band]++ % 2 == 1)
+                band->setBackground(band->alternateBackground());
+        }
+
+        double x = m_left;
+        double y = fixedY ? *fixedY : m_y;
+        if (multiColumn) {
+            if (newRow) {
+                m_columnBand = band;
+                m_column = 0;
+                m_rowTop = m_y;
+                m_rowHeight = 0.0;
+            }
+            x = m_left + m_column * (width + band->columnSpacing());
+            y = m_rowTop;
+        }
+        band->render(*this, QRectF(x, y, width, h), m_doc->pages.last());
+        band->setBackground(savedBackground);
+
+        if (multiColumn) {
+            if (h > m_rowHeight) {
+                m_rowHeight = h;
+                m_y = m_rowTop + h;
+            }
+            m_column = (m_column + 1) % band->columns();
+        } else if (fixedY) {
             *fixedY += h;
-        else
+        } else {
             m_y += h;
+        }
         band->callAfterPrint();
         if (mode == Mode::Flow && band->pageBreak() == Br::PageBreak::After)
             m_pendingBreak = true;
     }
     m_carbon = 1;
+}
+
+bool BrEngine::bandPrintsOnThisPage(BrBand *band) const
+{
+    if (band->pager() != m_report)
+        return true;
+    const Br::BandType t = band->bandType();
+    if (t != Br::BandType::Header && t != Br::BandType::Footer)
+        return true;
+    if (m_pageNumber == 1 && !band->printOnFirstPage())
+        return false;
+    if (t == Br::BandType::Footer && m_lastPage && !band->printOnLastPage())
+        return false;
+    return true;
+}
+
+void BrEngine::keepHeaderWithDetail(BrPager *pager)
+{
+    if (!pager->keepHeaderWithDetail() || !pageHasBody() || m_report->isContinuous())
+        return;
+    double need = 0.0;
+    for (BrPager *p = pager; p; p = p->group()) {
+        need += bandsHeight(p, int(Br::BandType::Title)) + bandsHeight(p, int(Br::BandType::Header))
+                + bandsHeight(p, int(Br::BandType::ColumnHeader));
+        if (!p->group()) {
+            for (BrBand *b : p->bands(Br::BandType::Detail)) {
+                if (b->isVisible()) {
+                    need += b->height();
+                    break;
+                }
+            }
+        }
+    }
+    if (m_y + need > bottomLimit() + kEpsilon)
+        newPage();
 }
 
 // ---------------------------------------------------------------------------
@@ -452,11 +530,11 @@ bool BrEngine::pageHasBody() const
     return m_y > m_bodyTop + kEpsilon;
 }
 
-double BrEngine::bandsHeight(BrPager *pager, int bandType) const
+double BrEngine::bandsHeight(BrPager *pager, int bandType, bool onlyThisPage) const
 {
     double h = 0.0;
     for (BrBand *b : pager->bands(Br::BandType(bandType)))
-        if (b->isVisible())
+        if (b->isVisible() && (!onlyThisPage || bandPrintsOnThisPage(b)))
             h += b->height() * b->carbonCopies();
     return h;
 }
@@ -476,6 +554,10 @@ double BrEngine::bottomLimit() const
 
 void BrEngine::newPage()
 {
+    if (m_hasPage && m_report->isContinuous()) {
+        m_pendingBreak = false; // a continuous report has a single page
+        return;
+    }
     if (m_hasPage)
         closePage();
     if (m_doc->pageCount() >= m_report->maxPages()) {
@@ -491,7 +573,9 @@ void BrEngine::newPage()
     m_pageNumber = m_doc->pageCount();
     m_hasPage = true;
     m_pendingBreak = false;
+    m_columnBand = nullptr;
     m_y = m_report->contentRect().top();
+    drawWatermark();
 
     for (const auto &frame : m_stack) {
         if (frame->ending && !frame->isReport)
@@ -533,16 +617,61 @@ void BrEngine::closePage()
             f.footerPrinted = true;
         }
     }
-    // Report footer: anchored to the bottom of the printable area.
-    double y = m_pageBottom - bandsHeight(m_report, int(Br::BandType::Footer));
+    // Report footer: anchored to the bottom of the printable area
+    // (right after the content on a continuous page).
+    const bool continuous = m_report->isContinuous();
+    double y = continuous ? m_y
+                          : m_pageBottom - bandsHeight(m_report, int(Br::BandType::Footer), true);
     for (BrBand *b : m_report->bands(Br::BandType::Footer))
         printBand(b, Mode::Fixed, &y);
+    if (continuous)
+        m_doc->pages.last().size.setHeight(y + m_report->margins().bottom());
     m_hasPage = true;
+}
+
+void BrEngine::drawWatermark()
+{
+    const BrWatermark wm = m_report->watermark();
+    if (!wm.isEnabled() || m_doc->pages.isEmpty())
+        return;
+    BrPage &page = m_doc->pages.last();
+    const QRectF content = m_report->contentRect();
+    if (!wm.image.isNull()) {
+        QImage img = wm.image.convertToFormat(QImage::Format_ARGB32);
+        const double opacity = qBound(0.0, wm.imageOpacity, 1.0);
+        for (int yy = 0; yy < img.height(); ++yy) {
+            auto *line = reinterpret_cast<QRgb *>(img.scanLine(yy));
+            for (int xx = 0; xx < img.width(); ++xx)
+                line[xx] = qRgba(qRed(line[xx]), qGreen(line[xx]), qBlue(line[xx]),
+                                 int(qAlpha(line[xx]) * opacity));
+        }
+        // On a continuous page the final height is unknown: use the nominal page size.
+        const QRectF area(content.left(), content.top(), content.width(),
+                          m_report->pageSizeMm().height() - m_report->margins().top()
+                              - m_report->margins().bottom());
+        QSizeF size = img.size();
+        size.scale(area.size(), Qt::KeepAspectRatio);
+        QRectF target(QPointF(), size);
+        target.moveCenter(area.center());
+        page.items << BrPageItem::makeImage(target, img);
+    }
+    if (!wm.text.isEmpty()) {
+        const QRectF rect(QPointF(0, 0), m_report->pageSizeMm());
+        page.items << BrPageItem::makeText(rect, wm.text, wm.font, wm.color, Qt::AlignCenter,
+                                           wm.angle);
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Results
 // ---------------------------------------------------------------------------
+
+void BrEngine::resetPager(BrPager *pager)
+{
+    resetResults(pager);
+    for (BrBand *b : pager->bands())
+        m_zebra.remove(b);
+}
 
 void BrEngine::resetResults(BrPager *pager)
 {

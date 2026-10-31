@@ -51,6 +51,33 @@ public:
     int carbonCopies() const { return m_carbonCopies; }
     void setCarbonCopies(int copies) { m_carbonCopies = qMax(1, copies); }
 
+    /*!
+     * Detail bands: background used on every other record (zebra stripes). The
+     * sequence restarts when the band's pager (group, sub-detail) starts.
+     */
+    QColor alternateBackground() const { return m_alternateBackground; }
+    void setAlternateBackground(const QColor &color) { m_alternateBackground = color; }
+
+    /*! Report Header/Footer bands: print on the first page (default true). */
+    bool printOnFirstPage() const { return m_printOnFirstPage; }
+    void setPrintOnFirstPage(bool on) { m_printOnFirstPage = on; }
+
+    /*! Report Footer bands: print on the last page (default true). */
+    bool printOnLastPage() const { return m_printOnLastPage; }
+    void setPrintOnLastPage(bool on) { m_printOnLastPage = on; }
+
+    /*!
+     * Detail bands: number of records printed side by side (labels, cards).
+     * Records fill a row from left to right before starting the next row.
+     */
+    int columns() const { return m_columns; }
+    void setColumns(int count, double spacing = 0.0)
+    {
+        m_columns = qMax(1, count);
+        m_columnSpacing = qMax(0.0, spacing);
+    }
+    double columnSpacing() const { return m_columnSpacing; }
+
     void setAfterPrint(const AfterPrintHandler &handler) { m_afterPrint = handler; }
     void callAfterPrint();
 
@@ -60,6 +87,11 @@ private:
     Br::BandType m_type;
     Br::PageBreak m_pageBreak = Br::PageBreak::None;
     int m_carbonCopies = 1;
+    QColor m_alternateBackground;
+    bool m_printOnFirstPage = true;
+    bool m_printOnLastPage = true;
+    int m_columns = 1;
+    double m_columnSpacing = 0.0;
     AfterPrintHandler m_afterPrint;
 };
 
