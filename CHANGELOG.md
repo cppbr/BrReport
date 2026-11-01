@@ -23,6 +23,9 @@ follows [Semantic Versioning](https://semver.org/).
 - Text search in the preview window (Ctrl+F, F3).
 - `brview` tool to view, print and convert `.brp` documents.
 - `dashboard` and `receipt` examples.
+- Brazilian Portuguese translation of the preview window and the designer, embedded in the
+  libraries (`BrTranslations::install()`); `brdesigner`, `brview` and the examples follow the system
+  language; `update_translations` build target for maintainers.
 - Report designer (`BrReport::Designer`, `BrDesignerWidget`) and the standalone `brdesigner`
   application: toolbox, drag fields from the data panel, move/resize with grid snapping, band
   resizing, structure tree, property editor, groups, sub-reports, SQL query editor, alignment,

@@ -5,6 +5,8 @@ set(BRREPORT_DESIGNER_HEADERS
 
 set(BRREPORT_DESIGNER_SOURCES
     brdesignerwidget.cpp
+    brdesignerlabels.cpp
+    brdesignerlabels_p.h
     brdesignscene.cpp
     brdesignscene_p.h
     brpropertyeditor.cpp

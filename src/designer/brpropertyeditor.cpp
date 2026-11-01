@@ -17,6 +17,8 @@
 
 #include "brpropertyeditor_p.h"
 
+#include "brdesignerlabels_p.h"
+
 #include "brchart.h"
 #include "brcontrol.h"
 #include "brreport.h"
@@ -179,7 +181,7 @@ void BrPropertyEditor::setObjects(const QList<QObject *> &objects)
 
 QString BrPropertyEditor::labelFor(const QString &name)
 {
-    static const QHash<QString, QString> special = {
+    const QHash<QString, QString> special = {
         {QStringLiteral("dataField"), tr("Field")},
         {QStringLiteral("dataFormula"), tr("Formula")},
         {QStringLiteral("dataFields"), tr("Group by fields")},
@@ -192,15 +194,7 @@ QString BrPropertyEditor::labelFor(const QString &name)
     };
     if (special.contains(name))
         return special.value(name);
-    QString out;
-    for (int i = 0; i < name.size(); ++i) {
-        const QChar c = name.at(i);
-        if (i > 0 && c.isUpper() && !name.at(i - 1).isUpper())
-            out += QLatin1Char(' ') + c.toLower();
-        else
-            out += i == 0 ? c.toUpper() : c;
-    }
-    return out;
+    return BrDesignerLabels::label(name);
 }
 
 void BrPropertyEditor::apply(const char *name, const QVariant &value)
@@ -231,7 +225,7 @@ void BrPropertyEditor::refresh()
 
     QObject *first = objs.first();
     auto *title = new QLabel(QStringLiteral("<b>%1</b>%2")
-                                 .arg(BrReportFile::typeName(first),
+                                 .arg(BrDesignerLabels::typeLabel(qobject_cast<BrReport *>(first) ? QStringLiteral("Report") : BrReportFile::typeName(first)),
                                       objs.size() > 1 ? tr(" (%1 selected)").arg(objs.size()) : QString()),
                              m_panel);
     outer->addWidget(title);
@@ -263,11 +257,10 @@ void BrPropertyEditor::refresh()
             h->setContentsMargins(0, 0, 0, 0);
             QList<QDoubleSpinBox *> spins;
             const double values[] = {g.x(), g.y(), g.width(), g.height()};
-            const char *tips[] = {"X", "Y", "W", "H"};
+            const QStringList tips = {tr("X"), tr("Y"), tr("W", "width"), tr("H", "height")};
             for (int i = 0; i < 4; ++i) {
                 auto *s = mmSpin(values[i], row, i >= 2 ? 0.5 : -10000.0);
-                s->setToolTip(QString::fromLatin1(tips[i]));
-                s->setPrefix(QString::fromLatin1(tips[i]) + QLatin1Char(' '));
+                s->setPrefix(tips.at(i) + QLatin1Char(' '));
                 h->addWidget(s);
                 spins << s;
             }
@@ -327,10 +320,10 @@ QWidget *BrPropertyEditor::createEditor(const QMetaProperty &p, QObject *object)
         h->setContentsMargins(0, 0, 0, 0);
         h->setSpacing(2);
         QList<QCheckBox *> sides;
-        const char *labels[] = {"L", "T", "R", "B"};
+        const QStringList labels = {tr("L", "left"), tr("T", "top"), tr("R", "right"), tr("B", "bottom")};
         const bool values[] = {b.left, b.top, b.right, b.bottom};
         for (int i = 0; i < 4; ++i) {
-            auto *cb = new QCheckBox(QString::fromLatin1(labels[i]), row);
+            auto *cb = new QCheckBox(labels.at(i), row);
             cb->setChecked(values[i]);
             h->addWidget(cb);
             sides << cb;
@@ -570,10 +563,10 @@ QWidget *BrPropertyEditor::createEditor(const QMetaProperty &p, QObject *object)
         h->setContentsMargins(0, 0, 0, 0);
         QList<QDoubleSpinBox *> spins;
         const double values[] = {m.left(), m.top(), m.right(), m.bottom()};
-        const char *tips[] = {"L", "T", "R", "B"};
+        const QStringList tips = {tr("L", "left"), tr("T", "top"), tr("R", "right"), tr("B", "bottom")};
         for (int i = 0; i < 4; ++i) {
             auto *s = mmSpin(values[i], row, 0.0);
-            s->setPrefix(QString::fromLatin1(tips[i]) + QLatin1Char(' '));
+            s->setPrefix(tips.at(i) + QLatin1Char(' '));
             h->addWidget(s);
             spins << s;
         }

@@ -22,6 +22,18 @@ Please include:
 4. Update the documentation (`README.md`, `docs/`) and `CHANGELOG.md` when behavior changes.
 5. Code, comments, commit messages and documentation are written in **English**.
 
+## Translations
+
+User interface strings are written in English in the code (`tr()`), and translated with Qt Linguist.
+The translation sources live in `translations/brreport_<language>.ts`.
+
+- **Update** the existing files after changing strings in the code:
+  `cmake --build build --target update_translations`
+- **Translate** with Qt Linguist (`linguist translations/brreport_pt_BR.ts`) or any `.ts` editor.
+- **Add a language**: copy `brreport_pt_BR.ts` to `brreport_<language>.ts` (e.g. `brreport_es.ts`),
+  set the `language` attribute, run `update_translations` and translate. The build compiles every
+  `.ts` file and embeds it in the libraries; `BrTranslations::install()` picks it up.
+
 ## Coding style
 
 - C++17, Qt naming conventions (`camelCase` methods, `m_` members, `Br` class prefix).

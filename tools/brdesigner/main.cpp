@@ -23,6 +23,7 @@
 // Data > Database connection (the password is never saved).
 
 #include "brdesignerwidget.h"
+#include "brtranslations.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -114,6 +115,7 @@ int main(int argc, char *argv[])
     QApplication::setOrganizationName(QStringLiteral("BrReport"));
     QApplication::setApplicationName(QStringLiteral("brdesigner"));
     QApplication::setApplicationVersion(QStringLiteral(BRREPORT_VERSION_STR));
+    BrTranslations::install(); // user interface in the system language (e.g. pt_BR)
 
     BrDesignerWidget designer;
 

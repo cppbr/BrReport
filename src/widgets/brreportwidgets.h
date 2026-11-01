@@ -24,5 +24,6 @@
 #include "brpreviewdialog.h"
 #include "brpreviewwidget.h"
 #include "brprinting.h"
+#include "brtranslations.h"
 
 #endif // BRREPORTWIDGETS_H

@@ -28,6 +28,11 @@ It is available in two forms:
 | Preview | F5 shows the report with real data |
 | Zoom | Ctrl + mouse wheel, Ctrl+0 fits the page to the window |
 
+## Language
+
+The designer is translated into Brazilian Portuguese. Call `BrTranslations::install()` after creating
+the `QApplication` to use the system language (`brdesigner` does it automatically).
+
 ## Embedding the designer
 
 ```cpp

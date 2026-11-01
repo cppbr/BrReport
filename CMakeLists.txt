@@ -52,6 +52,17 @@ endif()
 if(BRREPORT_BUILD_WIDGETS AND BRREPORT_BUILD_TOOLS)
     add_subdirectory(tools)
 endif()
+# Maintainers: `cmake --build build --target update_translations` refreshes the .ts files.
+if(TARGET ${BRREPORT_QT}::lupdate)
+    file(GLOB BRREPORT_ALL_TS ${CMAKE_CURRENT_SOURCE_DIR}/translations/*.ts)
+    add_custom_target(update_translations
+        COMMAND ${BRREPORT_QT}::lupdate -locations none -no-obsolete src/widgets src/designer tools
+                -ts ${BRREPORT_ALL_TS}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Updating translation sources"
+        VERBATIM)
+endif()
+
 if(BRREPORT_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()

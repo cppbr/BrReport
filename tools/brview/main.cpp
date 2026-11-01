@@ -25,6 +25,7 @@
 #include "brexport.h"
 #include "brpreviewdialog.h"
 #include "brprinting.h"
+#include "brtranslations.h"
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -37,6 +38,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("brview"));
     QApplication::setApplicationVersion(QStringLiteral(BRREPORT_VERSION_STR));
+    BrTranslations::install();
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Viewer for prepared BrReport documents (.brp)."));

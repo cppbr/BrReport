@@ -32,6 +32,7 @@
  */
 inline int runExample(BrReport &report)
 {
+    BrTranslations::install(); // preview window in the system language
     QCommandLineParser parser;
     parser.addHelpOption();
     parser.addOption({QStringLiteral("pdf"), QStringLiteral("Export to PDF."), QStringLiteral("file")});

@@ -17,12 +17,15 @@
 
 #include "brdesignerwidget.h"
 #include "brdesignscene_p.h"
+#include "brpropertyeditor_p.h"
+#include "brreportwidgets.h"
 #include "brreportcore.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QMenuBar>
 #include <QTest>
 
 namespace {
@@ -178,6 +181,29 @@ private slots:
         QCOMPARE(texts(field), QStringLiteral("[customer]"));
         QCOMPARE(texts(sum), QStringLiteral("Sum(total)"));
         QCOMPARE(texts(page), QStringLiteral("Page # of ##"));
+    }
+
+    void portugueseTranslation()
+    {
+        QVERIFY(BrTranslations::availableLanguages().contains(QStringLiteral("pt_BR")));
+        QVERIFY(BrTranslations::install(QLocale(QLocale::Portuguese, QLocale::Brazil)));
+        {
+            BrDesignerWidget w;
+            QStringList menus;
+            for (QAction *a : w.menuBar()->actions())
+                menus << a->text().remove(QLatin1Char('&'));
+            QVERIFY2(menus.contains(QStringLiteral("Arquivo")), qPrintable(menus.join(QLatin1Char(','))));
+            QVERIFY(menus.contains(QStringLiteral("Relatório")));
+            QCOMPARE(BrPropertyEditor::labelFor(QStringLiteral("dataField")), QStringLiteral("Campo"));
+            QCOMPARE(BrPropertyEditor::labelFor(QStringLiteral("watermarkText")), QStringLiteral("Texto da marca d'água"));
+            QCOMPARE(BrPropertyEditor::labelFor(QStringLiteral("PagePreview")), QStringLiteral("Página X de Y"));
+            BrPreviewDialog preview;
+            QCOMPARE(preview.windowTitle(), QStringLiteral("Visualização de impressão"));
+        }
+        BrTranslations::uninstall();
+        QCOMPARE(BrPropertyEditor::labelFor(QStringLiteral("dataField")), QStringLiteral("Field"));
+        QVERIFY(!BrTranslations::install(QLocale(QLocale::Japanese)));
+        BrTranslations::uninstall();
     }
 };
 

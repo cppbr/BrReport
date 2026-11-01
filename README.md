@@ -282,6 +282,20 @@ The core library depends only on QtCore and QtGui, so it also runs on servers wi
 QT_QPA_PLATFORM=offscreen ./my-report-service
 ```
 
+## Translations
+
+The preview window and the designer are available in **English** and **Brazilian Portuguese**. The
+translations are embedded in the libraries; install them once after creating the application:
+
+```cpp
+QApplication app(argc, argv);
+BrTranslations::install();                                          // system language
+// BrTranslations::install(QLocale(QLocale::Portuguese, QLocale::Brazil));
+```
+
+`brdesigner` and `brview` use the system language automatically. New languages are welcome: see
+[CONTRIBUTING.md](CONTRIBUTING.md#translations).
+
 ## Installation
 
 ### Requirements
@@ -371,7 +385,7 @@ Every example except `quick_start` opens the preview window, or exports with `--
 
 - More barcodes: PDF417, Data Matrix, Code 39
 - Designer: rulers, guides, multi-page templates, expression builder, report parameters dialog
-- Translations (Brazilian Portuguese first) of the preview and the designer
+- More translations of the preview and the designer
 - Bands split across pages (very long texts)
 - XLSX, RTF and plain-text export
 - Translations of the preview window

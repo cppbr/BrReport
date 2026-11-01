@@ -20,6 +20,7 @@
 #include "brband.h"
 #include "brcontrol.h"
 #include "brdatasource.h"
+#include "brdesignerlabels_p.h"
 #include "brdesignscene_p.h"
 #include "brpager.h"
 #include "brpreviewdialog.h"
@@ -116,13 +117,12 @@ QObject *objectAt(const QList<int> &path, QObject *root)
 
 QString describe(const QObject *o)
 {
-    QString type = BrReportFile::typeName(o);
-    if (qobject_cast<const BrReport *>(o))
-        type = QObject::tr("Report");
+    QString type = BrDesignerLabels::typeLabel(qobject_cast<const BrReport *>(o) ? QStringLiteral("Report")
+                                                                                 : BrReportFile::typeName(o));
     QString detail;
     if (auto *b = qobject_cast<const BrBand *>(o)) {
         const QMetaEnum e = QMetaEnum::fromType<Br::BandType>();
-        detail = QString::fromLatin1(e.valueToKey(int(b->bandType())));
+        detail = BrDesignerLabels::label(QString::fromLatin1(e.valueToKey(int(b->bandType()))));
     } else if (auto *l = qobject_cast<const BrLabel *>(o)) {
         detail = l->text().left(30);
     } else if (auto *t = qobject_cast<const BrDBText *>(o)) {
@@ -972,7 +972,7 @@ void BrDesignerWidget::insertObject(QObject *container, const QPointF &pos, cons
         QMessageBox::warning(this, tr("Insert"), error);
         return;
     }
-    commit(tr("Insert %1").arg(BrReportFile::typeName(o)));
+    commit(tr("Insert %1").arg(BrDesignerLabels::typeLabel(BrReportFile::typeName(o)).toLower()));
     d->scene->selectObjects({o});
 }
 
