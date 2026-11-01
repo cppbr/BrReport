@@ -383,6 +383,8 @@ Every example except `quick_start` opens the preview window, or exports with `--
 
 ## Roadmap
 
+The detailed list of pending work is in [TODO.md](TODO.md).
+
 - More barcodes: PDF417, Data Matrix, Code 39
 - Designer: rulers, guides, multi-page templates, expression builder, report parameters dialog
 - More translations of the preview and the designer
