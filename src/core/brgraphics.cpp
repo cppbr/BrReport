@@ -98,6 +98,11 @@ BrDBImage::BrDBImage(const QString &dataField, BrContainer *parent)
 
 QImage BrDBImage::currentImage(BrRenderContext &ctx)
 {
+    if (ctx.isDesignMode()) {
+        QImage img(64, 48, QImage::Format_ARGB32);
+        img.fill(QColor(0xe8, 0xec, 0xf2));
+        return img;
+    }
     const QVariant v = ctx.fieldValue(m_dataField);
     switch (v.userType()) {
     case QMetaType::QImage:

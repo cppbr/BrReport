@@ -109,6 +109,8 @@ public:
 protected:
     /*! Returns the text to print for the current record/page. */
     virtual QString computeText(BrRenderContext &ctx) = 0;
+    /*! Text shown by the report designer (default: computeText()). */
+    virtual QString designText(BrRenderContext &ctx) { return computeText(ctx); }
     void setCurrentText(const QString &text) { m_currentText = text; }
 
 private:
@@ -200,6 +202,7 @@ public:
 
 protected:
     QString computeText(BrRenderContext &ctx) override;
+    QString designText(BrRenderContext &ctx) override;
     QString formatValue(const QVariant &value, BrRenderContext &ctx) const;
     /*! Evaluates the field or formula. */
     QVariant fetchValue(BrRenderContext &ctx) const;
@@ -258,6 +261,7 @@ public:
 
 protected:
     QString computeText(BrRenderContext &ctx) override;
+    QString designText(BrRenderContext &ctx) override;
 
 private:
     Br::ResultType m_type = Br::ResultType::Sum;

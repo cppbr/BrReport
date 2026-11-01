@@ -7,6 +7,7 @@ set(BRREPORT_CORE_HEADERS
     brchart.h
     brcontrol.h
     brdatasource.h
+    brdesigncontext.h
     brdocument.h
     brexport.h
     brexpression.h
@@ -30,6 +31,7 @@ set(BRREPORT_CORE_SOURCES
     brchart.cpp
     brcontrol.cpp
     brdatasource.cpp
+    brdesigncontext.cpp
     brdocument.cpp
     brengine.cpp
     brengine_p.h

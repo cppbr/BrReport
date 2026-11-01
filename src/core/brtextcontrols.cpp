@@ -75,6 +75,11 @@ BrCustomText::BrCustomText(BrContainer *parent) : BrControl(parent) {}
 
 void BrCustomText::prepare(BrRenderContext &ctx)
 {
+    if (ctx.isDesignMode()) {
+        m_currentText = designText(ctx);
+        m_highlighted = false;
+        return;
+    }
     m_currentText = computeText(ctx);
     m_highlighted = m_highlightIf.isValid() && ctx.evaluate(m_highlightIf).toBool();
 }
@@ -277,6 +282,15 @@ QString BrDBText::computeText(BrRenderContext &ctx)
     return formatValue(m_value, ctx);
 }
 
+QString BrDBText::designText(BrRenderContext &)
+{
+    if (m_formula.isValid() || !m_formula.isEmpty())
+        return m_prefix + QLatin1Char('=') + m_formula.source() + m_suffix;
+    if (!m_dataField.isEmpty())
+        return m_prefix + QLatin1Char('[') + m_dataField + QLatin1Char(']') + m_suffix;
+    return QStringLiteral("[ ]");
+}
+
 BrDBMemo::BrDBMemo(BrContainer *parent) : BrDBText(parent)
 {
     setWordWrap(true);
@@ -353,6 +367,14 @@ QVariant BrDBResult::result() const
     return {};
 }
 
+QString BrDBResult::designText(BrRenderContext &)
+{
+    static const char *names[] = {"Sum", "Count", "Average", "Min", "Max", "First", "Last"};
+    const QString what = !dataFormula().isEmpty() ? dataFormula() : dataField();
+    return prefix() + QString::fromLatin1(names[int(m_type)]) + QLatin1Char('(') + what
+           + QLatin1Char(')') + suffix();
+}
+
 QString BrDBResult::computeText(BrRenderContext &ctx)
 {
     return formatValue(result(), ctx);
@@ -361,7 +383,8 @@ QString BrDBResult::computeText(BrRenderContext &ctx)
 void BrDBResult::render(BrRenderContext &ctx, const QRectF &rect, BrPage &page)
 {
     // The value may have changed between measuring and painting (see BrReport docs).
-    setCurrentText(computeText(ctx));
+    if (!ctx.isDesignMode())
+        setCurrentText(computeText(ctx));
     BrDBText::render(ctx, rect, page);
     if (m_resetAfterPrint)
         reset();

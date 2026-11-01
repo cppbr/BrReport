@@ -372,5 +372,15 @@ BrDBBarcode::BrDBBarcode(Br::BarcodeType type, const QString &dataField, BrConta
 
 QString BrDBBarcode::currentData(BrRenderContext &ctx)
 {
+    if (ctx.isDesignMode()) {
+        switch (barcodeType()) {
+        case Br::BarcodeType::Ean13:
+            return QStringLiteral("7891234567895");
+        case Br::BarcodeType::Interleaved2of5:
+            return QStringLiteral("12345678");
+        default:
+            return QLatin1Char('[') + m_dataField + QLatin1Char(']');
+        }
+    }
     return ctx.fieldValue(m_dataField).toString();
 }

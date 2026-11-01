@@ -63,11 +63,19 @@ applications with a ready-made preview window, or in console and server programs
 - Data on demand through a callback (`BrCallbackDataSource`)
 - Your own source: implement six methods of `BrDataSource`
 
+### Report designer
+
+- Visual designer for developers and end users: toolbox, drag fields into bands, move/resize with
+  grid snapping, property editor, groups, sub-reports, alignment, copy/paste, undo/redo, preview.
+- Standalone application (`brdesigner`) or a widget to embed in your application
+  (`BrDesignerWidget`), saving to files or to your database.
+
 ### Report files
 
 - Layouts stored as readable JSON (`.brt`), loaded at run time: change a report without recompiling.
 - Data sources referred to by name; conditional printing and highlighting written as formulas.
-- Foundation for the visual designer (see the roadmap).
+- SQL queries stored in the report, with parameters from report variables; the application keeps
+  the database connections (no passwords in reports).
 
 ### Expressions and formatting
 
@@ -233,6 +241,22 @@ code is expressed with properties: `printIf` and `highlightIf` formulas, zebra r
 master/detail links (`masterFields`/`detailFields`). See the
 [report file format](docs/report-file-format.md).
 
+### Report designer
+
+<p align="center"><img src="docs/images/designer.png" width="90%" alt="Report designer"></p>
+
+Use the standalone `brdesigner` application, or embed the designer in your application so that
+your users can adjust their own reports:
+
+```cpp
+auto *designer = new BrDesignerWidget;
+designer->addDataSource("customers", &customers);
+designer->openFile("customers.brt");             // or loadFromJson() + setSaveHandler() for a database
+designer->show();
+```
+
+See the [designer guide](docs/designer.md).
+
 ## Exporting and printing
 
 ```cpp
@@ -281,9 +305,10 @@ cmake --install build --prefix /usr/local
 |---|---|---|
 | `BUILD_SHARED_LIBS` | `ON` | Shared or static libraries |
 | `BRREPORT_BUILD_WIDGETS` | `ON` | Preview and printing library |
+| `BRREPORT_BUILD_DESIGNER` | `ON` | Report designer library and `brdesigner` |
 | `BRREPORT_WITH_SQL` | `ON` | SQL data source (links Qt SQL) |
 | `BRREPORT_BUILD_EXAMPLES` | `ON` | Example programs |
-| `BRREPORT_BUILD_TOOLS` | `ON` | `brview` document viewer |
+| `BRREPORT_BUILD_TOOLS` | `ON` | `brview` viewer and `brdesigner` application |
 | `BRREPORT_BUILD_TESTS` | `ON` | Unit tests |
 
 ### Using BrReport in your project
@@ -292,7 +317,8 @@ Installed package:
 
 ```cmake
 find_package(BrReport REQUIRED)
-target_link_libraries(myapp PRIVATE BrReport::Widgets)   # BrReport::Core for headless use
+target_link_libraries(myapp PRIVATE BrReport::Widgets)   # BrReport::Core for headless use,
+                                                         # BrReport::Designer for the designer
 ```
 
 As a sub-project:
@@ -304,12 +330,13 @@ add_subdirectory(third-party/brreport)
 target_link_libraries(myapp PRIVATE BrReport::Widgets)
 ```
 
-Then include `<brreportcore.h>` or `<brreportwidgets.h>`.
+Then include `<brreportcore.h>`, `<brreportwidgets.h>` or `<brdesignerwidget.h>`.
 
 | Library | Contents | Qt modules |
 |---|---|---|
 | `BrReport::Core` | Report model, layout engine, data sources, formulas, barcodes, PDF/HTML/SVG/image export | Core, Gui (+ Sql) |
 | `BrReport::Widgets` | Preview widget, preview dialog, printing | Widgets, PrintSupport |
+| `BrReport::Designer` | Report designer widget | Widgets, PrintSupport |
 
 ## Examples
 
@@ -336,13 +363,15 @@ Every example except `quick_start` opens the preview window, or exports with `--
 
 - [Architecture and print flow](docs/architecture.md)
 - [Report file format (.brt)](docs/report-file-format.md)
+- [Report designer](docs/designer.md)
 - API reference: every public class is documented in its header in [`src/`](src)
 - [Changelog](CHANGELOG.md)
 
 ## Roadmap
 
 - More barcodes: PDF417, Data Matrix, Code 39
-- Visual report designer (standalone application and embeddable widget)
+- Designer: rulers, guides, multi-page templates, expression builder, report parameters dialog
+- Translations (Brazilian Portuguese first) of the preview and the designer
 - Bands split across pages (very long texts)
 - XLSX, RTF and plain-text export
 - Translations of the preview window

@@ -82,6 +82,7 @@ class BRREPORT_EXPORT BrReport : public BrPager
     Q_PROPERTY(QString localeName READ localeName WRITE setLocaleName)
     Q_PROPERTY(QString dataSourceName READ dataSourceName WRITE setDataSourceName)
     Q_PROPERTY(QVariantMap variables READ variables WRITE setVariables)
+    Q_PROPERTY(QVariantList queries READ queries WRITE setQueries)
     Q_PROPERTY(int maxPages READ maxPages WRITE setMaxPages)
     Q_PROPERTY(QString watermarkText READ watermarkText WRITE setWatermarkText)
     Q_PROPERTY(QFont watermarkFont READ watermarkFont WRITE setWatermarkFont)
@@ -196,7 +197,23 @@ public:
      */
     void addDataSource(const QString &name, BrDataSource *dataSource);
     BrDataSource *findDataSource(const QString &name) const;
-    QStringList dataSourceNames() const { return m_dataSources.keys(); }
+    QStringList dataSourceNames() const;
+
+    /*!
+     * SQL queries stored in the report (report files), as a list of maps
+     * {"name", "sql", "connection"}. Before printing, each query runs on the Qt SQL
+     * connection with that name (empty = default connection) and becomes a data
+     * source with the query name. Placeholders ":name" are bound to report
+     * variables with the same name. A data source registered by the application
+     * with the same name takes precedence. Passwords are never stored in the
+     * report: the application opens the connections.
+     */
+    QVariantList queries() const { return m_queries; }
+    void setQueries(const QVariantList &queries) { m_queries = queries; }
+    void addQuery(const QString &name, const QString &sql, const QString &connection = QString());
+
+    /*! Runs the queries (prepare() does it). Returns false and sets errorString() on failure. */
+    bool openQueries();
 
     // -- Report files (layout as JSON, see docs/report-file-format.md) --
 
@@ -273,6 +290,9 @@ private:
     BrDataSource *m_dataSource = nullptr;
     QString m_dataSourceName;
     QHash<QString, BrDataSource *> m_dataSources;
+    QHash<QString, QString> m_dataSourceLabels; // lower-case key -> name as registered
+    QVariantList m_queries;
+    QHash<QString, BrDataSource *> m_queryDataSources; // owned, created from m_queries
     QString m_localeName;
     QVariantMap m_variables;
     QHash<QString, CustomFunction> m_functions;

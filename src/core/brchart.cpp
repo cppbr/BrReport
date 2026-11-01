@@ -144,6 +144,14 @@ void BrChart::prepare(BrRenderContext &ctx)
 {
     m_curLabels = m_labels;
     m_curSeries = m_series;
+    if (ctx.isDesignMode() && (m_dataSource || !m_dataSourceName.isEmpty() || !m_valueFields.isEmpty())) {
+        m_curLabels = {QStringLiteral("A"), QStringLiteral("B"), QStringLiteral("C"), QStringLiteral("D")};
+        m_curSeries.clear();
+        const QStringList names = m_valueFields.isEmpty() ? QStringList{QStringLiteral("Series")} : m_valueFields;
+        for (int i = 0; i < names.size(); ++i)
+            m_curSeries << Series{names.at(i), {4.0 + i, 7.0 - i, 5.0 + i, 8.0 - i}, QColor()};
+        return;
+    }
     BrDataSource *ds = m_dataSource;
     if (!ds && !m_dataSourceName.isEmpty() && ctx.report())
         ds = ctx.report()->findDataSource(m_dataSourceName);

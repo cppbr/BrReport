@@ -384,6 +384,19 @@ public:
         }
     }
 
+    QObject *readObject(QObject *parent, const QJsonObject &j, const QString &where)
+    {
+        QJsonArray one;
+        one << j;
+        const int before = int(parent->children().size());
+        if (!readChildren(parent, one, where)) {
+            if (parent->children().size() > before)
+                delete parent->children().last(); // remove the half-built object
+            return nullptr;
+        }
+        return parent->children().size() > before ? parent->children().last() : nullptr;
+    }
+
     bool readChildren(QObject *parent, const QJsonValue &value, const QString &where)
     {
         const QJsonArray children = value.toArray();
@@ -603,4 +616,32 @@ bool BrReportFile::fromJson(BrReport *report, const QByteArray &json, QString *e
     if (error)
         error->clear();
     return true;
+}
+
+QJsonObject BrReportFile::objectToJson(const QObject *object)
+{
+    return Writer().write(object, qobject_cast<const BrReport *>(object) != nullptr);
+}
+
+QObject *BrReportFile::objectFromJson(const QJsonObject &json, QObject *parent, QString *error)
+{
+    Reader reader;
+    QObject *o = reader.readObject(parent, json, BrReportFile::typeName(parent));
+    if (!o && error)
+        *error = reader.error;
+    for (const QString &w : reader.warnings)
+        qWarning("BrReportFile: %s", qPrintable(w));
+    return o;
+}
+
+bool BrReportFile::canContain(const QObject *parent, const QString &typeName)
+{
+    std::unique_ptr<QObject> probe(create(typeName));
+    if (!probe || !parent)
+        return false;
+    const bool isBand = qobject_cast<BrBand *>(probe.get());
+    const bool isPager = qobject_cast<BrPager *>(probe.get());
+    if (isBand || isPager)
+        return qobject_cast<const BrPager *>(parent) != nullptr;
+    return qobject_cast<const BrContainer *>(parent) != nullptr;
 }

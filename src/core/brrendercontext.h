@@ -67,6 +67,12 @@ public:
     virtual QDateTime reportDateTime() const = 0;
 
     QVariant evaluate(const BrExpression &expression) const { return expression.evaluate(*this); }
+
+    /*!
+     * True while objects are drawn by the report designer: there is no data, so
+     * data-aware objects show placeholders such as "[field]".
+     */
+    virtual bool isDesignMode() const { return false; }
 };
 
 #endif // BRRENDERCONTEXT_H

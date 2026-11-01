@@ -18,6 +18,8 @@
 #include "brreportcore.h"
 
 #include <QJsonDocument>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QJsonObject>
 #include <QTemporaryDir>
 #include <QTest>
@@ -306,6 +308,54 @@ private slots:
         QVERIFY(report.prepare());
         QCOMPARE(report.document().pageText(0),
                  QStringLiteral("Ana\nPen\nBook\nBruno\nCarla\nMug"));
+    }
+
+    void sqlQueriesInFile()
+    {
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("erp"));
+            db.setDatabaseName(QStringLiteral(":memory:"));
+            QVERIFY(db.open());
+            QSqlQuery q(db);
+            QVERIFY(q.exec(QStringLiteral("CREATE TABLE customer (name TEXT, city TEXT)")));
+            QVERIFY(q.exec(QStringLiteral("INSERT INTO customer VALUES ('Ana','Recife'),('Bruno','Belem'),('Carla','Recife')")));
+        }
+        const QByteArray json = R"({"format":"BrReport","version":1,"report":{
+            "dataSourceName":"customers",
+            "variables":{"city":"Recife"},
+            "queries":[{"name":"customers","connection":"erp",
+                        "sql":"SELECT name FROM customer WHERE city = :city ORDER BY name"}],
+            "children":[{"type":"Band","bandType":"Detail","height":5,
+                         "children":[{"type":"DBText","dataField":"name"}]}]}})";
+        BrReport report;
+        QVERIFY2(report.loadFromJson(json), qPrintable(report.errorString()));
+        QVERIFY(report.dataSourceNames().contains(QStringLiteral("customers")));
+        QVERIFY2(report.prepare(), qPrintable(report.errorString()));
+        QCOMPARE(report.document().pageText(0), QStringLiteral("Ana\nCarla"));
+
+        // Parameters come from the report variables
+        report.setVariable(QStringLiteral("city"), QStringLiteral("Belem"));
+        QVERIFY(report.prepare());
+        QCOMPARE(report.document().pageText(0), QStringLiteral("Bruno"));
+
+        // Saved with the layout
+        QVERIFY(report.toJson().contains("SELECT name FROM customer"));
+
+        // An application data source with the same name wins
+        BrListDataSource own({{{QStringLiteral("name"), QStringLiteral("From the app")}}});
+        report.addDataSource(QStringLiteral("customers"), &own);
+        QVERIFY(report.prepare());
+        QCOMPARE(report.document().pageText(0), QStringLiteral("From the app"));
+
+        // Errors are reported
+        BrReport bad;
+        bad.addQuery(QStringLiteral("x"), QStringLiteral("SELECT * FROM missing"), QStringLiteral("erp"));
+        QVERIFY(!bad.prepare());
+        QVERIFY(bad.errorString().contains(QStringLiteral("Query 'x'")));
+        BrReport noConnection;
+        noConnection.addQuery(QStringLiteral("x"), QStringLiteral("SELECT 1"), QStringLiteral("nope"));
+        QVERIFY(!noConnection.prepare());
+        QVERIFY(noConnection.errorString().contains(QStringLiteral("not open")));
     }
 };
 

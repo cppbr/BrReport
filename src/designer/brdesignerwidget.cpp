@@ -1,0 +1,1273 @@
+/*
+ * BrReport - Band-oriented report generator for C++/Qt
+ * Copyright 2026 João Elson
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "brdesignerwidget.h"
+
+#include "brband.h"
+#include "brcontrol.h"
+#include "brdatasource.h"
+#include "brdesignscene_p.h"
+#include "brpager.h"
+#include "brpreviewdialog.h"
+#include "brpropertyeditor_p.h"
+#include "brreport.h"
+#include "brreportfile.h"
+#include "brtextcontrols.h"
+
+#include <QAction>
+#include <QActionGroup>
+#include <QApplication>
+#include <QClipboard>
+#include <QCloseEvent>
+#include <QComboBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDockWidget>
+#include <QDrag>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QFormLayout>
+#include <QGraphicsView>
+#include <QHeaderView>
+#include <QInputDialog>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QKeyEvent>
+#include <QLabel>
+#include <QMetaEnum>
+#include <QLineEdit>
+#include <QMenu>
+#include <QMenuBar>
+#include <QMessageBox>
+#include <QMimeData>
+#include <QPlainTextEdit>
+#include <QPushButton>
+#include <QStatusBar>
+#include <QStyle>
+#include <QTimer>
+#include <QToolBar>
+#include <QTreeWidget>
+#include <QUndoStack>
+#include <QVBoxLayout>
+#include <QWheelEvent>
+
+#ifdef BRREPORT_HAS_SQL
+#include <QSqlDatabase>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QSqlRecord>
+#endif
+
+#include <algorithm>
+
+namespace {
+
+bool isLayoutObject(const QObject *o)
+{
+    return qobject_cast<const BrControl *>(o) || qobject_cast<const BrPager *>(o);
+}
+
+QList<QObject *> layoutChildren(const QObject *o)
+{
+    QList<QObject *> list;
+    for (QObject *c : o->children())
+        if (isLayoutObject(c))
+            list << c;
+    return list;
+}
+
+QList<int> pathOf(const QObject *object, const QObject *root)
+{
+    QList<int> path;
+    for (const QObject *o = object; o && o != root; o = o->parent()) {
+        if (!o->parent())
+            return {};
+        path.prepend(int(layoutChildren(o->parent()).indexOf(const_cast<QObject *>(o))));
+    }
+    return path;
+}
+
+QObject *objectAt(const QList<int> &path, QObject *root)
+{
+    QObject *o = root;
+    for (int i : path) {
+        const QList<QObject *> kids = layoutChildren(o);
+        if (i < 0 || i >= kids.size())
+            return nullptr;
+        o = kids.at(i);
+    }
+    return o;
+}
+
+QString describe(const QObject *o)
+{
+    QString type = BrReportFile::typeName(o);
+    if (qobject_cast<const BrReport *>(o))
+        type = QObject::tr("Report");
+    QString detail;
+    if (auto *b = qobject_cast<const BrBand *>(o)) {
+        const QMetaEnum e = QMetaEnum::fromType<Br::BandType>();
+        detail = QString::fromLatin1(e.valueToKey(int(b->bandType())));
+    } else if (auto *l = qobject_cast<const BrLabel *>(o)) {
+        detail = l->text().left(30);
+    } else if (auto *t = qobject_cast<const BrDBText *>(o)) {
+        detail = t->dataField().isEmpty() ? t->dataFormula().left(30) : t->dataField();
+    } else if (auto *g = qobject_cast<const BrGroup *>(o)) {
+        detail = g->dataFields().isEmpty() ? g->dataFormula() : g->dataFields();
+    } else if (auto *s = qobject_cast<const BrSubDetail *>(o)) {
+        detail = s->dataSourceName();
+    }
+    QString text = type;
+    if (!o->objectName().isEmpty())
+        text += QStringLiteral(" \"%1\"").arg(o->objectName());
+    if (!detail.isEmpty())
+        text += QStringLiteral(": ") + detail.simplified();
+    return text;
+}
+
+QJsonObject geometryTemplate(const char *type, double w, double h, QJsonObject extra = {})
+{
+    extra.insert(QStringLiteral("type"), QString::fromLatin1(type));
+    extra.insert(QStringLiteral("geometry"), QJsonArray{0, 0, w, h});
+    return extra;
+}
+
+/*! Tree of fields that can be dragged into the report. */
+class DataTree : public QTreeWidget
+{
+public:
+    explicit DataTree(QWidget *parent) : QTreeWidget(parent)
+    {
+        setHeaderHidden(true);
+        setDragEnabled(true);
+        setDragDropMode(QAbstractItemView::DragOnly);
+    }
+
+protected:
+    QStringList mimeTypes() const override { return {QStringLiteral(BRREPORT_OBJECT_MIME)}; }
+    QMimeData *mimeData(const QList<QTreeWidgetItem *> &items) const override
+    {
+        if (items.isEmpty() || items.first()->data(0, Qt::UserRole).isNull())
+            return nullptr;
+        auto *mime = new QMimeData;
+        mime->setData(QStringLiteral(BRREPORT_OBJECT_MIME), items.first()->data(0, Qt::UserRole).toByteArray());
+        return mime;
+    }
+};
+
+} // namespace
+
+// ---------------------------------------------------------------------------
+
+class BrSnapshotCommand : public QUndoCommand
+{
+public:
+    BrSnapshotCommand(BrDesignerWidget *w, const QByteArray &before, const QByteArray &after, const QString &text)
+        : QUndoCommand(text), m_w(w), m_before(before), m_after(after)
+    {
+    }
+    void undo() override { m_w->restoreSnapshot(m_before); }
+    void redo() override
+    {
+        if (m_first) {
+            m_first = false;
+            return;
+        }
+        m_w->restoreSnapshot(m_after);
+    }
+
+private:
+    BrDesignerWidget *m_w;
+    QByteArray m_before, m_after;
+    bool m_first = true;
+};
+
+struct BrDesignerWidget::Private
+{
+    BrReport report;
+    BrDesignScene *scene = nullptr;
+    QGraphicsView *view = nullptr;
+    QTreeWidget *tree = nullptr;
+    DataTree *data = nullptr;
+    BrPropertyEditor *properties = nullptr;
+    QUndoStack undo;
+    QByteArray current; // JSON of the last committed state
+    QHash<QString, BrDataSource *> dataSources;
+    BrDesignerWidget::SaveHandler saveHandler;
+    QActionGroup *tools = nullptr;
+    QAction *pointerTool = nullptr;
+    QAction *snapAction = nullptr;
+    QList<QAction *> fileOnlyActions;
+    double zoom = 1.0;
+    bool syncing = false;
+};
+
+BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new Private)
+{
+    setWindowTitle(tr("Report Designer"));
+    resize(1280, 860);
+    setDockNestingEnabled(true);
+
+    // --- Central view
+    d->scene = new BrDesignScene(this);
+    d->scene->setReport(&d->report);
+    d->view = new QGraphicsView(d->scene, this);
+    d->view->setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
+    d->view->setDragMode(QGraphicsView::RubberBandDrag);
+    d->view->setAcceptDrops(true);
+    d->view->setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+    d->view->viewport()->installEventFilter(this);
+    d->view->installEventFilter(this);
+    setCentralWidget(d->view);
+
+    // --- Docks
+    d->tree = new QTreeWidget(this);
+    d->tree->setHeaderHidden(true);
+    d->tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    auto *treeDock = new QDockWidget(tr("Structure"), this);
+    treeDock->setObjectName(QStringLiteral("structureDock"));
+    treeDock->setWidget(d->tree);
+    addDockWidget(Qt::LeftDockWidgetArea, treeDock);
+
+    d->data = new DataTree(this);
+    auto *dataDock = new QDockWidget(tr("Data"), this);
+    dataDock->setObjectName(QStringLiteral("dataDock"));
+    dataDock->setWidget(d->data);
+    addDockWidget(Qt::LeftDockWidgetArea, dataDock);
+
+    d->properties = new BrPropertyEditor(this);
+    auto *propDock = new QDockWidget(tr("Properties"), this);
+    propDock->setObjectName(QStringLiteral("propertiesDock"));
+    propDock->setWidget(d->properties);
+    propDock->setMinimumWidth(320);
+    addDockWidget(Qt::RightDockWidgetArea, propDock);
+
+    QStyle *st = style();
+    auto icon = [st](const char *theme, QStyle::StandardPixmap fallback) {
+        return QIcon::fromTheme(QString::fromLatin1(theme), st->standardIcon(fallback));
+    };
+
+    // --- File
+    m_fileMenu = menuBar()->addMenu(tr("&File"));
+    QAction *newAct = m_fileMenu->addAction(icon("document-new", QStyle::SP_FileIcon), tr("&New"), this,
+                                            &BrDesignerWidget::newReport);
+    newAct->setShortcut(QKeySequence::New);
+    QAction *openAct = m_fileMenu->addAction(icon("document-open", QStyle::SP_DialogOpenButton), tr("&Open..."),
+                                             this, [this]() { openFile(); });
+    openAct->setShortcut(QKeySequence::Open);
+    QAction *saveAct = m_fileMenu->addAction(icon("document-save", QStyle::SP_DialogSaveButton), tr("&Save"),
+                                             this, &BrDesignerWidget::save);
+    saveAct->setShortcut(QKeySequence::Save);
+    QAction *saveAsAct = m_fileMenu->addAction(tr("Save &as..."), this, &BrDesignerWidget::saveAs);
+    saveAsAct->setShortcut(QKeySequence::SaveAs);
+    d->fileOnlyActions = {openAct, saveAsAct};
+    m_fileMenu->addSeparator();
+    QAction *previewAct = m_fileMenu->addAction(icon("document-print-preview", QStyle::SP_FileDialogContentsView),
+                                                tr("&Preview"), this, &BrDesignerWidget::preview);
+    previewAct->setShortcut(QKeySequence(Qt::Key_F5));
+
+    // --- Edit
+    QMenu *editMenu = menuBar()->addMenu(tr("&Edit"));
+    QAction *undoAct = d->undo.createUndoAction(this, tr("&Undo"));
+    undoAct->setShortcut(QKeySequence::Undo);
+    undoAct->setIcon(icon("edit-undo", QStyle::SP_ArrowBack));
+    QAction *redoAct = d->undo.createRedoAction(this, tr("&Redo"));
+    redoAct->setShortcut(QKeySequence::Redo);
+    redoAct->setIcon(icon("edit-redo", QStyle::SP_ArrowForward));
+    editMenu->addAction(undoAct);
+    editMenu->addAction(redoAct);
+    editMenu->addSeparator();
+    QAction *cutAct = editMenu->addAction(icon("edit-cut", QStyle::SP_DialogDiscardButton), tr("Cu&t"), this, [this]() {
+        copySelection();
+        deleteSelection();
+    });
+    cutAct->setShortcut(QKeySequence::Cut);
+    QAction *copyAct = editMenu->addAction(icon("edit-copy", QStyle::SP_FileIcon), tr("&Copy"), this,
+                                           &BrDesignerWidget::copySelection);
+    copyAct->setShortcut(QKeySequence::Copy);
+    QAction *pasteAct = editMenu->addAction(icon("edit-paste", QStyle::SP_DialogApplyButton), tr("&Paste"), this,
+                                            &BrDesignerWidget::paste);
+    pasteAct->setShortcut(QKeySequence::Paste);
+    QAction *dupAct = editMenu->addAction(tr("D&uplicate"), this, &BrDesignerWidget::duplicateSelection);
+    dupAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_D));
+    QAction *delAct = editMenu->addAction(icon("edit-delete", QStyle::SP_TrashIcon), tr("&Delete"), this,
+                                          &BrDesignerWidget::deleteSelection);
+    delAct->setShortcut(QKeySequence::Delete);
+    editMenu->addSeparator();
+    QAction *upAct = editMenu->addAction(tr("Move &up / backward"), this, [this]() { moveInOrder(-1); });
+    upAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_PageUp));
+    QAction *downAct = editMenu->addAction(tr("Move do&wn / forward"), this, [this]() { moveInOrder(1); });
+    downAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_PageDown));
+
+    // --- Insert (toolbox)
+    QMenu *insertMenu = menuBar()->addMenu(tr("&Insert"));
+    QToolBar *toolbox = new QToolBar(tr("Toolbox"), this);
+    toolbox->setObjectName(QStringLiteral("toolbox"));
+    toolbox->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    d->tools = new QActionGroup(this);
+    d->pointerTool = toolbox->addAction(tr("Select"));
+    d->pointerTool->setCheckable(true);
+    d->pointerTool->setChecked(true);
+    d->tools->addAction(d->pointerTool);
+    connect(d->pointerTool, &QAction::triggered, this, [this]() { d->scene->setInsertTemplate(QJsonObject()); });
+    struct Tool { QString text; QJsonObject json; };
+    const QList<Tool> tools = {
+        {tr("Text"), geometryTemplate("Label", 30, 6, {{QStringLiteral("text"), tr("Text")}})},
+        {tr("Field"), geometryTemplate("DBText", 30, 6)},
+        {tr("Memo"), geometryTemplate("Memo", 60, 12, {{QStringLiteral("text"), tr("Memo")}})},
+        {tr("Total"), geometryTemplate("DBResult", 30, 6)},
+        {tr("Page number"), geometryTemplate("SystemInfo", 40, 6, {{QStringLiteral("info"), QStringLiteral("PagePreview")},
+                                                               {QStringLiteral("format"), tr("Page %1 of %2")}})},
+        {tr("Image"), geometryTemplate("Image", 20, 20)},
+        {tr("Rectangle"), geometryTemplate("Draw", 30, 15)},
+        {tr("Line"), geometryTemplate("Draw", 40, 2, {{QStringLiteral("kind"), QStringLiteral("HorizontalLine")}})},
+        {tr("Barcode"), geometryTemplate("Barcode", 40, 12, {{QStringLiteral("text"), QStringLiteral("123456789")}})},
+        {tr("QR Code"), geometryTemplate("Barcode", 20, 20, {{QStringLiteral("barcodeType"), QStringLiteral("QrCode")},
+                                                             {QStringLiteral("text"), QStringLiteral("https://")}})},
+        {tr("Chart"), geometryTemplate("Chart", 80, 50, {{QStringLiteral("labels"), QJsonArray{QStringLiteral("A"), QStringLiteral("B"), QStringLiteral("C")}},
+                                                         {QStringLiteral("seriesData"),
+                                                          QJsonArray{QJsonObject{{QStringLiteral("name"), tr("Series")},
+                                                                                 {QStringLiteral("values"), QJsonArray{3, 5, 4}}}}}})},
+        {tr("Panel"), geometryTemplate("Panel", 40, 20, {{QStringLiteral("borders"),
+                                                          QJsonObject{{QStringLiteral("sides"), QStringLiteral("ltrb")},
+                                                                      {QStringLiteral("width"), 0.2}}}})},
+    };
+    for (const Tool &tool : tools) {
+        QAction *a = toolbox->addAction(tool.text);
+        a->setCheckable(true);
+        a->setToolTip(tr("Insert %1: click inside a band").arg(tool.text.toLower()));
+        d->tools->addAction(a);
+        insertMenu->addAction(a);
+        const QJsonObject json = tool.json;
+        connect(a, &QAction::triggered, this, [this, json]() { d->scene->setInsertTemplate(json); });
+    }
+    addToolBar(Qt::LeftToolBarArea, toolbox);
+
+    // --- Report
+    QMenu *reportMenu = menuBar()->addMenu(tr("&Report"));
+    QMenu *bandMenu = reportMenu->addMenu(tr("Add &band"));
+    const QMetaEnum bandTypes = QMetaEnum::fromType<Br::BandType>();
+    for (int i = 0; i < bandTypes.keyCount(); ++i) {
+        const int value = bandTypes.value(i);
+        bandMenu->addAction(BrPropertyEditor::labelFor(QString::fromLatin1(bandTypes.key(i))), this,
+                            [this, value]() { addBand(value); });
+    }
+    reportMenu->addAction(tr("Add &group..."), this, &BrDesignerWidget::addGroup);
+    reportMenu->addAction(tr("Add &sub-report..."), this, &BrDesignerWidget::addSubReport);
+    reportMenu->addSeparator();
+    reportMenu->addAction(tr("&Page setup and report properties"), this, [this]() {
+        d->scene->clearSelection();
+        d->properties->setObjects({&d->report});
+    });
+
+    // --- Format (alignment)
+    QMenu *formatMenu = menuBar()->addMenu(tr("F&ormat"));
+    QToolBar *alignBar = new QToolBar(tr("Alignment"), this);
+    alignBar->setObjectName(QStringLiteral("alignBar"));
+    const QStringList alignNames = {tr("Align left"), tr("Align right"), tr("Align top"), tr("Align bottom"),
+                                    tr("Center horizontally"), tr("Same width"), tr("Same height")};
+    for (int i = 0; i < alignNames.size(); ++i) {
+        QAction *a = formatMenu->addAction(alignNames.at(i), this, [this, i]() { align(i); });
+        alignBar->addAction(a);
+    }
+
+    // --- Data
+    m_dataMenu = menuBar()->addMenu(tr("&Data"));
+#ifdef BRREPORT_HAS_SQL
+    m_dataMenu->addAction(tr("Add SQL &query..."), this, [this]() { editQuery(QString()); });
+    m_dataMenu->addAction(tr("&Edit selected query..."), this, [this]() {
+        if (QTreeWidgetItem *item = d->data->currentItem()) {
+            while (item->parent())
+                item = item->parent();
+            editQuery(item->data(0, Qt::UserRole + 1).toString());
+        }
+    });
+    m_dataMenu->addAction(tr("&Remove selected query"), this, [this]() {
+        if (QTreeWidgetItem *item = d->data->currentItem()) {
+            while (item->parent())
+                item = item->parent();
+            removeQuery(item->data(0, Qt::UserRole + 1).toString());
+        }
+    });
+    m_dataMenu->addSeparator();
+#endif
+    m_dataMenu->addAction(tr("Re&fresh fields"), this, &BrDesignerWidget::rebuildDataPanel);
+
+    // --- View
+    QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
+    QAction *zoomIn = viewMenu->addAction(tr("Zoom &in"), this, [this]() { setZoom(d->zoom * 1.25); });
+    zoomIn->setShortcut(QKeySequence::ZoomIn);
+    QAction *zoomOut = viewMenu->addAction(tr("Zoom &out"), this, [this]() { setZoom(d->zoom / 1.25); });
+    zoomOut->setShortcut(QKeySequence::ZoomOut);
+    viewMenu->addAction(tr("&Actual size"), this, [this]() { setZoom(1.0); });
+    QAction *fitAct = viewMenu->addAction(tr("&Fit width"), this, [this]() {
+        const double base = logicalDpiX() / 25.4;
+        const double width = d->scene->sceneRect().width();
+        if (width > 0)
+            setZoom((d->view->viewport()->width() - 4) / (width * base));
+    });
+    fitAct->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_0));
+    viewMenu->addSeparator();
+    d->snapAction = viewMenu->addAction(tr("&Snap to grid (1 mm)"));
+    d->snapAction->setCheckable(true);
+    d->snapAction->setChecked(true);
+    connect(d->snapAction, &QAction::toggled, this, [this](bool on) { d->scene->setSnapToGrid(on); });
+    viewMenu->addSeparator();
+    viewMenu->addAction(treeDock->toggleViewAction());
+    viewMenu->addAction(dataDock->toggleViewAction());
+    viewMenu->addAction(propDock->toggleViewAction());
+
+    // --- Main toolbar
+    QToolBar *mainBar = addToolBar(tr("Main"));
+    mainBar->setObjectName(QStringLiteral("mainBar"));
+    mainBar->addAction(newAct);
+    mainBar->addAction(openAct);
+    mainBar->addAction(saveAct);
+    mainBar->addSeparator();
+    mainBar->addAction(undoAct);
+    mainBar->addAction(redoAct);
+    mainBar->addSeparator();
+    mainBar->addAction(cutAct);
+    mainBar->addAction(copyAct);
+    mainBar->addAction(pasteAct);
+    mainBar->addAction(delAct);
+    mainBar->addSeparator();
+    mainBar->addAction(previewAct);
+    addToolBar(alignBar);
+
+    // --- Connections
+    connect(d->scene, &BrDesignScene::layoutEdited, this, [this]() { commit(tr("Move / resize")); },
+            Qt::QueuedConnection);
+    connect(d->scene, &BrDesignScene::insertRequested, this,
+            [this](BrContainer *c, const QPointF &pos, const QJsonObject &json) { insertObject(c, pos, json); },
+            Qt::QueuedConnection);
+    connect(d->scene, &BrDesignScene::selectedObjectsChanged, this, &BrDesignerWidget::syncFromScene);
+    connect(d->tree, &QTreeWidget::itemSelectionChanged, this, &BrDesignerWidget::syncFromTree);
+    connect(d->properties, &BrPropertyEditor::edited, this,
+            [this](const QString &name) { commit(tr("Change %1").arg(BrPropertyEditor::labelFor(name).toLower())); },
+            Qt::QueuedConnection);
+    connect(d->data, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem *item) {
+        const QByteArray json = item->data(0, Qt::UserRole).toByteArray();
+        if (json.isEmpty())
+            return;
+        QObject *target = nullptr;
+        for (QObject *o : selection())
+            if (qobject_cast<BrContainer *>(o)) {
+                target = o;
+                break;
+            }
+        if (!target) {
+            QMessageBox::information(this, tr("Insert field"), tr("Select a band first, or drag the field into a band."));
+            return;
+        }
+        insertObject(target, QPointF(0, 0), QJsonDocument::fromJson(json).object());
+    });
+    connect(&d->undo, &QUndoStack::cleanChanged, this, [this](bool clean) {
+        updateTitle();
+        emit modifiedChanged(!clean);
+    });
+
+    newReport();
+    setZoom(1.0);
+    // Fit the page to the window once it is shown.
+    QTimer::singleShot(0, fitAct, &QAction::trigger);
+}
+
+BrDesignerWidget::~BrDesignerWidget()
+{
+    d->scene->setReport(nullptr);
+}
+
+BrReport *BrDesignerWidget::report() const
+{
+    return &d->report;
+}
+
+void BrDesignerWidget::addDataSource(const QString &name, BrDataSource *dataSource)
+{
+    d->dataSources.insert(name, dataSource);
+    d->report.addDataSource(name, dataSource);
+    rebuildDataPanel();
+}
+
+bool BrDesignerWidget::isModified() const
+{
+    return !d->undo.isClean();
+}
+
+QByteArray BrDesignerWidget::toJson() const
+{
+    return d->report.toJson();
+}
+
+void BrDesignerWidget::setSaveHandler(const SaveHandler &handler)
+{
+    d->saveHandler = handler;
+    for (QAction *a : d->fileOnlyActions)
+        a->setVisible(!handler);
+}
+
+// ---------------------------------------------------------------------------
+// Files
+// ---------------------------------------------------------------------------
+
+bool BrDesignerWidget::loadFromJson(const QByteArray &json, QString *error)
+{
+    if (!d->report.loadFromJson(json)) {
+        if (error)
+            *error = d->report.errorString();
+        return false;
+    }
+    d->current = d->report.toJson();
+    d->undo.clear();
+    d->undo.setClean();
+    refreshAll();
+    rebuildDataPanel();
+    return true;
+}
+
+void BrDesignerWidget::newReport()
+{
+    if (!maybeSave())
+        return;
+    const QString page = tr("Page %1 of %2");
+    const QString json = QStringLiteral(R"({"format":"BrReport","version":1,"report":{"title":"%1","children":[
+        {"type":"Band","bandType":"Header","height":12,"borders":{"sides":"b","width":0.3},"children":[
+            {"type":"SystemInfo","info":"Title","geometry":[0,0,120,10],"font":{"family":"Arial","size":14,"bold":true}}]},
+        {"type":"Band","bandType":"Detail","height":7},
+        {"type":"Band","bandType":"Footer","height":6,"children":[
+            {"type":"SystemInfo","info":"PagePreview","format":"%2","geometry":[130,0,60,6],"alignment":"Right"}]}]}})")
+                             .arg(tr("New report"), page);
+    loadFromJson(json.toUtf8());
+    m_fileName.clear();
+    updateTitle();
+    emit fileNameChanged(m_fileName);
+}
+
+bool BrDesignerWidget::openFile(const QString &fileName)
+{
+    if (!maybeSave())
+        return false;
+    QString file = fileName;
+    if (file.isEmpty())
+        file = QFileDialog::getOpenFileName(this, tr("Open report"), QString(), tr("Reports (*.brt)"));
+    if (file.isEmpty())
+        return false;
+    QFile f(file);
+    QString error;
+    if (!f.open(QIODevice::ReadOnly) || !loadFromJson(f.readAll(), &error)) {
+        QMessageBox::warning(this, tr("Open report"),
+                             tr("Could not open '%1'.\n%2").arg(file, error.isEmpty() ? f.errorString() : error));
+        return false;
+    }
+    m_fileName = file;
+    updateTitle();
+    emit fileNameChanged(m_fileName);
+    return true;
+}
+
+bool BrDesignerWidget::save()
+{
+    if (d->saveHandler) {
+        if (!d->saveHandler(toJson()))
+            return false;
+        d->undo.setClean();
+        emit saved();
+        return true;
+    }
+    if (m_fileName.isEmpty())
+        return saveAs();
+    if (!d->report.save(m_fileName)) {
+        QMessageBox::warning(this, tr("Save report"), tr("Could not write '%1'.").arg(m_fileName));
+        return false;
+    }
+    d->undo.setClean();
+    emit saved();
+    return true;
+}
+
+bool BrDesignerWidget::saveAs()
+{
+    QString file = QFileDialog::getSaveFileName(this, tr("Save report"), m_fileName, tr("Reports (*.brt)"));
+    if (file.isEmpty())
+        return false;
+    if (QFileInfo(file).suffix().isEmpty())
+        file += QStringLiteral(".brt");
+    m_fileName = file;
+    emit fileNameChanged(m_fileName);
+    return save();
+}
+
+bool BrDesignerWidget::maybeSave()
+{
+    if (!isModified())
+        return true;
+    const auto answer = QMessageBox::question(this, tr("Report Designer"), tr("Save the changes to the report?"),
+                                              QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+    if (answer == QMessageBox::Save)
+        return save();
+    return answer == QMessageBox::Discard;
+}
+
+void BrDesignerWidget::closeEvent(QCloseEvent *event)
+{
+    if (maybeSave())
+        event->accept();
+    else
+        event->ignore();
+}
+
+void BrDesignerWidget::updateTitle()
+{
+    const QString name = m_fileName.isEmpty() ? d->report.title() : QFileInfo(m_fileName).fileName();
+    setWindowTitle(tr("%1%2 - Report Designer").arg(name, isModified() ? QStringLiteral(" *") : QString()));
+}
+
+void BrDesignerWidget::preview()
+{
+    d->report.clearDocument();
+    if (!d->report.prepare() && d->report.document().isEmpty()) {
+        QMessageBox::warning(this, tr("Preview"), d->report.errorString());
+        return;
+    }
+    BrPreviewDialog dialog(this);
+    dialog.setDocument(d->report.document());
+    dialog.exec();
+    d->report.clearDocument();
+}
+
+void BrDesignerWidget::undo()
+{
+    d->undo.undo();
+}
+
+void BrDesignerWidget::redo()
+{
+    d->undo.redo();
+}
+
+// ---------------------------------------------------------------------------
+// Undo / refresh
+// ---------------------------------------------------------------------------
+
+void BrDesignerWidget::commit(const QString &text)
+{
+    const QByteArray after = d->report.toJson();
+    if (after != d->current) {
+        d->undo.push(new BrSnapshotCommand(this, d->current, after, text));
+        d->current = after;
+    }
+    refreshAll();
+}
+
+void BrDesignerWidget::restoreSnapshot(const QByteArray &json)
+{
+    QList<QList<int>> paths;
+    for (QObject *o : selection())
+        paths << pathOf(o, &d->report);
+    BrReportFile::fromJson(&d->report, json);
+    d->current = json;
+    refreshAll();
+    QList<QObject *> objs;
+    for (const QList<int> &p : paths)
+        if (QObject *o = objectAt(p, &d->report))
+            objs << o;
+    d->scene->selectObjects(objs);
+    showProperties();
+}
+
+void BrDesignerWidget::refreshAll()
+{
+    d->syncing = true;
+    d->scene->rebuild();
+    rebuildTree();
+    d->syncing = false;
+    showProperties();
+    updateTitle();
+}
+
+QList<QObject *> BrDesignerWidget::selection() const
+{
+    QList<QObject *> list = d->scene->selectedObjects();
+    if (list.isEmpty()) {
+        for (QTreeWidgetItem *item : d->tree->selectedItems())
+            if (auto *o = static_cast<QObject *>(item->data(0, Qt::UserRole).value<void *>()))
+                list << o;
+    }
+    return list;
+}
+
+void BrDesignerWidget::showProperties()
+{
+    QList<QObject *> objs = selection();
+    if (objs.isEmpty())
+        objs << &d->report;
+    d->properties->setObjects(objs);
+}
+
+void BrDesignerWidget::rebuildTree()
+{
+    const bool was = d->syncing;
+    d->syncing = true;
+    const QList<QObject *> selected = d->scene->selectedObjects();
+    d->tree->clear();
+    std::function<void(QObject *, QTreeWidgetItem *)> add = [&](QObject *o, QTreeWidgetItem *parent) {
+        auto *item = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(d->tree);
+        item->setText(0, describe(o));
+        item->setData(0, Qt::UserRole, QVariant::fromValue<void *>(o));
+        item->setSelected(selected.contains(o));
+        for (QObject *c : layoutChildren(o))
+            add(c, item);
+    };
+    add(&d->report, nullptr);
+    d->tree->expandAll();
+    d->syncing = was;
+}
+
+void BrDesignerWidget::syncFromScene()
+{
+    if (d->syncing)
+        return;
+    d->syncing = true;
+    const QList<QObject *> selected = d->scene->selectedObjects();
+    QTreeWidgetItemIterator it(d->tree);
+    while (*it) {
+        auto *o = static_cast<QObject *>((*it)->data(0, Qt::UserRole).value<void *>());
+        (*it)->setSelected(selected.contains(o));
+        ++it;
+    }
+    d->syncing = false;
+    showProperties();
+}
+
+void BrDesignerWidget::syncFromTree()
+{
+    if (d->syncing)
+        return;
+    d->syncing = true;
+    QList<QObject *> objs;
+    for (QTreeWidgetItem *item : d->tree->selectedItems())
+        if (auto *o = static_cast<QObject *>(item->data(0, Qt::UserRole).value<void *>()))
+            objs << o;
+    d->scene->selectObjects(objs);
+    d->syncing = false;
+    if (objs.isEmpty())
+        objs << &d->report;
+    d->properties->setObjects(objs);
+}
+
+// ---------------------------------------------------------------------------
+// Data panel
+// ---------------------------------------------------------------------------
+
+void BrDesignerWidget::rebuildDataPanel()
+{
+    d->data->clear();
+    QString queryError;
+    if (!d->report.queries().isEmpty() && !d->report.openQueries())
+        queryError = d->report.errorString();
+
+    QStringList queryNames;
+    for (const QVariant &q : d->report.queries())
+        queryNames << q.toMap().value(QStringLiteral("name")).toString();
+
+    auto addTemplate = [](QTreeWidgetItem *item, const QJsonObject &json) {
+        item->setData(0, Qt::UserRole, QJsonDocument(json).toJson(QJsonDocument::Compact));
+    };
+
+    for (const QString &name : d->report.dataSourceNames()) {
+        auto *top = new QTreeWidgetItem(d->data);
+        const bool isQuery = queryNames.contains(name, Qt::CaseInsensitive);
+        top->setText(0, isQuery ? tr("%1 (SQL)").arg(name) : name);
+        top->setData(0, Qt::UserRole + 1, name);
+        BrDataSource *ds = d->report.findDataSource(name);
+        QStringList fields;
+        if (ds) {
+            ds->first();
+            fields = ds->fieldNames();
+        }
+        if (fields.isEmpty()) {
+            auto *empty = new QTreeWidgetItem(top);
+            empty->setText(0, queryError.isEmpty() ? tr("(no fields)") : tr("(not available: %1)").arg(queryError));
+            empty->setDisabled(true);
+        }
+        for (const QString &field : fields) {
+            auto *item = new QTreeWidgetItem(top);
+            item->setText(0, field);
+            item->setToolTip(0, tr("Drag into a band"));
+            addTemplate(item, geometryTemplate("DBText", 30, 6, {{QStringLiteral("dataField"), field}}));
+        }
+    }
+
+    const QVariantMap vars = d->report.variables();
+    if (!vars.isEmpty()) {
+        auto *top = new QTreeWidgetItem(d->data);
+        top->setText(0, tr("Variables"));
+        for (auto it = vars.begin(); it != vars.end(); ++it) {
+            auto *item = new QTreeWidgetItem(top);
+            item->setText(0, it.key());
+            addTemplate(item, geometryTemplate("DBText", 30, 6, {{QStringLiteral("dataFormula"), it.key()}}));
+        }
+    }
+
+    auto *sys = new QTreeWidgetItem(d->data);
+    sys->setText(0, tr("System"));
+    const QList<QPair<QString, QJsonObject>> systemItems = {
+        {tr("Page X of Y"), {{QStringLiteral("info"), QStringLiteral("PagePreview")}, {QStringLiteral("format"), tr("Page %1 of %2")}}},
+        {tr("Page number"), {{QStringLiteral("info"), QStringLiteral("PageNumber")}}},
+        {tr("Date"), {{QStringLiteral("info"), QStringLiteral("Date")}}},
+        {tr("Date and time"), {{QStringLiteral("info"), QStringLiteral("DateTime")}}},
+        {tr("Report title"), {{QStringLiteral("info"), QStringLiteral("Title")}}},
+        {tr("Record number"), {{QStringLiteral("info"), QStringLiteral("RecNo")}}},
+    };
+    for (const auto &s : systemItems) {
+        auto *item = new QTreeWidgetItem(sys);
+        item->setText(0, s.first);
+        addTemplate(item, geometryTemplate("SystemInfo", 40, 6, s.second));
+    }
+    d->data->expandAll();
+}
+
+void BrDesignerWidget::editQuery(const QString &name)
+{
+#ifdef BRREPORT_HAS_SQL
+    QVariantList queries = d->report.queries();
+    int index = -1;
+    for (int i = 0; i < queries.size(); ++i)
+        if (queries.at(i).toMap().value(QStringLiteral("name")).toString().compare(name, Qt::CaseInsensitive) == 0)
+            index = i;
+    if (!name.isEmpty() && index < 0) {
+        QMessageBox::information(this, tr("Edit query"),
+                                 tr("'%1' is provided by the application and cannot be edited here.").arg(name));
+        return;
+    }
+    const QVariantMap current = index >= 0 ? queries.at(index).toMap() : QVariantMap();
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(index >= 0 ? tr("Edit SQL query") : tr("New SQL query"));
+    auto *nameEdit = new QLineEdit(current.value(QStringLiteral("name")).toString(), &dialog);
+    auto *connCombo = new QComboBox(&dialog);
+    connCombo->setEditable(true);
+    connCombo->addItem(QString());
+    for (const QString &c : QSqlDatabase::connectionNames())
+        if (c != QLatin1String(QSqlDatabase::defaultConnection))
+            connCombo->addItem(c);
+    connCombo->setCurrentText(current.value(QStringLiteral("connection")).toString());
+    connCombo->setToolTip(tr("Empty = the application's default database connection"));
+    auto *sqlEdit = new QPlainTextEdit(current.value(QStringLiteral("sql")).toString(), &dialog);
+    sqlEdit->setFont(QFont(QStringLiteral("monospace")));
+    sqlEdit->setPlaceholderText(QStringLiteral("SELECT * FROM customers WHERE city = :city"));
+    auto *testButton = new QPushButton(tr("Test"), &dialog);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    buttons->addButton(testButton, QDialogButtonBox::ActionRole);
+    auto *form = new QFormLayout;
+    form->addRow(tr("Name"), nameEdit);
+    form->addRow(tr("Connection"), connCombo);
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->addLayout(form);
+    layout->addWidget(new QLabel(tr("SQL (use :name for report variables):"), &dialog));
+    layout->addWidget(sqlEdit, 1);
+    layout->addWidget(buttons);
+    dialog.resize(640, 420);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, [&]() {
+        if (nameEdit->text().trimmed().isEmpty() || sqlEdit->toPlainText().trimmed().isEmpty()) {
+            QMessageBox::warning(&dialog, dialog.windowTitle(), tr("Name and SQL are required."));
+            return;
+        }
+        dialog.accept();
+    });
+    connect(testButton, &QPushButton::clicked, &dialog, [&]() {
+        const QString conn = connCombo->currentText();
+        QSqlDatabase db = conn.isEmpty() ? QSqlDatabase::database() : QSqlDatabase::database(conn);
+        QSqlQuery q(db);
+        QString message;
+        if (!db.isOpen())
+            message = tr("The connection is not open.");
+        else if (!q.prepare(sqlEdit->toPlainText()))
+            message = q.lastError().text();
+        else {
+            const QVariantMap vars = d->report.variables();
+            for (auto it = vars.begin(); it != vars.end(); ++it)
+                q.bindValue(QLatin1Char(':') + it.key(), it.value());
+            if (!q.exec())
+                message = q.lastError().text();
+            else {
+                QStringList fields;
+                for (int i = 0; i < q.record().count(); ++i)
+                    fields << q.record().fieldName(i);
+                int rows = 0;
+                while (q.next() && rows < 100000)
+                    ++rows;
+                message = tr("OK: %1 row(s).\nFields: %2").arg(rows).arg(fields.join(QStringLiteral(", ")));
+            }
+        }
+        QMessageBox::information(&dialog, tr("Test query"), message);
+    });
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    QVariantMap q{{QStringLiteral("name"), nameEdit->text().trimmed()},
+                  {QStringLiteral("sql"), sqlEdit->toPlainText().trimmed()}};
+    if (!connCombo->currentText().isEmpty())
+        q.insert(QStringLiteral("connection"), connCombo->currentText());
+    if (index >= 0)
+        queries[index] = q;
+    else
+        queries << q;
+    d->report.setQueries(queries);
+    commit(index >= 0 ? tr("Edit query") : tr("Add query"));
+    rebuildDataPanel();
+#else
+    Q_UNUSED(name)
+#endif
+}
+
+void BrDesignerWidget::removeQuery(const QString &name)
+{
+    QVariantList queries = d->report.queries();
+    for (int i = 0; i < queries.size(); ++i) {
+        if (queries.at(i).toMap().value(QStringLiteral("name")).toString().compare(name, Qt::CaseInsensitive) == 0) {
+            queries.removeAt(i);
+            d->report.setQueries(queries);
+            d->report.addDataSource(name, d->dataSources.value(name)); // restore/unregister
+            commit(tr("Remove query"));
+            rebuildDataPanel();
+            return;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Editing
+// ---------------------------------------------------------------------------
+
+void BrDesignerWidget::insertObject(QObject *container, const QPointF &pos, const QJsonObject &templ)
+{
+    QJsonObject json = templ;
+    QJsonArray g = json.value(QStringLiteral("geometry")).toArray();
+    const double w = g.size() == 4 ? g.at(2).toDouble() : 30.0;
+    const double h = g.size() == 4 ? g.at(3).toDouble() : 6.0;
+    json.insert(QStringLiteral("geometry"), QJsonArray{pos.x(), pos.y(), w, h});
+    QString error;
+    QObject *o = BrReportFile::objectFromJson(json, container, &error);
+    d->pointerTool->setChecked(true);
+    d->scene->setInsertTemplate(QJsonObject());
+    if (!o) {
+        QMessageBox::warning(this, tr("Insert"), error);
+        return;
+    }
+    commit(tr("Insert %1").arg(BrReportFile::typeName(o)));
+    d->scene->selectObjects({o});
+}
+
+void BrDesignerWidget::copySelection()
+{
+    QJsonArray array;
+    for (QObject *o : selection())
+        if (o != &d->report)
+            array << BrReportFile::objectToJson(o);
+    if (array.isEmpty())
+        return;
+    auto *mime = new QMimeData;
+    const QByteArray json = QJsonDocument(array).toJson(QJsonDocument::Compact);
+    mime->setData(QStringLiteral(BRREPORT_OBJECT_MIME), json);
+    mime->setText(QString::fromUtf8(json));
+    QApplication::clipboard()->setMimeData(mime);
+}
+
+void BrDesignerWidget::paste()
+{
+    const QMimeData *mime = QApplication::clipboard()->mimeData();
+    if (!mime || !mime->hasFormat(QStringLiteral(BRREPORT_OBJECT_MIME)))
+        return;
+    const QJsonDocument doc = QJsonDocument::fromJson(mime->data(QStringLiteral(BRREPORT_OBJECT_MIME)));
+    QJsonArray array = doc.isArray() ? doc.array() : QJsonArray{doc.object()};
+
+    // Target: selected container, else the parent of the selected object, else the first detail band
+    QObject *selected = selection().value(0);
+    QList<QObject *> created;
+    for (const QJsonValue &v : array) {
+        QJsonObject json = v.toObject();
+        const QString type = json.value(QStringLiteral("type")).toString();
+        QObject *target = nullptr;
+        for (QObject *o = selected; o; o = o->parent())
+            if (BrReportFile::canContain(o, type)) {
+                target = o;
+                break;
+            }
+        if (!target && BrReportFile::canContain(&d->report, type))
+            target = &d->report;
+        if (!target) {
+            const QList<BrBand *> details = d->report.findChildren<BrBand *>();
+            for (BrBand *b : details)
+                if (b->bandType() == Br::BandType::Detail) {
+                    target = b;
+                    break;
+                }
+        }
+        if (!target)
+            continue;
+        QJsonArray g = json.value(QStringLiteral("geometry")).toArray();
+        if (g.size() == 4 && target == (selected ? selected->parent() : nullptr)) {
+            g[0] = g.at(0).toDouble() + 2.0;
+            g[1] = g.at(1).toDouble() + 2.0;
+            json.insert(QStringLiteral("geometry"), g);
+        }
+        if (QObject *o = BrReportFile::objectFromJson(json, target))
+            created << o;
+    }
+    if (created.isEmpty())
+        return;
+    commit(tr("Paste"));
+    d->scene->selectObjects(created);
+}
+
+void BrDesignerWidget::duplicateSelection()
+{
+    copySelection();
+    paste();
+}
+
+void BrDesignerWidget::deleteSelection()
+{
+    QList<QObject *> objs = selection();
+    objs.removeAll(&d->report);
+    if (objs.isEmpty())
+        return;
+    d->scene->clearSelection();
+    d->tree->clearSelection();
+    for (QObject *o : objs) {
+        // Skip objects whose ancestor is also being deleted
+        bool nested = false;
+        for (QObject *p = o->parent(); p; p = p->parent())
+            if (objs.contains(p))
+                nested = true;
+        if (!nested)
+            delete o;
+    }
+    commit(tr("Delete"));
+}
+
+void BrDesignerWidget::moveInOrder(int delta)
+{
+    const QList<QObject *> objs = selection();
+    if (objs.size() != 1 || objs.first() == &d->report)
+        return;
+    QObject *o = objs.first();
+    QObject *parent = o->parent();
+    QList<QObject *> siblings = layoutChildren(parent);
+    const int i = int(siblings.indexOf(o));
+    const int j = i + delta;
+    if (j < 0 || j >= siblings.size())
+        return;
+    siblings.swapItemsAt(i, j);
+    for (QObject *s : siblings) { // re-append in the new order
+        s->setParent(nullptr);
+        s->setParent(parent);
+    }
+    commit(tr("Change order"));
+    d->scene->selectObjects({o});
+}
+
+void BrDesignerWidget::align(int how)
+{
+    QList<BrControl *> controls;
+    for (QObject *o : selection())
+        if (auto *c = qobject_cast<BrControl *>(o))
+            if (!qobject_cast<BrBand *>(c))
+                controls << c;
+    if (controls.isEmpty())
+        return;
+    const QRectF ref = controls.first()->geometry();
+    for (BrControl *c : controls) {
+        QRectF g = c->geometry();
+        switch (how) {
+        case 0: g.moveLeft(ref.left()); break;
+        case 1: g.moveRight(ref.right()); break;
+        case 2: g.moveTop(ref.top()); break;
+        case 3: g.moveBottom(ref.bottom()); break;
+        case 4:
+            if (auto *container = c->parentContainer()) {
+                double width = container->width();
+                if (auto *b = qobject_cast<BrBand *>(container))
+                    width = b->report() ? b->report()->contentRect().width() : width;
+                g.moveLeft((width - g.width()) / 2.0);
+            }
+            break;
+        case 5: g.setWidth(ref.width()); break;
+        case 6: g.setHeight(ref.height()); break;
+        }
+        c->setGeometry(g);
+    }
+    commit(tr("Align"));
+}
+
+void BrDesignerWidget::nudge(double dx, double dy)
+{
+    bool moved = false;
+    for (QObject *o : selection()) {
+        auto *c = qobject_cast<BrControl *>(o);
+        if (!c || qobject_cast<BrBand *>(c) || c->align() != Br::Align::None)
+            continue;
+        c->setGeometry(c->geometry().translated(dx, dy));
+        moved = true;
+    }
+    if (moved)
+        commit(tr("Move"));
+}
+
+QObject *BrDesignerWidget::targetPager() const
+{
+    for (QObject *o : selection()) {
+        for (QObject *p = o; p; p = p->parent())
+            if (qobject_cast<BrPager *>(p))
+                return p;
+    }
+    return &d->report;
+}
+
+void BrDesignerWidget::addBand(int type)
+{
+    auto *pager = qobject_cast<BrPager *>(targetPager());
+    BrBand *band = pager->addBand(Br::BandType(type), 8.0);
+    commit(tr("Add band"));
+    d->scene->selectObjects({band});
+}
+
+void BrDesignerWidget::addGroup()
+{
+    auto *pager = qobject_cast<BrPager *>(targetPager());
+    while (BrGroup *g = pager->group())
+        pager = g;
+
+    // Field list from the pager's data source
+    QStringList fields;
+    BrDataSource *ds = nullptr;
+    for (BrPager *p = pager; p && !ds; p = p->parentPager()) {
+        if (auto *sub = qobject_cast<BrSubDetail *>(p))
+            ds = sub->dataSource();
+        else if (auto *r = qobject_cast<BrReport *>(p))
+            ds = r->dataSource();
+    }
+    if (ds) {
+        ds->first();
+        fields = ds->fieldNames();
+    }
+    bool ok = false;
+    const QString field = QInputDialog::getItem(this, tr("Add group"),
+                                                tr("Group the records by (the data must be sorted by it):"),
+                                                fields, 0, true, &ok);
+    if (!ok || field.trimmed().isEmpty())
+        return;
+
+    auto *group = new BrGroup(pager);
+    group->setDataFields(field.trimmed());
+    // The records now belong to the group: move the detail bands and sub-reports into it.
+    for (QObject *c : layoutChildren(pager)) {
+        auto *b = qobject_cast<BrBand *>(c);
+        if ((b && b->bandType() == Br::BandType::Detail) || qobject_cast<BrSubDetail *>(c)) {
+            c->setParent(nullptr);
+            c->setParent(group);
+        }
+    }
+    QJsonObject headerJson{{QStringLiteral("type"), QStringLiteral("Band")},
+                           {QStringLiteral("bandType"), QStringLiteral("Header")},
+                           {QStringLiteral("height"), 8},
+                           {QStringLiteral("background"), QStringLiteral("#dce6f2")},
+                           {QStringLiteral("children"),
+                            QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("DBText")},
+                                                   {QStringLiteral("dataField"), field.trimmed()},
+                                                   {QStringLiteral("geometry"), QJsonArray{1, 0, 80, 8}},
+                                                   {QStringLiteral("font"),
+                                                    QJsonObject{{QStringLiteral("family"), QStringLiteral("Arial")},
+                                                                {QStringLiteral("size"), 10},
+                                                                {QStringLiteral("bold"), true}}}}}}};
+    QObject *h = BrReportFile::objectFromJson(headerJson, group);
+    // Keep the header first among the group's children
+    for (QObject *c : layoutChildren(group))
+        if (c != h) {
+            c->setParent(nullptr);
+            c->setParent(group);
+        }
+    group->addBand(Br::BandType::Summary, 6.0);
+    commit(tr("Add group"));
+    d->scene->selectObjects({h});
+}
+
+void BrDesignerWidget::addSubReport()
+{
+    auto *pager = qobject_cast<BrPager *>(targetPager());
+    while (BrGroup *g = pager->group())
+        pager = g;
+    bool ok = false;
+    const QString name = QInputDialog::getItem(this, tr("Add sub-report"),
+                                               tr("Data source of the sub-report (e.g. the items of each order):"),
+                                               d->report.dataSourceNames(), 0, true, &ok);
+    if (!ok || name.trimmed().isEmpty())
+        return;
+    auto *sub = new BrSubDetail(pager);
+    sub->setDataSourceName(name.trimmed());
+    BrBand *band = sub->addBand(Br::BandType::Detail, 6.0);
+    commit(tr("Add sub-report"));
+    d->scene->selectObjects({band});
+    QMessageBox::information(this, tr("Add sub-report"),
+                             tr("Set 'Master fields' and 'Detail fields' of the sub-report (select it in the "
+                                "Structure panel) to print only the records of each master record."));
+}
+
+// ---------------------------------------------------------------------------
+// View
+// ---------------------------------------------------------------------------
+
+void BrDesignerWidget::setZoom(double zoom)
+{
+    d->zoom = qBound(0.25, zoom, 6.0);
+    const double k = d->zoom * logicalDpiX() / 25.4;
+    d->view->setTransform(QTransform::fromScale(k, k));
+    statusBar()->showMessage(tr("Zoom %1%").arg(qRound(d->zoom * 100)), 1500);
+}
+
+bool BrDesignerWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == d->view->viewport() && event->type() == QEvent::Wheel) {
+        auto *wheel = static_cast<QWheelEvent *>(event);
+        if (wheel->modifiers() & Qt::ControlModifier) {
+            setZoom(wheel->angleDelta().y() > 0 ? d->zoom * 1.15 : d->zoom / 1.15);
+            return true;
+        }
+    }
+    if (watched == d->view && event->type() == QEvent::KeyPress) {
+        auto *key = static_cast<QKeyEvent *>(event);
+        const double step = (key->modifiers() & Qt::ShiftModifier) ? 5.0
+                            : (key->modifiers() & Qt::AltModifier) ? 0.1 : 1.0;
+        switch (key->key()) {
+        case Qt::Key_Left: nudge(-step, 0); return true;
+        case Qt::Key_Right: nudge(step, 0); return true;
+        case Qt::Key_Up: nudge(0, -step); return true;
+        case Qt::Key_Down: nudge(0, step); return true;
+        case Qt::Key_Escape:
+            d->pointerTool->setChecked(true);
+            d->scene->setInsertTemplate(QJsonObject());
+            return true;
+        default:
+            break;
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
+}

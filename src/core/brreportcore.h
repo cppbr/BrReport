@@ -26,6 +26,7 @@
 #include "brchart.h"
 #include "brcontrol.h"
 #include "brdatasource.h"
+#include "brdesigncontext.h"
 #include "brdocument.h"
 #include "brexport.h"
 #include "brexpression.h"

@@ -21,6 +21,7 @@
 #include "brglobal.h"
 
 #include <QByteArray>
+#include <QJsonObject>
 #include <QJsonValue>
 #include <QMetaProperty>
 #include <QStringList>
@@ -63,6 +64,16 @@ public:
     /*! Replaces the layout of \a report. Returns false (and sets \a error) on failure. */
     static bool fromJson(BrReport *report, const QByteArray &json, QString *error = nullptr,
                          QStringList *warnings = nullptr);
+
+    /*! JSON of a single layout object and its children (copy & paste, templates). */
+    static QJsonObject objectToJson(const QObject *object);
+    /*!
+     * Creates an object (and its children) from JSON as a child of \a parent.
+     * Returns nullptr and sets \a error if the type is unknown or cannot be placed there.
+     */
+    static QObject *objectFromJson(const QJsonObject &json, QObject *parent, QString *error = nullptr);
+    /*! Whether an object of \a typeName can be a child of \a parent. */
+    static bool canContain(const QObject *parent, const QString &typeName);
 
     // Property conversion, also useful for property editors.
     static QJsonValue propertyToJson(const QVariant &value, const QMetaProperty &property);

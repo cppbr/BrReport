@@ -23,6 +23,12 @@ follows [Semantic Versioning](https://semver.org/).
 - Text search in the preview window (Ctrl+F, F3).
 - `brview` tool to view, print and convert `.brp` documents.
 - `dashboard` and `receipt` examples.
+- Report designer (`BrReport::Designer`, `BrDesignerWidget`) and the standalone `brdesigner`
+  application: toolbox, drag fields from the data panel, move/resize with grid snapping, band
+  resizing, structure tree, property editor, groups, sub-reports, SQL query editor, alignment,
+  copy/paste, undo/redo, zoom and preview; save to files or through a save handler.
+- SQL queries stored in report files (`BrReport::setQueries()`/`addQuery()`), bound to report
+  variables; design mode rendering (`BrDesignContext`).
 - Report files: layouts saved/loaded as JSON (`BrReport::save()`/`load()`, `BrReportFile`), with
   every object property exposed as `Q_PROPERTY` and custom object types.
 - Data sources registered by name (`BrReport::addDataSource()`, `dataSourceName` properties).

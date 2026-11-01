@@ -47,7 +47,8 @@ int main(int argc, char *argv[])
 
     BrReport report;
     report.setTitle(QStringLiteral("Sales Dashboard - 1st semester"));
-    report.setDataSource(&products);
+    report.setDataSource(QStringLiteral("products"), &products);
+    report.addDataSource(QStringLiteral("monthly"), &monthly); // by name: saved in report files
     report.setLocale(QLocale(QLocale::English, QLocale::UnitedStates));
     report.setFont(QFont(QStringLiteral("Arial"), 9));
     report.setWatermark(QStringLiteral("CONFIDENTIAL"));
@@ -69,7 +70,9 @@ int main(int argc, char *argv[])
     auto *bars = new BrChart(Br::ChartType::Bar, title);
     bars->setGeometry(0, 26, w / 2 - 2, 70);
     bars->setTitle(QStringLiteral("Revenue x costs"));
-    bars->setDataSource(&monthly, QStringLiteral("month"), {"revenue", "costs"});
+    bars->setDataSourceName(QStringLiteral("monthly"));
+    bars->setLabelField(QStringLiteral("month"));
+    bars->setValueFields({"revenue", "costs"});
     bars->setBorders(BrBorders::all(0.2, QColor(0xc0, 0xc8, 0xd0)));
 
     auto *lines = new BrChart(Br::ChartType::Line, title);
@@ -134,7 +137,8 @@ int main(int argc, char *argv[])
     }
 
     // --- Summary: shelf labels in 3 columns, read from the same products ---
-    auto *labels = new BrSubDetail(&report, &products);
+    auto *labels = new BrSubDetail(&report);
+    labels->setDataSourceName(QStringLiteral("products"));
     labels->setPositioning(Br::BandType::Summary);
     labels->setKeepHeaderWithDetail(true);
     auto *labelsTitle = labels->addBand(Br::BandType::Title, 14);

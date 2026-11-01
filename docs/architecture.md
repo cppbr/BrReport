@@ -154,6 +154,14 @@ and its children; loading creates the objects through a type registry and writes
 back. The same metadata will drive the property editor of the visual designer. See
 [report-file-format.md](report-file-format.md).
 
+## Designer
+
+`BrReport::Designer` edits a `BrReport` directly. `BrDesignScene` shows the page in millimeters with
+one graphics item per band and object, drawn through `BrDesignContext` (no data: fields appear as
+`[name]`, totals as `Sum(field)`, page numbers as `#`). Every edit changes the report objects and is
+recorded as an undo step holding the report JSON before and after the change, so undo/redo simply
+reloads a snapshot. The property editor is generated from the `Q_PROPERTY` declarations.
+
 ## Extending
 
 - **Custom control**: subclass `BrControl` (or `BrCustomText` for text) and override `prepare()`,
