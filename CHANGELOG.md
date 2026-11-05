@@ -7,6 +7,9 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Report parameters: declared in the report (`BrReport::setParameters()`/`addParameter()`, `Report
+  parameters` in the designer's Data menu), asked for by `BrPrinting::preview()`/`print()` and the
+  designer preview (`BrParametersDialog`), available to SQL queries and formulas.
 - Continuous pages for receipt/roll printers (`BrReport::setContinuous()`).
 - Watermarks with text and/or image (`BrReport::setWatermark()`).
 - Charts (`BrChart`): pie, bars, horizontal bars and lines, from static data or a data source.

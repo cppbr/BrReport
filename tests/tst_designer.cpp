@@ -17,16 +17,26 @@
 
 #include "brdesignerwidget.h"
 #include "brdesignscene_p.h"
+#include "brparameterseditor_p.h"
 #include "brpropertyeditor_p.h"
 #include "brreportwidgets.h"
 #include "brreportcore.h"
 
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDateEdit>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLineEdit>
 #include <QMenuBar>
+#include <QPushButton>
+#include <QSpinBox>
+#include <QTableWidget>
 #include <QTest>
+#include <QTimer>
+#include <QTreeWidget>
 
 namespace {
 
@@ -52,6 +62,119 @@ class TstDesigner : public QObject
 {
     Q_OBJECT
 private slots:
+    void parametersDialog()
+    {
+        BrReport report;
+        report.addParameter(QStringLiteral("start"), QStringLiteral("From"), QStringLiteral("date"),
+                            QStringLiteral("2026-02-01"));
+        report.addParameter(QStringLiteral("city"), QString(), QStringLiteral("string"), QStringLiteral("Recife"));
+        report.addParameter(QStringLiteral("limit"), QString(), QStringLiteral("integer"), 5);
+        report.addParameter(QStringLiteral("all"), QString(), QStringLiteral("boolean"), true);
+        report.addParameter(QStringLiteral("status"), QString(), QStringLiteral("integer"), 2,
+                            {QVariantMap{{QStringLiteral("value"), 1}, {QStringLiteral("caption"), QStringLiteral("Active")}},
+                             QVariantMap{{QStringLiteral("value"), 2}, {QStringLiteral("caption"), QStringLiteral("Inactive")}}});
+        report.setVariable(QStringLiteral("city"), QStringLiteral("Belem"));
+
+        BrParametersDialog dialog(&report);
+        QCOMPARE(dialog.findChild<QDateEdit *>(QStringLiteral("start"))->date(), QDate(2026, 2, 1));
+        auto *city = dialog.findChild<QLineEdit *>(QStringLiteral("city"));
+        QCOMPARE(city->text(), QStringLiteral("Belem")); // the variable wins over the default
+        QCOMPARE(dialog.findChild<QSpinBox *>(QStringLiteral("limit"))->value(), 5);
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("all"))->isChecked());
+        auto *status = dialog.findChild<QComboBox *>(QStringLiteral("status"));
+        QCOMPARE(status->currentText(), QStringLiteral("Inactive"));
+
+        city->setText(QStringLiteral("Natal"));
+        status->setCurrentIndex(0);
+        const QVariantMap values = dialog.values();
+        QCOMPARE(values.value(QStringLiteral("city")).toString(), QStringLiteral("Natal"));
+        QCOMPARE(values.value(QStringLiteral("status")).toInt(), 1);
+        QCOMPARE(values.value(QStringLiteral("start")).toDate(), QDate(2026, 2, 1));
+        QCOMPARE(report.variable(QStringLiteral("city")).toString(), QStringLiteral("Belem"));
+
+        // Canceling stops printing; a report without parameters does not ask
+        QTimer::singleShot(0, this, []() { QApplication::activeModalWidget()->close(); });
+        QVERIFY(!BrPrinting::askParameters(&report));
+        BrReport plain;
+        QVERIFY(BrPrinting::askParameters(&plain));
+
+        // Accepting stores the answers and discards the prepared document
+        QVERIFY(report.prepare());
+        QTimer::singleShot(0, this, []() {
+            auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            modal->findChild<QLineEdit *>(QStringLiteral("city"))->setText(QStringLiteral("Natal"));
+            modal->accept();
+        });
+        QVERIFY(BrPrinting::askParameters(&report));
+        QCOMPARE(report.variable(QStringLiteral("city")).toString(), QStringLiteral("Natal"));
+        QVERIFY(!report.isPrepared());
+    }
+
+    void parametersEditor()
+    {
+        const QVariantList parameters = {
+            QVariantMap{{QStringLiteral("name"), QStringLiteral("start")},
+                        {QStringLiteral("caption"), QStringLiteral("From")},
+                        {QStringLiteral("type"), QStringLiteral("date")},
+                        {QStringLiteral("default"), QStringLiteral("today")}},
+            QVariantMap{{QStringLiteral("name"), QStringLiteral("status")},
+                        {QStringLiteral("type"), QStringLiteral("string")},
+                        {QStringLiteral("choices"),
+                         QVariantList{QStringLiteral("open"),
+                                      QVariantMap{{QStringLiteral("value"), QString()},
+                                                  {QStringLiteral("caption"), QStringLiteral("All")}}}}}};
+        BrParametersEditor editor(parameters);
+        QCOMPARE(editor.parameters(), parameters);
+
+        auto *table = editor.findChild<QTableWidget *>();
+        QCOMPARE(table->item(1, 4)->text(), QStringLiteral("open; =All"));
+
+        // Move down keeps every column of both rows
+        table->setCurrentCell(0, 0);
+        for (QPushButton *button : editor.findChildren<QPushButton *>())
+            if (button->text() == QStringLiteral("Move down"))
+                button->click();
+        QCOMPARE(editor.parameters(), QVariantList({parameters.at(1), parameters.at(0)}));
+
+        // Invalid input keeps the dialog open
+        QTimer::singleShot(0, this, []() { QApplication::activeModalWidget()->close(); });
+        table->item(0, 0)->setText(QStringLiteral("1 bad"));
+        editor.accept();
+        QVERIFY(editor.result() != QDialog::Accepted);
+    }
+
+    void parametersInDesigner()
+    {
+        BrDesignerWidget w;
+        w.report()->addParameter(QStringLiteral("city"), QString(), QStringLiteral("string"),
+                                 QStringLiteral("Recife"));
+        const QByteArray saved = w.toJson();
+        QVERIFY(w.loadFromJson(saved));
+        bool listed = false;
+        for (QTreeWidget *tree : w.findChildren<QTreeWidget *>())
+            listed = listed || !tree->findItems(QStringLiteral("city"), Qt::MatchRecursive).isEmpty();
+        QVERIFY(listed);
+
+        // The value typed for a preview is remembered but never saved in the report
+        const auto answer = [this](const QString &value) {
+            QTimer::singleShot(0, this, [value, this]() {
+                auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                auto *city = modal->findChild<QLineEdit *>(QStringLiteral("city"));
+                QCOMPARE(city->text(), value);
+                city->setText(QStringLiteral("Natal"));
+                modal->accept();
+                QTimer::singleShot(0, this, []() { QApplication::activeModalWidget()->close(); });
+            });
+        };
+        answer(QStringLiteral("Recife"));
+        w.preview();
+        QVERIFY(w.report()->variables().isEmpty());
+        QCOMPARE(w.toJson(), saved);
+        QVERIFY(!w.isModified());
+        answer(QStringLiteral("Natal"));
+        w.preview();
+    }
+
     void newReportLayout()
     {
         BrDesignerWidget w;

@@ -357,6 +357,56 @@ private slots:
         QVERIFY(!noConnection.prepare());
         QVERIFY(noConnection.errorString().contains(QStringLiteral("not open")));
     }
+
+    void parameters()
+    {
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("params"));
+            db.setDatabaseName(QStringLiteral(":memory:"));
+            QVERIFY(db.open());
+            QSqlQuery q(db);
+            QVERIFY(q.exec(QStringLiteral("CREATE TABLE sale (id INTEGER, day TEXT)")));
+            QVERIFY(q.exec(QStringLiteral("INSERT INTO sale VALUES (1,'2026-01-10'),(2,'2026-02-10'),(3,'2026-03-10')")));
+        }
+        const QByteArray json = R"({"format":"BrReport","version":1,"report":{
+            "dataSourceName":"sales",
+            "parameters":[{"name":"start","caption":"From","type":"date","default":"2026-02-01"},
+                          {"name":"minId","type":"integer","default":"1"}],
+            "queries":[{"name":"sales","connection":"params",
+                        "sql":"SELECT id FROM sale WHERE day >= :start AND id >= :minId ORDER BY id"}],
+            "children":[{"type":"Band","bandType":"Detail","height":5,
+                         "children":[{"type":"DBText","dataField":"id"}]},
+                        {"type":"Band","bandType":"Footer","height":5,
+                         "children":[{"type":"DBText","dataFormula":"minId + 1"}]}]}})";
+        BrReport report;
+        QVERIFY2(report.loadFromJson(json), qPrintable(report.errorString()));
+
+        // Defaults apply without asking, typed, and do not become variables
+        QCOMPARE(report.variable(QStringLiteral("start")), QVariant(QDate(2026, 2, 1)));
+        QCOMPARE(report.variable(QStringLiteral("MINID")), QVariant(qlonglong(1)));
+        QVERIFY(report.variables().isEmpty());
+        QVERIFY2(report.prepare(), qPrintable(report.errorString()));
+        QVERIFY(report.document().pageText(0).startsWith(QStringLiteral("2\n3")));
+
+        // A variable overrides the default and is converted to the parameter type
+        report.setVariable(QStringLiteral("start"), QStringLiteral("2026-03-01"));
+        QCOMPARE(report.variable(QStringLiteral("start")), QVariant(QDate(2026, 3, 1)));
+        QVERIFY(report.prepare());
+        QVERIFY(report.document().pageText(0).startsWith(QStringLiteral("3")));
+
+        // Saved with the layout
+        BrReport copy;
+        QVERIFY(copy.loadFromJson(report.toJson()));
+        QCOMPARE(copy.parameters(), report.parameters());
+
+        // Conversions
+        const QVariantMap date{{QStringLiteral("type"), QStringLiteral("date")}};
+        QCOMPARE(BrReport::parameterValue(date, QStringLiteral("today")), QVariant(QDate::currentDate()));
+        QCOMPARE(BrReport::parameterValue(date, QVariant()), QVariant(QDate::currentDate()));
+        const QVariantMap flag{{QStringLiteral("type"), QStringLiteral("boolean")}};
+        QCOMPARE(BrReport::parameterValue(flag, QStringLiteral("false")), QVariant(false));
+        QCOMPARE(BrReport::parameterValue({}, 12), QVariant(QStringLiteral("12")));
+    }
 };
 
 QTEST_MAIN(TstReportFile)

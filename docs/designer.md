@@ -24,6 +24,7 @@ It is available in two forms:
 | Editing | Move and resize with the mouse (1 mm grid snapping, *View > Snap to grid*), arrow keys (Shift = 5 mm, Alt = 0.1 mm), copy/cut/paste, duplicate (Ctrl+D), delete, change order, align left/right/top/bottom, center, same width/height |
 | Properties | Every property of the selected objects, with editors for colors, fonts, borders, images, choices of fields and data sources, formulas (*Print if*, *Highlight if*, *Formula*) |
 | Data | SQL queries stored in the report (*Data > Add SQL query*), with parameters taken from report variables (`:name`), and a *Test* button |
+| Parameters | Values asked for before the report runs (*Data > Report parameters*), dragged into bands from the data panel |
 | Undo | Unlimited undo/redo (Ctrl+Z / Ctrl+Y) |
 | Preview | F5 shows the report with real data |
 | Zoom | Ctrl + mouse wheel, Ctrl+0 fits the page to the window |
@@ -68,8 +69,8 @@ Printing a designed report in the application:
 BrReport report;
 report.addDataSource("customers", customersDataSource);
 report.loadFromJson(loadReportFromDatabase(id));   // or report.load("customers.brt")
-report.setVariable("city", selectedCity);          // parameters used by the report's SQL queries
-BrPrinting::preview(&report);
+report.setVariable("city", selectedCity);          // values used by the report's SQL queries
+BrPrinting::preview(&report);                       // asks for the parameters declared in the report
 ```
 
 ## Data for end users
@@ -88,6 +89,36 @@ End users usually cannot write code, so a report file can carry its own SQL quer
 - `:city` is bound to the report variable `city`, which the application sets before printing
   (`report.setVariable("city", ...)`) or the user sets in the report properties.
 - A data source registered by the application with the same name takes precedence over the query.
+
+### Report parameters
+
+Parameters let the user choose what the report shows, such as a period or a status, without editing
+it. Declare them in *Data > Report parameters*:
+
+```json
+"parameters": [
+    { "name": "start", "caption": "From", "type": "date", "default": "today" },
+    { "name": "status", "caption": "Status", "type": "integer", "default": 1,
+      "choices": [ { "value": 1, "caption": "Active" }, { "value": 2, "caption": "Inactive" } ] }
+]
+```
+
+- `type` is `string` (default), `integer`, `number`, `date` or `boolean`. Integers shown in the
+  dialog are limited to 32 bits.
+- `default` is used until a variable with the same name is set. Dates are `yyyy-MM-dd` or `today`;
+  a date without a default is today.
+- `choices` is a fixed list, each item a plain value or `{ "value", "caption" }`. In the designer it
+  is typed as `1=Active; 2=Inactive`. An empty value (`=All`) allows queries such as
+  `WHERE (:city = '' OR city = :city)`.
+- Queries use `:name` and formulas use `name`. A data field with the same name takes precedence in
+  formulas, so avoid names that match fields.
+
+`BrPrinting::preview()` and `print()` show the dialog before preparing the report, filled with the
+variable that the application set or else the default. Canceling stops the print. A report already
+prepared is not asked again; call `report.clearDocument()` first to ask again. Without a window
+(`exportToPdf()`, `prepare()`), the variables and defaults are used directly, and
+`BrParametersDialog` can be used to build another flow. Values typed in the designer preview are
+kept only for the next preview and are not saved in the report.
 
 The standalone `brdesigner` has *Data > Database connection* to open a connection for designing and
 previewing (the password is asked for, never saved).

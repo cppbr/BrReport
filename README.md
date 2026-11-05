@@ -76,6 +76,7 @@ applications with a ready-made preview window, or in console and server programs
 - Data sources referred to by name; conditional printing and highlighting written as formulas.
 - SQL queries stored in the report, with parameters from report variables; the application keeps
   the database connections (no passwords in reports).
+- Report parameters (text, numbers, dates, yes/no and lists) asked for before preview and print.
 
 ### Expressions and formatting
 
@@ -386,7 +387,7 @@ Every example except `quick_start` opens the preview window, or exports with `--
 The detailed list of pending work is in [TODO.md](TODO.md).
 
 - More barcodes: PDF417, Data Matrix, Code 39
-- Designer: rulers, guides, multi-page templates, expression builder, report parameters dialog
+- Designer: rulers, guides, multi-page templates, expression builder
 - More translations of the preview and the designer
 - Bands split across pages (very long texts)
 - XLSX, RTF and plain-text export

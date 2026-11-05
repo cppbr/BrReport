@@ -9,6 +9,8 @@ set(BRREPORT_DESIGNER_SOURCES
     brdesignerlabels_p.h
     brdesignscene.cpp
     brdesignscene_p.h
+    brparameterseditor.cpp
+    brparameterseditor_p.h
     brpropertyeditor.cpp
     brpropertyeditor_p.h
 )

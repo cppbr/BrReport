@@ -228,6 +228,10 @@
         <translation>&amp;Remover consulta selecionada</translation>
     </message>
     <message>
+        <source>Report &amp;parameters...</source>
+        <translation>&amp;Parâmetros do relatório...</translation>
+    </message>
+    <message>
         <source>Re&amp;fresh fields</source>
         <translation>&amp;Atualizar campos</translation>
     </message>
@@ -330,6 +334,10 @@
         <translation>Arraste para uma banda</translation>
     </message>
     <message>
+        <source>Parameters</source>
+        <translation>Parâmetros</translation>
+    </message>
+    <message>
         <source>Variables</source>
         <translation>Variáveis</translation>
     </message>
@@ -390,8 +398,8 @@
         <translation>Conexão</translation>
     </message>
     <message>
-        <source>SQL (use :name for report variables):</source>
-        <translation>SQL (use :nome para as variáveis do relatório):</translation>
+        <source>SQL (use :name for report parameters and variables):</source>
+        <translation>SQL (use :nome para os parâmetros e variáveis do relatório):</translation>
     </message>
     <message>
         <source>Name and SQL are required.</source>
@@ -414,6 +422,10 @@ Campos: %2</translation>
     <message>
         <source>Add query</source>
         <translation>Adicionar consulta</translation>
+    </message>
+    <message>
+        <source>Edit parameters</source>
+        <translation>Editar parâmetros</translation>
     </message>
     <message>
         <source>Remove query</source>
@@ -545,6 +557,100 @@ Campos: %2</translation>
     <message>
         <source>Chart</source>
         <translation>Gráfico</translation>
+    </message>
+</context>
+<context>
+    <name>BrParametersDialog</name>
+    <message>
+        <source>Report parameters</source>
+        <translation>Parâmetros do relatório</translation>
+    </message>
+</context>
+<context>
+    <name>BrParametersEditor</name>
+    <message>
+        <source>Report parameters</source>
+        <translation>Parâmetros do relatório</translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>Caption</source>
+        <translation>Legenda</translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation>Tipo</translation>
+    </message>
+    <message>
+        <source>Default value</source>
+        <translation>Valor padrão</translation>
+    </message>
+    <message>
+        <source>Choices</source>
+        <translation>Opções</translation>
+    </message>
+    <message>
+        <source>Dates: yyyy-mm-dd or &quot;today&quot;. Yes/No: true or false.</source>
+        <translation>Datas: aaaa-mm-dd ou &quot;today&quot; (hoje). Sim/Não: true ou false.</translation>
+    </message>
+    <message>
+        <source>Optional, separated by &apos;;&apos;: value or value=caption.</source>
+        <translation>Opcional, separadas por &apos;;&apos;: valor ou valor=legenda.</translation>
+    </message>
+    <message>
+        <source>Add</source>
+        <translation>Adicionar</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Remover</translation>
+    </message>
+    <message>
+        <source>Move up</source>
+        <translation>Mover para cima</translation>
+    </message>
+    <message>
+        <source>Move down</source>
+        <translation>Mover para baixo</translation>
+    </message>
+    <message>
+        <source>The user is asked for these values before the report runs. Use them as :name in SQL queries and as name in formulas.</source>
+        <translation>Estes valores são pedidos ao usuário antes de executar o relatório. Use :nome nas consultas SQL e nome nas fórmulas.</translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation>Texto</translation>
+    </message>
+    <message>
+        <source>Integer</source>
+        <translation>Inteiro</translation>
+    </message>
+    <message>
+        <source>Number</source>
+        <translation>Número</translation>
+    </message>
+    <message>
+        <source>Date</source>
+        <translation>Data</translation>
+    </message>
+    <message>
+        <source>Yes/No</source>
+        <translation>Sim/Não</translation>
+    </message>
+    <message>
+        <source>Line %1: the name must start with a letter and have only letters, digits and &apos;_&apos;.</source>
+        <translation>Linha %1: o nome deve começar com uma letra e ter apenas letras, dígitos e &apos;_&apos;.</translation>
+    </message>
+    <message>
+        <source>The name &apos;%1&apos; is used more than once.</source>
+        <translation>O nome &apos;%1&apos; foi usado mais de uma vez.</translation>
+    </message>
+    <message>
+        <source>&apos;%1&apos; is not a valid default value for the parameter &apos;%2&apos;.</source>
+        <translation>&apos;%1&apos; não é um valor padrão válido para o parâmetro &apos;%2&apos;.</translation>
     </message>
 </context>
 <context>

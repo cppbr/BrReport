@@ -17,6 +17,7 @@
 
 #include "brprinting.h"
 
+#include "brparametersdialog.h"
 #include "brpreviewdialog.h"
 #include "brrenderer.h"
 #include "brreport.h"
@@ -92,9 +93,27 @@ bool BrPrinting::print(const BrDocument &document, QWidget *parent, bool showDia
     return print(document, &printer, from, to);
 }
 
+bool BrPrinting::askParameters(BrReport *report, QWidget *parent)
+{
+    if (!report)
+        return false;
+    if (report->parameters().isEmpty())
+        return true;
+    BrParametersDialog dialog(report, parent);
+    if (dialog.exec() != QDialog::Accepted)
+        return false;
+    const QVariantMap values = dialog.values();
+    for (auto it = values.begin(); it != values.end(); ++it)
+        report->setVariable(it.key(), it.value());
+    report->clearDocument();
+    return true;
+}
+
 bool BrPrinting::print(BrReport *report, QWidget *parent, bool showDialog)
 {
     if (!report)
+        return false;
+    if (!report->isPrepared() && !askParameters(report, parent))
         return false;
     if (!report->isPrepared() && !report->prepare()) {
         QMessageBox::warning(parent, QObject::tr("Print"), report->errorString());
@@ -106,6 +125,8 @@ bool BrPrinting::print(BrReport *report, QWidget *parent, bool showDialog)
 void BrPrinting::preview(BrReport *report, QWidget *parent)
 {
     if (!report)
+        return;
+    if (!report->isPrepared() && !askParameters(report, parent))
         return;
     if (!report->isPrepared() && !report->prepare() && report->document().isEmpty()) {
         QMessageBox::warning(parent, QObject::tr("Preview"), report->errorString());

@@ -4,10 +4,8 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 
 ## Designer (end users)
 
-- [ ] **Report parameters dialog**: declare parameters in the report (name, caption, type, default
-      value, list of choices) and ask the user for them before preview/print (BrPrinting::preview,
-      designer preview, brview is not affected). Values go to the report variables used by the SQL
-      queries (`:name`) and formulas.
+- [ ] **Parameter choices from a query**: fill the list of a report parameter from SQL (e.g. pick a
+      customer by name); parameters only have fixed lists today.
 - [ ] **Expression builder**: dialog for `Formula`, `Print if`, `Highlight if` and group formulas
       with the available fields, variables, functions and operators, plus syntax checking
       (BrExpression::errorString()).

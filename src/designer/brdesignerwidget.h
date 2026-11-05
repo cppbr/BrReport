@@ -133,6 +133,7 @@ private:
     void addSubReport();
     void editQuery(const QString &name);
     void removeQuery(const QString &name);
+    void editParameters();
     void setZoom(double zoom);
     QObject *targetPager() const;
 };

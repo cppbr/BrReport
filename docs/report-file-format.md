@@ -82,7 +82,8 @@ Common to every object: `geometry` `[x, y, width, height]` in mm, `align`, `visi
 
 Report properties: `title`, `paperSize` `[width, height]` in mm (portrait), `landscape`, `margins`
 `[left, top, right, bottom]`, `continuous`, `font`, `localeName` (e.g. `"pt_BR"`), `dataSourceName`,
-`variables`, `maxPages` and `watermarkText`, `watermarkFont`, `watermarkColor`, `watermarkAngle`,
+`variables`, `queries`, `parameters` (see the [designer guide](designer.md#report-parameters)),
+`maxPages` and `watermarkText`, `watermarkFont`, `watermarkColor`, `watermarkAngle`,
 `watermarkImage`, `watermarkImageOpacity`.
 
 The property names are the `Q_PROPERTY` names of the classes (`BrBand`, `BrDBText`...), so the API

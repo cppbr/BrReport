@@ -43,10 +43,24 @@ public:
     static bool print(const BrDocument &document, QWidget *parent = nullptr,
                       bool showDialog = true);
 
-    /*! Prepares (if needed) and prints a report. */
+    /*!
+     * Asks the user for the report parameters (see BrReport::parameters()) and
+     * stores the answers as report variables. Returns false if the user cancels;
+     * returns true without asking if the report has no parameters.
+     */
+    static bool askParameters(BrReport *report, QWidget *parent = nullptr);
+
+    /*!
+     * Prepares (if needed, asking for the report parameters first) and prints a
+     * report. Returns false if canceled or on error.
+     */
     static bool print(BrReport *report, QWidget *parent = nullptr, bool showDialog = true);
 
-    /*! Prepares (if needed) and shows a report in a modal preview window. */
+    /*!
+     * Prepares (if needed, asking for the report parameters first) and shows a
+     * report in a modal preview window. A report already prepared is shown as is;
+     * call BrReport::clearDocument() to ask again.
+     */
     static void preview(BrReport *report, QWidget *parent = nullptr);
 
     /*! Shows a prepared document (e.g. loaded from a .brp file) in a modal preview window. */

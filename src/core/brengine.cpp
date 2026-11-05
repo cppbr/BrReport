@@ -154,8 +154,7 @@ QVariant BrEngine::variable(const QString &name, bool *found) const
         *found = true;
         return v;
     }
-    const QVariantMap vars = m_report->variables();
-    v = brMapValue(vars, name, &ok);
+    v = m_report->variable(name, &ok);
     if (ok) {
         *found = true;
         return v;

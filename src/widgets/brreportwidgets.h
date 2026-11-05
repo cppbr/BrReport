@@ -21,6 +21,7 @@
 // Convenience header: includes the BrReport core and widgets APIs.
 
 #include "brreportcore.h"
+#include "brparametersdialog.h"
 #include "brpreviewdialog.h"
 #include "brpreviewwidget.h"
 #include "brprinting.h"

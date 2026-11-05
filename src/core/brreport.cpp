@@ -69,9 +69,50 @@ void BrReport::setVariable(const QString &name, const QVariant &value)
     m_variables.insert(name, value);
 }
 
-QVariant BrReport::variable(const QString &name) const
+QVariant BrReport::variable(const QString &name, bool *found) const
 {
-    return brMapValue(m_variables, name);
+    bool ok = false;
+    QVariant value = brMapValue(m_variables, name, &ok);
+    for (const QVariant &item : m_parameters) {
+        const QVariantMap parameter = item.toMap();
+        if (parameter.value(QStringLiteral("name")).toString().compare(name, Qt::CaseInsensitive) == 0) {
+            value = parameterValue(parameter, ok ? value : parameter.value(QStringLiteral("default")));
+            ok = true;
+            break;
+        }
+    }
+    if (found)
+        *found = ok;
+    return value;
+}
+
+void BrReport::addParameter(const QString &name, const QString &caption, const QString &type,
+                            const QVariant &defaultValue, const QVariantList &choices)
+{
+    QVariantMap p{{QStringLiteral("name"), name}, {QStringLiteral("type"), type}};
+    if (!caption.isEmpty())
+        p.insert(QStringLiteral("caption"), caption);
+    if (defaultValue.isValid())
+        p.insert(QStringLiteral("default"), defaultValue);
+    if (!choices.isEmpty())
+        p.insert(QStringLiteral("choices"), choices);
+    m_parameters << p;
+}
+
+QVariant BrReport::parameterValue(const QVariantMap &parameter, const QVariant &value)
+{
+    const QString type = parameter.value(QStringLiteral("type")).toString().toLower();
+    if (type == QLatin1String("date")) {
+        const QDate date = value.toDate(); // also from "yyyy-MM-dd"; "today" is not a date
+        return date.isValid() ? date : QDate::currentDate();
+    }
+    if (type == QLatin1String("integer"))
+        return value.toLongLong();
+    if (type == QLatin1String("number"))
+        return value.toDouble();
+    if (type == QLatin1String("boolean"))
+        return value.toBool();
+    return value.toString();
 }
 
 void BrReport::registerFunction(const QString &name, const CustomFunction &function)

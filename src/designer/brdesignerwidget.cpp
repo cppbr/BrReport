@@ -23,6 +23,8 @@
 #include "brdesignerlabels_p.h"
 #include "brdesignscene_p.h"
 #include "brpager.h"
+#include "brparametersdialog.h"
+#include "brparameterseditor_p.h"
 #include "brpreviewdialog.h"
 #include "brpropertyeditor_p.h"
 #include "brreport.h"
@@ -208,6 +210,7 @@ struct BrDesignerWidget::Private
     QUndoStack undo;
     QByteArray current; // JSON of the last committed state
     QHash<QString, BrDataSource *> dataSources;
+    QVariantMap lastParameters; // values typed in the last preview
     BrDesignerWidget::SaveHandler saveHandler;
     QActionGroup *tools = nullptr;
     QAction *pointerTool = nullptr;
@@ -406,6 +409,7 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
     });
     m_dataMenu->addSeparator();
 #endif
+    m_dataMenu->addAction(tr("Report &parameters..."), this, &BrDesignerWidget::editParameters);
     m_dataMenu->addAction(tr("Re&fresh fields"), this, &BrDesignerWidget::rebuildDataPanel);
 
     // --- View
@@ -534,6 +538,7 @@ bool BrDesignerWidget::loadFromJson(const QByteArray &json, QString *error)
         return false;
     }
     d->current = d->report.toJson();
+    d->lastParameters.clear();
     d->undo.clear();
     d->undo.setClean();
     refreshAll();
@@ -640,8 +645,26 @@ void BrDesignerWidget::updateTitle()
 
 void BrDesignerWidget::preview()
 {
+    // Values typed for a preview are remembered here, never saved in the report.
+    const QVariantMap variables = d->report.variables();
+    QVariantMap values = variables;
+    for (auto it = d->lastParameters.cbegin(); it != d->lastParameters.cend(); ++it)
+        values.insert(it.key(), it.value());
+    d->report.setVariables(values);
+    if (!d->report.parameters().isEmpty()) {
+        BrParametersDialog dialog(&d->report, this);
+        if (dialog.exec() != QDialog::Accepted) {
+            d->report.setVariables(variables);
+            return;
+        }
+        d->lastParameters = dialog.values();
+        for (auto it = d->lastParameters.cbegin(); it != d->lastParameters.cend(); ++it)
+            d->report.setVariable(it.key(), it.value());
+    }
     d->report.clearDocument();
-    if (!d->report.prepare() && d->report.document().isEmpty()) {
+    const bool prepared = d->report.prepare();
+    d->report.setVariables(variables);
+    if (!prepared && d->report.document().isEmpty()) {
         QMessageBox::warning(this, tr("Preview"), d->report.errorString());
         return;
     }
@@ -814,7 +837,24 @@ void BrDesignerWidget::rebuildDataPanel()
         }
     }
 
-    const QVariantMap vars = d->report.variables();
+    QStringList parameterNames;
+    if (!d->report.parameters().isEmpty()) {
+        auto *top = new QTreeWidgetItem(d->data);
+        top->setText(0, tr("Parameters"));
+        for (const QVariant &p : d->report.parameters()) {
+            const QVariantMap parameter = p.toMap();
+            const QString name = parameter.value(QStringLiteral("name")).toString();
+            parameterNames << name;
+            auto *item = new QTreeWidgetItem(top);
+            item->setText(0, name);
+            item->setToolTip(0, tr("Drag into a band"));
+            addTemplate(item, geometryTemplate("DBText", 30, 6, {{QStringLiteral("dataFormula"), name}}));
+        }
+    }
+
+    QVariantMap vars = d->report.variables();
+    for (const QString &name : parameterNames)
+        vars.remove(name);
     if (!vars.isEmpty()) {
         auto *top = new QTreeWidgetItem(d->data);
         top->setText(0, tr("Variables"));
@@ -880,7 +920,7 @@ void BrDesignerWidget::editQuery(const QString &name)
     form->addRow(tr("Connection"), connCombo);
     auto *layout = new QVBoxLayout(&dialog);
     layout->addLayout(form);
-    layout->addWidget(new QLabel(tr("SQL (use :name for report variables):"), &dialog));
+    layout->addWidget(new QLabel(tr("SQL (use :name for report parameters and variables):"), &dialog));
     layout->addWidget(sqlEdit, 1);
     layout->addWidget(buttons);
     dialog.resize(640, 420);
@@ -905,6 +945,10 @@ void BrDesignerWidget::editQuery(const QString &name)
             const QVariantMap vars = d->report.variables();
             for (auto it = vars.begin(); it != vars.end(); ++it)
                 q.bindValue(QLatin1Char(':') + it.key(), it.value());
+            for (const QVariant &p : d->report.parameters()) {
+                const QString parameter = p.toMap().value(QStringLiteral("name")).toString();
+                q.bindValue(QLatin1Char(':') + parameter, d->report.variable(parameter));
+            }
             if (!q.exec())
                 message = q.lastError().text();
             else {
@@ -936,6 +980,17 @@ void BrDesignerWidget::editQuery(const QString &name)
 #else
     Q_UNUSED(name)
 #endif
+}
+
+void BrDesignerWidget::editParameters()
+{
+    BrParametersEditor editor(d->report.parameters(), this);
+    if (editor.exec() != QDialog::Accepted)
+        return;
+    d->report.setParameters(editor.parameters());
+    d->lastParameters.clear();
+    commit(tr("Edit parameters"));
+    rebuildDataPanel();
 }
 
 void BrDesignerWidget::removeQuery(const QString &name)

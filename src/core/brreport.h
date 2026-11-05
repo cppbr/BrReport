@@ -83,6 +83,7 @@ class BRREPORT_EXPORT BrReport : public BrPager
     Q_PROPERTY(QString dataSourceName READ dataSourceName WRITE setDataSourceName)
     Q_PROPERTY(QVariantMap variables READ variables WRITE setVariables)
     Q_PROPERTY(QVariantList queries READ queries WRITE setQueries)
+    Q_PROPERTY(QVariantList parameters READ parameters WRITE setParameters)
     Q_PROPERTY(int maxPages READ maxPages WRITE setMaxPages)
     Q_PROPERTY(QString watermarkText READ watermarkText WRITE setWatermarkText)
     Q_PROPERTY(QFont watermarkFont READ watermarkFont WRITE setWatermarkFont)
@@ -215,6 +216,26 @@ public:
     /*! Runs the queries (prepare() does it). Returns false and sets errorString() on failure. */
     bool openQueries();
 
+    /*!
+     * Parameters declared by the report, as a list of maps {"name", "caption",
+     * "type", "default", "choices"}. BrPrinting::preview() and print() ask the user
+     * for them (BrParametersDialog) and store the answers as report variables, so
+     * they work in SQL queries (":name") and formulas (name).
+     *
+     * - type: "string" (default), "integer", "number", "date" or "boolean".
+     * - default: value used until a variable with the same name is set. Dates are
+     *   "yyyy-MM-dd" or "today"; a date without a default is today.
+     * - choices: fixed list of values, each a plain value or a map {"value", "caption"}.
+     */
+    QVariantList parameters() const { return m_parameters; }
+    void setParameters(const QVariantList &parameters) { m_parameters = parameters; }
+    void addParameter(const QString &name, const QString &caption = QString(),
+                      const QString &type = QStringLiteral("string"),
+                      const QVariant &defaultValue = QVariant(),
+                      const QVariantList &choices = QVariantList());
+    /*! Converts \a value to the type of \a parameter (an item of parameters()). */
+    static QVariant parameterValue(const QVariantMap &parameter, const QVariant &value);
+
     // -- Report files (layout as JSON, see docs/report-file-format.md) --
 
     /*! Replaces the layout with the one in \a fileName (.brt). Data sources are kept. */
@@ -234,9 +255,13 @@ public:
     /*! Removes every band, group and sub-detail (the layout). */
     void clearLayout();
 
-    /*! Values available to expressions by name (checked after data fields). */
+    /*!
+     * Values available to expressions by name (checked after data fields).
+     * variable() also returns the value of a declared parameter, converted to its
+     * type: the variable with the same name if set, otherwise the default value.
+     */
     void setVariable(const QString &name, const QVariant &value);
-    QVariant variable(const QString &name) const;
+    QVariant variable(const QString &name, bool *found = nullptr) const;
     QVariantMap variables() const { return m_variables; }
     void setVariables(const QVariantMap &variables) { m_variables = variables; }
 
@@ -292,6 +317,7 @@ private:
     QHash<QString, BrDataSource *> m_dataSources;
     QHash<QString, QString> m_dataSourceLabels; // lower-case key -> name as registered
     QVariantList m_queries;
+    QVariantList m_parameters;
     QHash<QString, BrDataSource *> m_queryDataSources; // owned, created from m_queries
     QString m_localeName;
     QVariantMap m_variables;

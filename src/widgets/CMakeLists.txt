@@ -1,5 +1,6 @@
 set(BRREPORT_WIDGETS_HEADERS
     brwidgetsglobal.h
+    brparametersdialog.h
     brpreviewdialog.h
     brpreviewwidget.h
     brprinting.h
@@ -8,6 +9,7 @@ set(BRREPORT_WIDGETS_HEADERS
 )
 
 set(BRREPORT_WIDGETS_SOURCES
+    brparametersdialog.cpp
     brpreviewdialog.cpp
     brpreviewwidget.cpp
     brprinting.cpp
