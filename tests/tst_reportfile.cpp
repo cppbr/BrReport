@@ -399,6 +399,35 @@ private slots:
         QVERIFY(copy.loadFromJson(report.toJson()));
         QCOMPARE(copy.parameters(), report.parameters());
 
+        // Choices from a query, bound to the report variables
+        QVariantMap customer{{QStringLiteral("name"), QStringLiteral("sale")},
+                             {QStringLiteral("choicesConnection"), QStringLiteral("params")},
+                             {QStringLiteral("choicesSql"),
+                              QStringLiteral("SELECT id, 'Sale ' || id FROM sale WHERE day >= :start ORDER BY id")}};
+        QString error;
+        const QVariantList choices = report.parameterChoices(customer, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(choices.size(), 1);
+        QCOMPARE(choices.first().toMap().value(QStringLiteral("value")).toInt(), 3);
+        QCOMPARE(choices.first().toMap().value(QStringLiteral("caption")).toString(), QStringLiteral("Sale 3"));
+
+        customer[QStringLiteral("choicesSql")] = QStringLiteral("SELECT id FROM sale ORDER BY id");
+        const QVariantList plain = report.parameterChoices(customer, &error);
+        QCOMPARE(plain.size(), 3);
+        QVERIFY(!plain.first().toMap().contains(QStringLiteral("caption")));
+
+        customer[QStringLiteral("choices")] = QVariantList{QStringLiteral("ignored")};
+        QCOMPARE(report.parameterChoices(customer).size(), 3); // the query wins over a fixed list
+        customer[QStringLiteral("choicesSql")] = QStringLiteral("SELECT * FROM missing");
+        QVERIFY(report.parameterChoices(customer, &error).isEmpty());
+        QVERIFY(!error.isEmpty());
+        customer[QStringLiteral("choicesConnection")] = QStringLiteral("nope");
+        QVERIFY(report.parameterChoices(customer, &error).isEmpty());
+        QVERIFY(error.contains(QStringLiteral("not open")));
+        customer.remove(QStringLiteral("choicesSql"));
+        QCOMPARE(report.parameterChoices(customer, &error).size(), 1);
+        QVERIFY(error.isEmpty());
+
         // Conversions
         const QVariantMap date{{QStringLiteral("type"), QStringLiteral("date")}};
         QCOMPARE(BrReport::parameterValue(date, QStringLiteral("today")), QVariant(QDate::currentDate()));

@@ -4,8 +4,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 
 ## Designer (end users)
 
-- [ ] **Parameter choices from a query**: fill the list of a report parameter from SQL (e.g. pick a
-      customer by name); parameters only have fixed lists today.
 - [ ] **Expression builder**: dialog for `Formula`, `Print if`, `Highlight if` and group formulas
       with the available fields, variables, functions and operators, plus syntax checking
       (BrExpression::errorString()).

@@ -110,6 +110,12 @@ it. Declare them in *Data > Report parameters*:
 - `choices` is a fixed list, each item a plain value or `{ "value", "caption" }`. In the designer it
   is typed as `1=Active; 2=Inactive`. An empty value (`=All`) allows queries such as
   `WHERE (:city = '' OR city = :city)`.
+- `choicesSql` fills the list from a query (*Choices from SQL* in the designer), and
+  `choicesConnection` names its connection (empty = default connection). The first column is the
+  value and the second, optional, is the caption:
+  `SELECT id, name FROM customer ORDER BY name`. It replaces `choices`. Placeholders use the values
+  known when the dialog opens, so one list does not change as another parameter is edited. If the
+  query fails, the dialog shows the error and lets the user type the value.
 - Queries use `:name` and formulas use `name`. A data field with the same name takes precedence in
   formulas, so avoid names that match fields.
 

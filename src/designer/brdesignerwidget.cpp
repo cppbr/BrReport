@@ -984,7 +984,7 @@ void BrDesignerWidget::editQuery(const QString &name)
 
 void BrDesignerWidget::editParameters()
 {
-    BrParametersEditor editor(d->report.parameters(), this);
+    BrParametersEditor editor(d->report.parameters(), &d->report, this);
     if (editor.exec() != QDialog::Accepted)
         return;
     d->report.setParameters(editor.parameters());

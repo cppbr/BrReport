@@ -17,6 +17,8 @@
 
 #include "brparameterseditor_p.h"
 
+#include "brreport.h"
+
 #include <QComboBox>
 #include <QDate>
 #include <QDialogButtonBox>
@@ -24,15 +26,25 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QSet>
 #include <QTableWidget>
 #include <QVBoxLayout>
 
+#ifdef BRREPORT_HAS_SQL
+#include <QFormLayout>
+#include <QSqlDatabase>
+#endif
+
 namespace {
 
 enum Column { NameColumn, CaptionColumn, TypeColumn, DefaultColumn, ChoicesColumn, ColumnCount };
+
+// The choices cell keeps the query that fills the list, if any.
+constexpr int SqlRole = Qt::UserRole;
+constexpr int ConnectionRole = Qt::UserRole + 1;
 
 // "1=Active; 2=Inactive; Other": value=caption pairs or plain values
 QString choicesToText(const QVariantList &choices)
@@ -70,7 +82,8 @@ QVariantList choicesFromText(const QString &text)
 
 } // namespace
 
-BrParametersEditor::BrParametersEditor(const QVariantList &parameters, QWidget *parent) : QDialog(parent)
+BrParametersEditor::BrParametersEditor(const QVariantList &parameters, const BrReport *report, QWidget *parent)
+    : QDialog(parent), m_report(report)
 {
     setWindowTitle(tr("Report parameters"));
     resize(760, 360);
@@ -106,6 +119,11 @@ BrParametersEditor::BrParametersEditor(const QVariantList &parameters, QWidget *
     rowButtons->addWidget(remove);
     rowButtons->addWidget(up);
     rowButtons->addWidget(down);
+#ifdef BRREPORT_HAS_SQL
+    auto *query = new QPushButton(tr("Choices from SQL..."), this);
+    connect(query, &QPushButton::clicked, this, &BrParametersEditor::editChoicesQuery);
+    rowButtons->addWidget(query);
+#endif
     rowButtons->addStretch(1);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -132,6 +150,15 @@ QVariantMap BrParametersEditor::rowValues(int row) const
         p.insert(QStringLiteral("caption"), text(CaptionColumn));
     if (!text(DefaultColumn).isEmpty())
         p.insert(QStringLiteral("default"), text(DefaultColumn));
+    const QTableWidgetItem *choicesItem = m_table->item(row, ChoicesColumn);
+    const QString sql = choicesItem->data(SqlRole).toString();
+    if (!sql.isEmpty()) {
+        p.insert(QStringLiteral("choicesSql"), sql);
+        const QString connection = choicesItem->data(ConnectionRole).toString();
+        if (!connection.isEmpty())
+            p.insert(QStringLiteral("choicesConnection"), connection);
+        return p;
+    }
     const QVariantList choices = choicesFromText(text(ChoicesColumn));
     if (!choices.isEmpty())
         p.insert(QStringLiteral("choices"), choices);
@@ -144,8 +171,77 @@ void BrParametersEditor::setRowValues(int row, const QVariantMap &parameter)
     m_table->item(row, CaptionColumn)->setText(parameter.value(QStringLiteral("caption")).toString());
     m_table->item(row, DefaultColumn)->setText(parameter.value(QStringLiteral("default")).toString());
     m_table->item(row, ChoicesColumn)->setText(choicesToText(parameter.value(QStringLiteral("choices")).toList()));
+    setChoicesQuery(row, parameter.value(QStringLiteral("choicesSql")).toString(),
+                    parameter.value(QStringLiteral("choicesConnection")).toString());
     auto *type = qobject_cast<QComboBox *>(m_table->cellWidget(row, TypeColumn));
     type->setCurrentIndex(qMax(0, type->findData(parameter.value(QStringLiteral("type")).toString().toLower())));
+}
+
+void BrParametersEditor::setChoicesQuery(int row, const QString &sql, const QString &connection)
+{
+    QTableWidgetItem *item = m_table->item(row, ChoicesColumn);
+    const bool hadQuery = !item->data(SqlRole).toString().isEmpty();
+    item->setData(SqlRole, sql);
+    item->setData(ConnectionRole, connection);
+    if (sql.isEmpty()) {
+        item->setFlags(item->flags() | Qt::ItemIsEditable);
+        if (hadQuery)
+            item->setText(QString());
+    } else {
+        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+        item->setText(tr("SQL: %1").arg(sql.simplified()));
+    }
+}
+
+void BrParametersEditor::editChoicesQuery()
+{
+#ifdef BRREPORT_HAS_SQL
+    const int row = m_table->currentRow();
+    if (row < 0) {
+        QMessageBox::information(this, windowTitle(), tr("Select a parameter first."));
+        return;
+    }
+    const QTableWidgetItem *item = m_table->item(row, ChoicesColumn);
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Choices from SQL"));
+    auto *connection = new QComboBox(&dialog);
+    connection->setEditable(true);
+    connection->addItem(QString());
+    for (const QString &c : QSqlDatabase::connectionNames())
+        if (c != QLatin1String(QSqlDatabase::defaultConnection))
+            connection->addItem(c);
+    connection->setCurrentText(item->data(ConnectionRole).toString());
+    connection->setToolTip(tr("Empty = the application's default database connection"));
+    auto *sql = new QPlainTextEdit(item->data(SqlRole).toString(), &dialog);
+    sql->setFont(QFont(QStringLiteral("monospace")));
+    sql->setPlaceholderText(QStringLiteral("SELECT id, name FROM customers ORDER BY name"));
+    auto *test = new QPushButton(tr("Test"), &dialog);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    buttons->addButton(test, QDialogButtonBox::ActionRole);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    connect(test, &QPushButton::clicked, &dialog, [&]() {
+        QString error;
+        const QVariantList choices = m_report->parameterChoices(
+            {{QStringLiteral("choicesSql"), sql->toPlainText()},
+             {QStringLiteral("choicesConnection"), connection->currentText()}}, &error);
+        QMessageBox::information(&dialog, tr("Test query"),
+                                 error.isEmpty() ? tr("OK: %1 choice(s).").arg(choices.size()) : error);
+    });
+
+    auto *form = new QFormLayout;
+    form->addRow(tr("Connection"), connection);
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->addLayout(form);
+    layout->addWidget(new QLabel(tr("The first column is the value and the second, optional, is the caption. "
+                                    "Leave it empty to remove the query."), &dialog));
+    layout->addWidget(sql, 1);
+    layout->addWidget(buttons);
+    dialog.resize(560, 320);
+    if (dialog.exec() == QDialog::Accepted)
+        setChoicesQuery(row, sql->toPlainText().trimmed(), connection->currentText());
+#endif
 }
 
 void BrParametersEditor::addRow(const QVariantMap &parameter)

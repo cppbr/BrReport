@@ -565,6 +565,10 @@ Campos: %2</translation>
         <source>Report parameters</source>
         <translation>Parâmetros do relatório</translation>
     </message>
+    <message>
+        <source>Could not load the choices of &apos;%1&apos;: %2</source>
+        <translation>Não foi possível carregar as opções de &apos;%1&apos;: %2</translation>
+    </message>
 </context>
 <context>
     <name>BrParametersEditor</name>
@@ -617,8 +621,48 @@ Campos: %2</translation>
         <translation>Mover para baixo</translation>
     </message>
     <message>
+        <source>Choices from SQL...</source>
+        <translation>Opções por SQL...</translation>
+    </message>
+    <message>
         <source>The user is asked for these values before the report runs. Use them as :name in SQL queries and as name in formulas.</source>
         <translation>Estes valores são pedidos ao usuário antes de executar o relatório. Use :nome nas consultas SQL e nome nas fórmulas.</translation>
+    </message>
+    <message>
+        <source>SQL: %1</source>
+        <translation>SQL: %1</translation>
+    </message>
+    <message>
+        <source>Select a parameter first.</source>
+        <translation>Selecione um parâmetro primeiro.</translation>
+    </message>
+    <message>
+        <source>Choices from SQL</source>
+        <translation>Opções por SQL</translation>
+    </message>
+    <message>
+        <source>Empty = the application&apos;s default database connection</source>
+        <translation>Vazio = conexão padrão do sistema</translation>
+    </message>
+    <message>
+        <source>Test</source>
+        <translation>Testar</translation>
+    </message>
+    <message>
+        <source>Test query</source>
+        <translation>Testar consulta</translation>
+    </message>
+    <message>
+        <source>OK: %1 choice(s).</source>
+        <translation>OK: %1 opção(ões).</translation>
+    </message>
+    <message>
+        <source>Connection</source>
+        <translation>Conexão</translation>
+    </message>
+    <message>
+        <source>The first column is the value and the second, optional, is the caption. Leave it empty to remove the query.</source>
+        <translation>A primeira coluna é o valor e a segunda, opcional, é a legenda. Deixe vazio para remover a consulta.</translation>
     </message>
     <message>
         <source>Text</source>

@@ -21,6 +21,7 @@
 #include <QDialog>
 #include <QVariantList>
 
+class BrReport;
 class QTableWidget;
 
 /*! Designer dialog that declares the parameters of a report. */
@@ -28,7 +29,9 @@ class BrParametersEditor : public QDialog
 {
     Q_OBJECT
 public:
-    explicit BrParametersEditor(const QVariantList &parameters, QWidget *parent = nullptr);
+    /*! \a report is used to test the queries that fill the choices. */
+    explicit BrParametersEditor(const QVariantList &parameters, const BrReport *report,
+                                QWidget *parent = nullptr);
 
     /*! Same format as BrReport::parameters(). */
     QVariantList parameters() const;
@@ -40,8 +43,11 @@ private:
     void setRowValues(int row, const QVariantMap &parameter);
     void addRow(const QVariantMap &parameter);
     void moveCurrentRow(int delta);
+    void setChoicesQuery(int row, const QString &sql, const QString &connection);
+    void editChoicesQuery();
     QString validate() const;
 
+    const BrReport *m_report = nullptr;
     QTableWidget *m_table = nullptr;
 };
 

@@ -26,10 +26,28 @@
 #include "brsqldatasource.h"
 #include <QRegularExpression>
 #include <QSqlError>
+#include <QSqlRecord>
 #endif
 
 #include <QFile>
 #include <QSaveFile>
+
+#ifdef BRREPORT_HAS_SQL
+namespace {
+
+// Binds the ":variable" placeholders of \a sql to the report variables.
+void bindVariables(QSqlQuery &query, const QString &sql, const BrReport *report)
+{
+    static const QRegularExpression placeholder(QStringLiteral(":([A-Za-z_][A-Za-z0-9_]*)"));
+    auto it = placeholder.globalMatch(sql);
+    while (it.hasNext()) {
+        const QString var = it.next().captured(1);
+        query.bindValue(QLatin1Char(':') + var, report->variable(var));
+    }
+}
+
+} // namespace
+#endif
 
 BrReport::BrReport(QObject *parent) : BrPager(nullptr), m_font(QStringLiteral("Arial"), 10)
 {
@@ -97,6 +115,49 @@ void BrReport::addParameter(const QString &name, const QString &caption, const Q
     if (!choices.isEmpty())
         p.insert(QStringLiteral("choices"), choices);
     m_parameters << p;
+}
+
+QVariantList BrReport::parameterChoices(const QVariantMap &parameter, QString *error) const
+{
+    if (error)
+        error->clear();
+    const QString sql = parameter.value(QStringLiteral("choicesSql")).toString();
+    if (sql.trimmed().isEmpty())
+        return parameter.value(QStringLiteral("choices")).toList();
+#ifdef BRREPORT_HAS_SQL
+    const QString connection = parameter.value(QStringLiteral("choicesConnection")).toString();
+    QSqlDatabase db = connection.isEmpty() ? QSqlDatabase::database() : QSqlDatabase::database(connection);
+    QSqlQuery query(db);
+    QString failure;
+    if (!db.isOpen())
+        failure = QStringLiteral("database connection '%1' is not open.")
+                      .arg(connection.isEmpty() ? QStringLiteral("default") : connection);
+    else if (!query.prepare(sql))
+        failure = query.lastError().text();
+    if (failure.isEmpty()) {
+        bindVariables(query, sql, this);
+        if (!query.exec())
+            failure = query.lastError().text();
+    }
+    if (!failure.isEmpty()) {
+        if (error)
+            *error = failure;
+        return {};
+    }
+    const bool hasCaption = query.record().count() > 1;
+    QVariantList choices;
+    while (query.next()) {
+        QVariantMap choice{{QStringLiteral("value"), query.value(0)}};
+        if (hasCaption)
+            choice.insert(QStringLiteral("caption"), query.value(1).toString());
+        choices << choice;
+    }
+    return choices;
+#else
+    if (error)
+        *error = QStringLiteral("This BrReport build has no SQL support (BRREPORT_WITH_SQL=OFF).");
+    return {};
+#endif
 }
 
 QVariant BrReport::parameterValue(const QVariantMap &parameter, const QVariant &value)
@@ -326,13 +387,7 @@ bool BrReport::openQueries()
             m_error = QStringLiteral("Query '%1': %2").arg(name, query.lastError().text());
             return false;
         }
-        // Bind ":variable" placeholders
-        static const QRegularExpression placeholder(QStringLiteral(":([A-Za-z_][A-Za-z0-9_]*)"));
-        auto it = placeholder.globalMatch(sql);
-        while (it.hasNext()) {
-            const QString var = it.next().captured(1);
-            query.bindValue(QLatin1Char(':') + var, variable(var));
-        }
+        bindVariables(query, sql, this);
         if (!query.exec()) {
             m_error = QStringLiteral("Query '%1': %2").arg(name, query.lastError().text());
             return false;

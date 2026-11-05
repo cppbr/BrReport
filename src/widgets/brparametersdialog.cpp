@@ -25,6 +25,7 @@
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QVBoxLayout>
@@ -33,9 +34,9 @@
 
 namespace {
 
-QWidget *createEditor(const QVariantMap &parameter, const QVariant &value, QWidget *parent)
+QWidget *createEditor(const QVariantMap &parameter, const QVariantList &choices, const QVariant &value,
+                      QWidget *parent)
 {
-    const QVariantList choices = parameter.value(QStringLiteral("choices")).toList();
     if (!choices.isEmpty()) {
         auto *combo = new QComboBox(parent);
         for (const QVariant &choice : choices) {
@@ -96,15 +97,22 @@ BrParametersDialog::BrParametersDialog(BrReport *report, QWidget *parent) : QDia
 {
     setWindowTitle(tr("Report parameters"));
     auto *form = new QFormLayout;
+    QStringList errors;
     for (const QVariant &item : report->parameters()) {
         const QVariantMap parameter = item.toMap();
         const QString name = parameter.value(QStringLiteral("name")).toString();
         if (name.isEmpty())
             continue;
-        QWidget *editor = createEditor(parameter, report->variable(name), this);
-        editor->setObjectName(name);
         const QString caption = parameter.value(QStringLiteral("caption")).toString();
-        form->addRow(caption.isEmpty() ? name : caption, editor);
+        const QString label = caption.isEmpty() ? name : caption;
+        // If the list cannot be loaded, the user can still type the value.
+        QString error;
+        const QVariantList choices = report->parameterChoices(parameter, &error);
+        if (!error.isEmpty())
+            errors << tr("Could not load the choices of '%1': %2").arg(label, error);
+        QWidget *editor = createEditor(parameter, choices, report->variable(name), this);
+        editor->setObjectName(name);
+        form->addRow(label, editor);
         m_fields << Field{parameter, editor};
     }
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -112,6 +120,12 @@ BrParametersDialog::BrParametersDialog(BrReport *report, QWidget *parent) : QDia
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     auto *layout = new QVBoxLayout(this);
     layout->addLayout(form);
+    if (!errors.isEmpty()) {
+        auto *message = new QLabel(errors.join(QLatin1Char('\n')), this);
+        message->setObjectName(QStringLiteral("errors"));
+        message->setWordWrap(true);
+        layout->addWidget(message);
+    }
     layout->addWidget(buttons);
     setMinimumWidth(360);
 }

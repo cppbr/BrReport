@@ -29,10 +29,14 @@
 #include <QDateEdit>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMenuBar>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QTableWidget>
 #include <QTest>
 #include <QTimer>
@@ -123,7 +127,8 @@ private slots:
                          QVariantList{QStringLiteral("open"),
                                       QVariantMap{{QStringLiteral("value"), QString()},
                                                   {QStringLiteral("caption"), QStringLiteral("All")}}}}}};
-        BrParametersEditor editor(parameters);
+        BrReport report;
+        BrParametersEditor editor(parameters, &report);
         QCOMPARE(editor.parameters(), parameters);
 
         auto *table = editor.findChild<QTableWidget *>();
@@ -141,6 +146,64 @@ private slots:
         table->item(0, 0)->setText(QStringLiteral("1 bad"));
         editor.accept();
         QVERIFY(editor.result() != QDialog::Accepted);
+    }
+
+    void parametersChoicesFromSql()
+    {
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("choices"));
+            db.setDatabaseName(QStringLiteral(":memory:"));
+            QVERIFY(db.open());
+            QSqlQuery q(db);
+            QVERIFY(q.exec(QStringLiteral("CREATE TABLE customer (id INTEGER, name TEXT)")));
+            QVERIFY(q.exec(QStringLiteral("INSERT INTO customer VALUES (7,'Ana'),(9,'Bruno')")));
+        }
+        QVariantMap parameter{{QStringLiteral("name"), QStringLiteral("customer")},
+                              {QStringLiteral("type"), QStringLiteral("integer")},
+                              {QStringLiteral("default"), 9},
+                              {QStringLiteral("choicesSql"), QStringLiteral("SELECT id, name FROM customer ORDER BY name")},
+                              {QStringLiteral("choicesConnection"), QStringLiteral("choices")}};
+        BrReport report;
+        report.setParameters({parameter});
+        {
+            BrParametersDialog dialog(&report);
+            auto *combo = dialog.findChild<QComboBox *>(QStringLiteral("customer"));
+            QVERIFY(combo);
+            QCOMPARE(combo->count(), 2);
+            QCOMPARE(combo->currentText(), QStringLiteral("Bruno"));
+            QCOMPARE(dialog.values().value(QStringLiteral("customer")).toInt(), 9);
+            QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("errors")));
+        }
+
+        // When the list cannot be loaded, the user is told and can type the value
+        parameter[QStringLiteral("choicesSql")] = QStringLiteral("SELECT * FROM missing");
+        report.setParameters({parameter});
+        {
+            BrParametersDialog dialog(&report);
+            QVERIFY(dialog.findChild<QSpinBox *>(QStringLiteral("customer")));
+            QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("errors")));
+        }
+
+        // The editor keeps the query, shows it read-only and can remove it
+        parameter[QStringLiteral("default")] = QStringLiteral("9");
+        BrParametersEditor editor({parameter}, &report);
+        QCOMPARE(editor.parameters(), QVariantList{parameter});
+        auto *table = editor.findChild<QTableWidget *>();
+        QVERIFY(!(table->item(0, 4)->flags() & Qt::ItemIsEditable));
+        table->setCurrentCell(0, 0);
+        QTimer::singleShot(0, this, []() {
+            auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            auto *sql = modal->findChild<QPlainTextEdit *>();
+            QCOMPARE(sql->toPlainText(), QStringLiteral("SELECT * FROM missing"));
+            sql->clear();
+            modal->accept();
+        });
+        for (QPushButton *button : editor.findChildren<QPushButton *>())
+            if (button->text() == QStringLiteral("Choices from SQL..."))
+                button->click();
+        QVERIFY(!editor.parameters().first().toMap().contains(QStringLiteral("choicesSql")));
+        QVERIFY(table->item(0, 4)->text().isEmpty());
+        QVERIFY(table->item(0, 4)->flags() & Qt::ItemIsEditable);
     }
 
     void parametersInDesigner()

@@ -226,6 +226,9 @@ public:
      * - default: value used until a variable with the same name is set. Dates are
      *   "yyyy-MM-dd" or "today"; a date without a default is today.
      * - choices: fixed list of values, each a plain value or a map {"value", "caption"}.
+     * - choicesSql, choicesConnection: query that fills the list instead of "choices".
+     *   The first column is the value and the second, optional, the caption.
+     *   Placeholders ":name" are bound like those of queries().
      */
     QVariantList parameters() const { return m_parameters; }
     void setParameters(const QVariantList &parameters) { m_parameters = parameters; }
@@ -233,6 +236,11 @@ public:
                       const QString &type = QStringLiteral("string"),
                       const QVariant &defaultValue = QVariant(),
                       const QVariantList &choices = QVariantList());
+    /*!
+     * The choices of \a parameter, running its query if it has one. On failure
+     * returns an empty list and sets \a error.
+     */
+    QVariantList parameterChoices(const QVariantMap &parameter, QString *error = nullptr) const;
     /*! Converts \a value to the type of \a parameter (an item of parameters()). */
     static QVariant parameterValue(const QVariantMap &parameter, const QVariant &value);
 
