@@ -22,6 +22,7 @@
 #include "brdatasource.h"
 #include "brdesignerlabels_p.h"
 #include "brdesignscene_p.h"
+#include "brdesignview_p.h"
 #include "brpager.h"
 #include "brparametersdialog.h"
 #include "brparameterseditor_p.h"
@@ -203,7 +204,7 @@ struct BrDesignerWidget::Private
 {
     BrReport report;
     BrDesignScene *scene = nullptr;
-    QGraphicsView *view = nullptr;
+    BrDesignView *view = nullptr;
     QTreeWidget *tree = nullptr;
     DataTree *data = nullptr;
     BrPropertyEditor *properties = nullptr;
@@ -229,7 +230,7 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
     // --- Central view
     d->scene = new BrDesignScene(this);
     d->scene->setReport(&d->report);
-    d->view = new QGraphicsView(d->scene, this);
+    d->view = new BrDesignView(d->scene, this);
     d->view->setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
     d->view->setDragMode(QGraphicsView::RubberBandDrag);
     d->view->setAcceptDrops(true);
@@ -431,6 +432,15 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
     d->snapAction->setCheckable(true);
     d->snapAction->setChecked(true);
     connect(d->snapAction, &QAction::toggled, this, [this](bool on) { d->scene->setSnapToGrid(on); });
+    QAction *snapObjects = viewMenu->addAction(tr("Snap to &objects and guides"));
+    snapObjects->setCheckable(true);
+    snapObjects->setChecked(true);
+    connect(snapObjects, &QAction::toggled, this, [this](bool on) { d->scene->setSnapToObjects(on); });
+    QAction *rulers = viewMenu->addAction(tr("&Rulers"));
+    rulers->setCheckable(true);
+    rulers->setChecked(true);
+    connect(rulers, &QAction::toggled, this, [this](bool on) { d->view->setRulersVisible(on); });
+    viewMenu->addAction(tr("&Clear guides"), this, [this]() { d->scene->clearGuides(); });
     viewMenu->addSeparator();
     viewMenu->addAction(treeDock->toggleViewAction());
     viewMenu->addAction(dataDock->toggleViewAction());
@@ -1295,6 +1305,7 @@ void BrDesignerWidget::setZoom(double zoom)
     d->zoom = qBound(0.25, zoom, 6.0);
     const double k = d->zoom * logicalDpiX() / 25.4;
     d->view->setTransform(QTransform::fromScale(k, k));
+    d->view->updateRulers();
     statusBar()->showMessage(tr("Zoom %1%").arg(qRound(d->zoom * 100)), 1500);
 }
 

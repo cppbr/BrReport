@@ -32,12 +32,15 @@
 #include <QGraphicsItem>
 #include <QGraphicsScene>
 #include <QJsonObject>
+#include <QLineF>
 #include <QPointer>
+#include <QSet>
 
 class BrBand;
 class BrContainer;
 class BrControl;
 class BrDesignScene;
+class BrGuideItem;
 class BrReport;
 
 /*! Graphics item showing one report object (control) while designing. */
@@ -57,7 +60,6 @@ public:
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
 protected:
-    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
     void hoverMoveEvent(QGraphicsSceneHoverEvent *event) override;
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
@@ -75,6 +77,7 @@ private:
     bool m_movable;
     QList<BrPageItem> m_items;
     int m_handle = -1;
+    bool m_moving = false;
     QPointF m_pressPos;
     QRectF m_startRect;
 };
@@ -114,6 +117,35 @@ private:
     bool m_resizing = false;
 };
 
+/*! Line that helps to align objects. It belongs to the design, it is never printed. */
+class BrGuideItem : public QGraphicsItem
+{
+public:
+    enum { Type = UserType + 3 };
+
+    /*! A Qt::Vertical guide is at the x \a position, a Qt::Horizontal one at the y. */
+    BrGuideItem(Qt::Orientation orientation, double position, const QRectF &area);
+
+    int type() const override { return Type; }
+    Qt::Orientation orientation() const { return m_orientation; }
+    double position() const;
+    void setPosition(double position);
+
+    QRectF boundingRect() const override;
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
+
+protected:
+    void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+
+private:
+    BrDesignScene *designScene() const;
+
+    Qt::Orientation m_orientation;
+    QRectF m_area;
+};
+
 /*!
  * Scene showing the report page with its bands and objects, in millimeters.
  * Edits made with the mouse are applied to the report objects and announced
@@ -141,6 +173,34 @@ public:
     QPointF snap(const QPointF &p) const;
     double snap(double v) const;
 
+    /*! Align moved and resized objects with the other objects and the guides. */
+    bool snapToObjects() const { return m_snapObjects; }
+    void setSnapToObjects(bool on) { m_snapObjects = on; }
+
+    /*! Starts moving the selection with the mouse, \a grabber being under it. */
+    void beginMove(BrControlItem *grabber);
+    /*! Moves the selection by \a delta (mm) from where it started, snapped as a whole. */
+    void moveSelection(const QPointF &delta);
+    /*! Starts resizing \a item with the mouse. */
+    void beginResize(BrControlItem *item);
+    /*!
+     * Snaps the edge \a value of the item being resized, in the coordinates of its
+     * parent. \a axis is the direction the edge moves in.
+     */
+    double snapEdge(BrControlItem *item, Qt::Orientation axis, double value);
+    void clearSnapLines();
+    void endInteraction();
+    /*! Lines showing what the object in movement is aligned with. */
+    QList<QLineF> snapLines() const { return m_snapLines; }
+
+    /*! Adds a guide; finishGuide() stores it in the report. */
+    BrGuideItem *addGuide(Qt::Orientation orientation, double position);
+    /*! Ends the drag of \a guide, removing it unless \a keep is true. */
+    void finishGuide(BrGuideItem *guide, bool keep);
+    void clearGuides();
+    /*! True if \a scenePos is out of the visible area (the guide was dropped on a ruler). */
+    bool isOutOfView(const QPointF &scenePos) const;
+
     /*! Template of the object to insert on the next click (empty = selection mode). */
     void setInsertTemplate(const QJsonObject &json) { m_insertTemplate = json; }
     QJsonObject insertTemplate() const { return m_insertTemplate; }
@@ -160,6 +220,7 @@ signals:
     void selectedObjectsChanged();
 
 protected:
+    void drawForeground(QPainter *painter, const QRectF &rect) override;
     void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
     void dragEnterEvent(QGraphicsSceneDragDropEvent *event) override;
@@ -171,10 +232,25 @@ private:
     void addBand(BrBand *band, int depth, const QString &label, double &y);
     void addControls(BrContainer *container, const QSizeF &size, QGraphicsItem *parentItem);
     bool containerAt(const QPointF &scenePos, BrContainer **container, QPointF *local) const;
+    QList<double> snapTargets(Qt::Orientation axis) const;
+    bool snapToTarget(Qt::Orientation axis, const QList<double> &edges, double *offset);
+    void storeGuides();
+
+    struct MovingItem
+    {
+        BrControlItem *item;
+        QPointF start;
+    };
 
     QPointer<BrReport> m_report;
     double m_grid = 1.0;
     bool m_snap = true;
+    bool m_snapObjects = true;
+    QList<MovingItem> m_moving;
+    QRectF m_movingBounds;
+    QSet<QGraphicsItem *> m_snapExcluded; // what is being moved or resized
+    QGraphicsItem *m_snapBand = nullptr;  // the band of the object in movement
+    QList<QLineF> m_snapLines;
     QJsonObject m_insertTemplate;
     bool m_rebuilding = false;
 };

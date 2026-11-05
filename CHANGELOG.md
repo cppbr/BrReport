@@ -7,6 +7,9 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Rulers and guides in the designer: drag from a ruler to create a guide, drag it back to remove it.
+  Moved and resized objects snap to the edges and centers of other objects and to the guides. Guides
+  are stored in the report file (`verticalGuides`, `horizontalGuides`) and never printed.
 - Expression builder in the designer: `Formula`, `Print if`, `Highlight if` and group formulas have
   a `…` button that lists the fields, parameters, variables, functions and operators and checks the
   formula as it is typed. New `BrExpression::identifiers()`/`functions()` and

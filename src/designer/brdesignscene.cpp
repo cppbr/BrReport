@@ -35,12 +35,16 @@
 #include <QPaintDevice>
 #include <QStyleOptionGraphicsItem>
 
+#include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace {
 
 const QColor kSelection(0x1f, 0x6f, 0xd1);
 const QColor kOutline(0xa0, 0xaa, 0xb8);
+const QColor kGuide(0x00, 0x9c, 0xb0);
+const QColor kSnapLine(0xd8, 0x1b, 0x8c);
 
 void paintItems(QPainter *painter, const QList<BrPageItem> &items)
 {
@@ -86,7 +90,6 @@ BrControlItem::BrControlItem(BrControl *control, const QRectF &rect, bool movabl
 {
     setPos(rect.topLeft());
     setFlag(ItemIsSelectable);
-    setFlag(ItemSendsGeometryChanges);
     if (movable)
         setFlag(ItemIsMovable);
     setAcceptHoverEvents(true);
@@ -155,15 +158,6 @@ void BrControlItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, Q
     }
 }
 
-QVariant BrControlItem::itemChange(GraphicsItemChange change, const QVariant &value)
-{
-    if (change == ItemPositionChange && scene() && scene()->mouseGrabberItem()) {
-        if (BrDesignScene *s = designScene())
-            return s->snap(value.toPointF());
-    }
-    return QGraphicsItem::itemChange(change, value);
-}
-
 void BrControlItem::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
 {
     static const Qt::CursorShape shapes[] = {Qt::SizeFDiagCursor, Qt::SizeVerCursor, Qt::SizeBDiagCursor,
@@ -180,30 +174,45 @@ void BrControlItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
     if (m_handle >= 0) {
         m_pressPos = event->scenePos();
         m_startRect = QRectF(pos(), m_size);
+        if (BrDesignScene *s = designScene())
+            s->beginResize(this);
         event->accept();
         return;
     }
-    QGraphicsItem::mousePressEvent(event);
+    QGraphicsItem::mousePressEvent(event); // selects the item
+    m_moving = false;
 }
 
 void BrControlItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 {
+    BrDesignScene *s = designScene();
     if (m_handle < 0) {
-        QGraphicsItem::mouseMoveEvent(event);
+        if (!s || !m_movable || !(event->buttons() & Qt::LeftButton))
+            return;
+        // A small slip of the mouse in a click must not pull the object to a snap line.
+        if (!m_moving) {
+            const QPoint moved = event->screenPos() - event->buttonDownScreenPos(Qt::LeftButton);
+            if (moved.manhattanLength() < 3)
+                return;
+            m_moving = true;
+            s->beginMove(this);
+        }
+        s->moveSelection(event->scenePos() - event->buttonDownScenePos(Qt::LeftButton));
         return;
     }
-    BrDesignScene *s = designScene();
     const QPointF d = event->scenePos() - m_pressPos;
     QRectF r = m_startRect;
-    auto sn = [s](double v) { return s ? s->snap(v) : v; };
+    auto sn = [this, s](Qt::Orientation axis, double v) { return s ? s->snapEdge(this, axis, v) : v; };
+    if (s)
+        s->clearSnapLines();
     if (m_handle == 0 || m_handle == 6 || m_handle == 7)
-        r.setLeft(std::min(sn(m_startRect.left() + d.x()), r.right() - 1.0));
+        r.setLeft(std::min(sn(Qt::Horizontal, m_startRect.left() + d.x()), r.right() - 1.0));
     if (m_handle == 2 || m_handle == 3 || m_handle == 4)
-        r.setRight(std::max(sn(m_startRect.right() + d.x()), r.left() + 1.0));
+        r.setRight(std::max(sn(Qt::Horizontal, m_startRect.right() + d.x()), r.left() + 1.0));
     if (m_handle == 0 || m_handle == 1 || m_handle == 2)
-        r.setTop(std::min(sn(m_startRect.top() + d.y()), r.bottom() - 1.0));
+        r.setTop(std::min(sn(Qt::Vertical, m_startRect.top() + d.y()), r.bottom() - 1.0));
     if (m_handle == 4 || m_handle == 5 || m_handle == 6)
-        r.setBottom(std::max(sn(m_startRect.bottom() + d.y()), r.top() + 1.0));
+        r.setBottom(std::max(sn(Qt::Vertical, m_startRect.bottom() + d.y()), r.top() + 1.0));
     prepareGeometryChange();
     setPos(r.topLeft());
     m_size = r.size();
@@ -329,6 +338,78 @@ void BrBandItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 }
 
 // ---------------------------------------------------------------------------
+// BrGuideItem
+// ---------------------------------------------------------------------------
+
+BrGuideItem::BrGuideItem(Qt::Orientation orientation, double position, const QRectF &area)
+    : m_orientation(orientation), m_area(area)
+{
+    setZValue(20000);
+    setAcceptHoverEvents(true);
+    setCursor(orientation == Qt::Vertical ? Qt::SplitHCursor : Qt::SplitVCursor);
+    setPosition(position);
+}
+
+BrDesignScene *BrGuideItem::designScene() const
+{
+    return qobject_cast<BrDesignScene *>(scene());
+}
+
+double BrGuideItem::position() const
+{
+    return m_orientation == Qt::Vertical ? pos().x() : pos().y();
+}
+
+void BrGuideItem::setPosition(double position)
+{
+    if (m_orientation == Qt::Vertical)
+        setPos(position, 0);
+    else
+        setPos(0, position);
+}
+
+QRectF BrGuideItem::boundingRect() const
+{
+    const BrDesignScene *s = designScene();
+    const double grip = 3.0 / (s ? std::max(0.5, s->viewScale()) : 4.0);
+    return m_orientation == Qt::Vertical
+               ? QRectF(-grip, m_area.top(), 2 * grip, m_area.height())
+               : QRectF(m_area.left(), -grip, m_area.width(), 2 * grip);
+}
+
+void BrGuideItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWidget *)
+{
+    QPen pen(kGuide, 0);
+    pen.setCosmetic(true);
+    painter->setPen(pen);
+    if (m_orientation == Qt::Vertical)
+        painter->drawLine(QPointF(0, m_area.top()), QPointF(0, m_area.bottom()));
+    else
+        painter->drawLine(QPointF(m_area.left(), 0), QPointF(m_area.right(), 0));
+}
+
+void BrGuideItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton)
+        event->accept();
+    else
+        event->ignore();
+}
+
+void BrGuideItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
+{
+    const double value = m_orientation == Qt::Vertical ? event->scenePos().x() : event->scenePos().y();
+    const BrDesignScene *s = designScene();
+    setPosition(s ? s->snap(value) : value);
+}
+
+void BrGuideItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+{
+    if (BrDesignScene *s = designScene())
+        s->finishGuide(this, !s->isOutOfView(event->scenePos()));
+}
+
+// ---------------------------------------------------------------------------
 // BrDesignScene
 // ---------------------------------------------------------------------------
 
@@ -408,6 +489,10 @@ void BrDesignScene::rebuild()
         selected << o;
 
     m_rebuilding = true;
+    m_moving.clear();
+    m_snapExcluded.clear();
+    m_snapBand = nullptr;
+    m_snapLines.clear();
     clear();
     if (!m_report) {
         m_rebuilding = false;
@@ -437,6 +522,10 @@ void BrDesignScene::rebuild()
         end->setZValue(-4);
     }
     setSceneRect(QRectF(-15, -15, page.width() + 30, pageHeight + 30));
+    for (const QVariant &x : m_report->verticalGuides())
+        addGuide(Qt::Vertical, x.toDouble());
+    for (const QVariant &y : m_report->horizontalGuides())
+        addGuide(Qt::Horizontal, y.toDouble());
 
     QList<QObject *> keep;
     for (const QPointer<QObject> &o : selected)
@@ -444,6 +533,211 @@ void BrDesignScene::rebuild()
             keep << o;
     selectObjects(keep);
     m_rebuilding = false;
+}
+
+QList<double> BrDesignScene::snapTargets(Qt::Orientation axis) const
+{
+    const bool horizontal = axis == Qt::Horizontal;
+    auto excluded = [this](QGraphicsItem *item) {
+        for (; item; item = item->parentItem())
+            if (m_snapExcluded.contains(item))
+                return true;
+        return false;
+    };
+    QList<double> targets;
+    const QList<QGraphicsItem *> all = items();
+    for (QGraphicsItem *item : all) {
+        if (item->type() == BrGuideItem::Type) {
+            const auto *guide = static_cast<BrGuideItem *>(item);
+            if (guide->isVisible() && (guide->orientation() == Qt::Vertical) == horizontal)
+                targets << guide->position();
+            continue;
+        }
+        // Columns line up across bands, but each band has its own vertical positions.
+        if (!horizontal && item->topLevelItem() != m_snapBand)
+            continue;
+        if (item->type() == BrControlItem::Type && !excluded(item)) {
+            const auto *control = static_cast<BrControlItem *>(item);
+            const QRectF r = control->mapRectToScene(QRectF(QPointF(0, 0), control->size()));
+            targets << (horizontal ? QList<double>{r.left(), r.center().x(), r.right()}
+                                   : QList<double>{r.top(), r.center().y(), r.bottom()});
+        } else if (item->type() == BrBandItem::Type) {
+            const auto *bandItem = static_cast<BrBandItem *>(item);
+            const QRectF r = bandItem->mapRectToScene(bandItem->bandRect());
+            targets << (horizontal ? QList<double>{r.left(), r.right()}
+                                   : QList<double>{r.top(), r.bottom()});
+        }
+    }
+    return targets;
+}
+
+bool BrDesignScene::snapToTarget(Qt::Orientation axis, const QList<double> &edges, double *offset)
+{
+    if (!m_snapObjects)
+        return false;
+    double best = 5.0 / std::max(0.5, viewScale()); // 5 pixels at any zoom
+    bool found = false;
+    double line = 0;
+    const QList<double> targets = snapTargets(axis);
+    for (double edge : edges) {
+        for (double target : targets) {
+            if (std::abs(target - edge) < best) {
+                best = std::abs(target - edge);
+                *offset = target - edge;
+                line = target;
+                found = true;
+            }
+        }
+    }
+    if (found) {
+        const QRectF r = sceneRect();
+        m_snapLines << (axis == Qt::Horizontal ? QLineF(line, r.top(), line, r.bottom())
+                                               : QLineF(r.left(), line, r.right(), line));
+    }
+    return found;
+}
+
+void BrDesignScene::beginMove(BrControlItem *grabber)
+{
+    QList<QGraphicsItem *> selected = selectedItems();
+    if (!selected.contains(grabber))
+        selected.prepend(grabber);
+    else
+        selected.move(selected.indexOf(grabber), 0);
+
+    m_moving.clear();
+    m_snapExcluded.clear();
+    m_movingBounds = QRectF();
+    m_snapBand = grabber->topLevelItem();
+    for (QGraphicsItem *item : selected) {
+        if (item->type() != BrControlItem::Type)
+            continue;
+        auto *control = static_cast<BrControlItem *>(item);
+        bool insideSelected = false; // moves with its parent
+        for (QGraphicsItem *p = item->parentItem(); p; p = p->parentItem())
+            insideSelected = insideSelected || p->isSelected();
+        if (!control->isMovable() || insideSelected)
+            continue;
+        m_moving << MovingItem{control, control->pos()};
+        m_snapExcluded.insert(control);
+        m_movingBounds |= control->mapRectToScene(QRectF(QPointF(0, 0), control->size()));
+    }
+}
+
+void BrDesignScene::moveSelection(const QPointF &delta)
+{
+    if (m_moving.isEmpty())
+        return;
+    const QPointF proposed = m_moving.first().start + delta;
+    QPointF offset = snap(proposed) - proposed;
+    const QRectF r = m_movingBounds.translated(delta);
+    double x = 0, y = 0;
+    m_snapLines.clear();
+    if (snapToTarget(Qt::Horizontal, {r.left(), r.center().x(), r.right()}, &x))
+        offset.setX(x);
+    if (snapToTarget(Qt::Vertical, {r.top(), r.center().y(), r.bottom()}, &y))
+        offset.setY(y);
+    for (const MovingItem &m : std::as_const(m_moving))
+        m.item->setPos(m.start + delta + offset);
+    update();
+}
+
+void BrDesignScene::beginResize(BrControlItem *item)
+{
+    m_snapExcluded = {item};
+    m_snapBand = item->topLevelItem();
+}
+
+double BrDesignScene::snapEdge(BrControlItem *item, Qt::Orientation axis, double value)
+{
+    const QPointF origin = item->parentItem() ? item->parentItem()->scenePos() : QPointF();
+    const double position = value + (axis == Qt::Horizontal ? origin.x() : origin.y());
+    double offset = 0;
+    if (snapToTarget(axis, {position}, &offset))
+        return value + offset;
+    return snap(value);
+}
+
+void BrDesignScene::clearSnapLines()
+{
+    if (!m_snapLines.isEmpty()) {
+        m_snapLines.clear();
+        update();
+    }
+}
+
+void BrDesignScene::endInteraction()
+{
+    m_moving.clear();
+    m_snapExcluded.clear();
+    m_snapBand = nullptr;
+    clearSnapLines();
+}
+
+void BrDesignScene::drawForeground(QPainter *painter, const QRectF &)
+{
+    if (m_snapLines.isEmpty())
+        return;
+    QPen pen(kSnapLine, 1);
+    pen.setCosmetic(true);
+    painter->setPen(pen);
+    painter->drawLines(m_snapLines.toVector());
+}
+
+BrGuideItem *BrDesignScene::addGuide(Qt::Orientation orientation, double position)
+{
+    auto *guide = new BrGuideItem(orientation, position, sceneRect());
+    addItem(guide);
+    return guide;
+}
+
+void BrDesignScene::storeGuides()
+{
+    if (!m_report)
+        return;
+    QList<double> vertical, horizontal;
+    const QList<QGraphicsItem *> all = items();
+    for (QGraphicsItem *item : all) {
+        if (item->type() != BrGuideItem::Type || !item->isVisible())
+            continue;
+        const auto *guide = static_cast<BrGuideItem *>(item);
+        (guide->orientation() == Qt::Vertical ? vertical : horizontal) << guide->position();
+    }
+    std::sort(vertical.begin(), vertical.end());
+    std::sort(horizontal.begin(), horizontal.end());
+    QVariantList verticalValues, horizontalValues;
+    for (double v : std::as_const(vertical))
+        verticalValues << v;
+    for (double v : std::as_const(horizontal))
+        horizontalValues << v;
+    m_report->setVerticalGuides(verticalValues);
+    m_report->setHorizontalGuides(horizontalValues);
+}
+
+void BrDesignScene::finishGuide(BrGuideItem *guide, bool keep)
+{
+    if (!keep)
+        guide->hide(); // the rebuild after layoutEdited() deletes it
+    storeGuides();
+    emit layoutEdited();
+}
+
+void BrDesignScene::clearGuides()
+{
+    const QList<QGraphicsItem *> all = items();
+    for (QGraphicsItem *item : all)
+        if (item->type() == BrGuideItem::Type)
+            item->hide();
+    storeGuides();
+    emit layoutEdited();
+}
+
+bool BrDesignScene::isOutOfView(const QPointF &scenePos) const
+{
+    if (views().isEmpty())
+        return false;
+    const QGraphicsView *view = views().first();
+    return !view->viewport()->rect().contains(view->mapFromScene(scenePos));
 }
 
 void BrDesignScene::addBand(BrBand *band, int depth, const QString &label, double &y)
@@ -549,6 +843,7 @@ void BrDesignScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
 void BrDesignScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
     QGraphicsScene::mouseReleaseEvent(event);
+    endInteraction();
     bool changed = false;
     for (QGraphicsItem *item : selectedItems()) {
         if (item->type() != BrControlItem::Type)

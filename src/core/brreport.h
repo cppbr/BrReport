@@ -84,6 +84,8 @@ class BRREPORT_EXPORT BrReport : public BrPager
     Q_PROPERTY(QVariantMap variables READ variables WRITE setVariables)
     Q_PROPERTY(QVariantList queries READ queries WRITE setQueries)
     Q_PROPERTY(QVariantList parameters READ parameters WRITE setParameters)
+    Q_PROPERTY(QVariantList verticalGuides READ verticalGuides WRITE setVerticalGuides)
+    Q_PROPERTY(QVariantList horizontalGuides READ horizontalGuides WRITE setHorizontalGuides)
     Q_PROPERTY(int maxPages READ maxPages WRITE setMaxPages)
     Q_PROPERTY(QString watermarkText READ watermarkText WRITE setWatermarkText)
     Q_PROPERTY(QFont watermarkFont READ watermarkFont WRITE setWatermarkFont)
@@ -237,6 +239,15 @@ public:
                       const QVariant &defaultValue = QVariant(),
                       const QVariantList &choices = QVariantList());
     /*!
+     * Guides of the designer, in millimeters from the top left corner of the layout:
+     * x of the vertical ones, y of the horizontal ones. They are never printed.
+     */
+    QVariantList verticalGuides() const { return m_verticalGuides; }
+    void setVerticalGuides(const QVariantList &guides) { m_verticalGuides = guides; }
+    QVariantList horizontalGuides() const { return m_horizontalGuides; }
+    void setHorizontalGuides(const QVariantList &guides) { m_horizontalGuides = guides; }
+
+    /*!
      * The choices of \a parameter, running its query if it has one. On failure
      * returns an empty list and sets \a error.
      */
@@ -331,6 +342,8 @@ private:
     QHash<QString, BrDataSource *> m_queryDataSources; // owned, created from m_queries
     QString m_localeName;
     QVariantMap m_variables;
+    QVariantList m_verticalGuides;
+    QVariantList m_horizontalGuides;
     QHash<QString, CustomFunction> m_functions;
     int m_maxPages = 10000;
     PageHandler m_pageHandler;

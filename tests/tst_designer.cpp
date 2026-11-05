@@ -17,6 +17,7 @@
 
 #include "brdesignerwidget.h"
 #include "brdesignscene_p.h"
+#include "brdesignview_p.h"
 #include "brexpressioneditor_p.h"
 #include "brparameterseditor_p.h"
 #include "brpropertyeditor_p.h"
@@ -34,6 +35,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenuBar>
+#include <QMouseEvent>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
@@ -45,6 +47,8 @@
 #include <QToolButton>
 #include <QTimer>
 #include <QTreeWidget>
+
+#include <cmath>
 
 namespace {
 
@@ -69,6 +73,74 @@ void recordWarning(QtMsgType type, const QMessageLogContext &, const QString &me
     if (type == QtWarningMsg)
         g_warnings << message;
 }
+
+void sendMouse(QWidget *widget, QEvent::Type type, const QPoint &pos, Qt::MouseButton button,
+               Qt::MouseButtons buttons)
+{
+    QMouseEvent event(type, QPointF(pos), QPointF(widget->mapToGlobal(pos)), button, buttons, Qt::NoModifier);
+    QCoreApplication::sendEvent(widget, &event);
+}
+
+/*! Designer with a detail band of 30 mm and another of 20 mm, shown so that the mouse works. */
+struct LayoutFixture
+{
+    BrDesignerWidget widget;
+    BrDesignScene *scene = nullptr;
+    BrDesignView *view = nullptr;
+    BrBand *first = nullptr;
+    BrBand *second = nullptr;
+
+    LayoutFixture()
+    {
+        BrReport *report = widget.report();
+        scene = widget.findChild<BrDesignScene *>();
+        view = widget.findChild<BrDesignView *>();
+        report->clearLayout();
+        first = report->addBand(Br::BandType::Detail, 30);
+        second = report->addBand(Br::BandType::Summary, 20);
+        commit();
+        widget.show();
+        view->setTransform(QTransform::fromScale(4, 4)); // the snap distance is 5 pixels
+        view->centerOn(80, 40);
+    }
+
+    void commit()
+    {
+        emit scene->layoutEdited();
+        QCoreApplication::processEvents();
+    }
+
+    BrDBText *addText(BrBand *band, const QRectF &geometry)
+    {
+        auto *text = new BrDBText(QStringLiteral("name"), band);
+        text->setGeometry(geometry);
+        commit();
+        return text;
+    }
+
+    QPointF toScene(BrControl *control, const QPointF &local) const
+    {
+        const QList<QGraphicsItem *> items = scene->items();
+        for (QGraphicsItem *item : items)
+            if (item->type() == BrControlItem::Type
+                && static_cast<BrControlItem *>(item)->control() == control)
+                return item->mapToScene(local);
+        return {};
+    }
+
+    /*! Drags from \a from by \a mm, in steps as a real mouse does. */
+    void drag(const QPointF &from, const QPointF &mm)
+    {
+        QWidget *viewport = view->viewport();
+        const QPoint start = view->mapFromScene(from);
+        const QPoint end = view->mapFromScene(from + mm);
+        sendMouse(viewport, QEvent::MouseButtonPress, start, Qt::LeftButton, Qt::LeftButton);
+        for (int i = 1; i <= 4; ++i)
+            sendMouse(viewport, QEvent::MouseMove, start + (end - start) * i / 4, Qt::NoButton, Qt::LeftButton);
+        sendMouse(viewport, QEvent::MouseButtonRelease, end, Qt::LeftButton, Qt::NoButton);
+        QCoreApplication::processEvents();
+    }
+};
 
 BrBand *detailBand(BrReport *report)
 {
@@ -390,6 +462,186 @@ private slots:
                 break;
             }
         QCOMPARE(text->dataFormula() + text->printIf() + text->highlightIf(), QStringLiteral("1 = 1"));
+    }
+
+    void moveSnapsToOtherObjects()
+    {
+        LayoutFixture f;
+        BrDBText *fixed = f.addText(f.first, QRectF(10.3, 2, 30, 6));
+        BrDBText *moved = f.addText(f.first, QRectF(60, 12.2, 20, 6));
+        // The left edge lands 0.5 mm from the right edge of the other object.
+        f.drag(f.toScene(moved, QPointF(5, 3)), QPointF(-19.2, 0));
+        QVERIFY(f.scene->snapLines().isEmpty()); // only while dragging
+        QCOMPARE(moved->x(), fixed->x() + 30);
+        f.widget.undo();
+        QCOMPARE(detailBand(f.widget.report())->controls().last()->x(), 60.0);
+    }
+
+    void moveSnapShowsLineAndCanBeTurnedOff()
+    {
+        LayoutFixture f;
+        f.addText(f.first, QRectF(10.3, 2, 30, 6));
+        BrDBText *moved = f.addText(f.first, QRectF(60, 12, 20, 6));
+        const QPoint start = f.view->mapFromScene(f.toScene(moved, QPointF(5, 3)));
+        const QPoint end = f.view->mapFromScene(f.toScene(moved, QPointF(5, 3)) + QPointF(-19.5, 0));
+        QWidget *viewport = f.view->viewport();
+        sendMouse(viewport, QEvent::MouseButtonPress, start, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(viewport, QEvent::MouseMove, end, Qt::NoButton, Qt::LeftButton);
+        QCOMPARE(f.scene->snapLines().size(), 1);
+        QVERIFY(f.scene->snapLines().first().dx() == 0.0);
+        sendMouse(viewport, QEvent::MouseButtonRelease, end, Qt::LeftButton, Qt::NoButton);
+        QCoreApplication::processEvents();
+
+        // Without object snapping only the grid applies.
+        action(&f.widget, QStringLiteral("Snap to objects and guides"))->setChecked(false);
+        BrDBText *other = f.addText(f.first, QRectF(60, 20, 20, 6));
+        f.drag(f.toScene(other, QPointF(5, 3)), QPointF(-19.5, 0));
+        QCOMPARE(other->x(), 41.0);
+        action(&f.widget, QStringLiteral("Snap to objects and guides"))->setChecked(true);
+    }
+
+    void snapAcrossBandsIsHorizontalOnly()
+    {
+        LayoutFixture f;
+        BrDBText *above = f.addText(f.first, QRectF(33.3, 22.3, 30, 6));
+        BrDBText *moved = f.addText(f.second, QRectF(60, 5, 20, 6));
+        // Columns line up across bands: x is 0.4 mm away and snaps.
+        f.drag(f.toScene(moved, QPointF(5, 3)), QPointF(-26.3, 0));
+        QCOMPARE(moved->x(), 33.3);
+
+        // The top lands 0.4 mm from the bottom of the object above, seen on the screen, but
+        // positions inside different bands are unrelated, so it stays on the grid.
+        moved->setGeometry(QRectF(100, 1, 20, 6));
+        f.commit();
+        const double bottom = f.toScene(above, QPointF(0, 6)).y();
+        f.first->setHeight(29.0);
+        f.commit();
+        const double distance = bottom - f.toScene(moved, QPointF()).y();
+        f.drag(f.toScene(moved, QPointF(5, 3)), QPointF(0, distance + 0.4));
+        QCOMPARE(moved->y(), std::round(moved->y()));
+    }
+
+    void multipleObjectsSnapTogether()
+    {
+        LayoutFixture f;
+        f.addText(f.first, QRectF(10.3, 1, 30, 4));
+        BrDBText *a = f.addText(f.first, QRectF(60, 8, 20, 6));
+        BrDBText *b = f.addText(f.first, QRectF(90.7, 15, 20, 6));
+        const double gap = b->x() - a->x();
+        f.scene->selectObjects({a, b});
+        f.drag(f.toScene(a, QPointF(5, 3)), QPointF(-19.5, 0));
+        QCOMPARE(a->x(), 40.3);
+        QCOMPARE(b->x() - a->x(), gap);
+    }
+
+    void clickDoesNotPullTheObject()
+    {
+        LayoutFixture f;
+        f.addText(f.first, QRectF(10.3, 2, 30, 6));
+        BrDBText *moved = f.addText(f.first, QRectF(40.8, 12, 20, 6));
+        const QPoint start = f.view->mapFromScene(f.toScene(moved, QPointF(5, 3)));
+        QWidget *viewport = f.view->viewport();
+        sendMouse(viewport, QEvent::MouseButtonPress, start, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(viewport, QEvent::MouseMove, start + QPoint(1, 0), Qt::NoButton, Qt::LeftButton);
+        sendMouse(viewport, QEvent::MouseButtonRelease, start + QPoint(1, 0), Qt::LeftButton, Qt::NoButton);
+        QCoreApplication::processEvents();
+        QCOMPARE(moved->x(), 40.8);
+        QCOMPARE(f.scene->selectedObjects(), QList<QObject *>{moved});
+    }
+
+    void resizeSnapsToAGuide()
+    {
+        LayoutFixture f;
+        f.widget.report()->setVerticalGuides({95.4});
+        BrDBText *text = f.addText(f.first, QRectF(20, 5, 30, 6));
+        f.scene->selectObjects({text});
+        const double offset = f.toScene(text, QPointF()).x() - text->x(); // left margin of the band
+        // Middle handle of the right edge, dropped 0.5 mm before the guide
+        f.drag(f.toScene(text, QPointF(30, 3)), QPointF(95.4 - 0.5 - offset - 50, 0));
+        QCOMPARE(text->x() + text->width() + offset, 95.4);
+        QCOMPARE(text->x(), 20.0);
+    }
+
+    void guidesFromRulers()
+    {
+        LayoutFixture f;
+        BrReport *report = f.widget.report();
+        QWidget *viewport = f.view->viewport();
+        const QList<BrRuler *> rulers = f.view->findChildren<BrRuler *>();
+        QCOMPARE(rulers.size(), 2);
+        BrRuler *left = nullptr;
+        for (BrRuler *r : rulers)
+            if (r->height() > r->width())
+                left = r;
+        QVERIFY(left);
+
+        // Dragged from the left ruler into the view: a vertical guide on the grid
+        const QPoint target = f.view->mapFromScene(QPointF(70.2, 40));
+        const auto toRuler = [&](const QPoint &p) { return left->mapFrom(f.view, viewport->mapTo(f.view, p)); };
+        sendMouse(left, QEvent::MouseButtonPress, QPoint(5, target.y()), Qt::LeftButton, Qt::LeftButton);
+        sendMouse(left, QEvent::MouseMove, toRuler(target), Qt::NoButton, Qt::LeftButton);
+        sendMouse(left, QEvent::MouseButtonRelease, toRuler(target), Qt::LeftButton, Qt::NoButton);
+        QCoreApplication::processEvents();
+        QCOMPARE(report->verticalGuides(), QVariantList{70.0});
+
+        // Saved in the report file, undoable, and not a printed object
+        const QByteArray json = report->toJson();
+        QVERIFY(json.contains("verticalGuides"));
+        f.widget.undo();
+        QVERIFY(report->verticalGuides().isEmpty());
+        f.widget.redo();
+        QCOMPARE(report->verticalGuides(), QVariantList{70.0});
+        BrReport loaded;
+        QVERIFY(BrReportFile::fromJson(&loaded, json));
+        QCOMPARE(loaded.verticalGuides(), QVariantList{70.0});
+
+        // Moved with the mouse
+        f.drag(QPointF(70, 40), QPointF(10, 0));
+        QCOMPARE(report->verticalGuides(), QVariantList{80.0});
+
+        // Dragged out of the view: removed
+        const QPoint start = f.view->mapFromScene(QPointF(80, 40));
+        sendMouse(viewport, QEvent::MouseButtonPress, start, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(viewport, QEvent::MouseMove, QPoint(-5, start.y()), Qt::NoButton, Qt::LeftButton);
+        sendMouse(viewport, QEvent::MouseButtonRelease, QPoint(-5, start.y()), Qt::LeftButton, Qt::NoButton);
+        QCoreApplication::processEvents();
+        QVERIFY(report->verticalGuides().isEmpty());
+        int guideItems = 0;
+        for (QGraphicsItem *item : f.scene->items())
+            guideItems += item->type() == BrGuideItem::Type;
+        QCOMPARE(guideItems, 0);
+
+        // A guide released over the ruler it came from is not created
+        sendMouse(left, QEvent::MouseButtonPress, QPoint(5, 50), Qt::LeftButton, Qt::LeftButton);
+        sendMouse(left, QEvent::MouseButtonRelease, QPoint(5, 60), Qt::LeftButton, Qt::NoButton);
+        QCoreApplication::processEvents();
+        QVERIFY(report->verticalGuides().isEmpty());
+        QVERIFY(report->horizontalGuides().isEmpty());
+
+        report->setHorizontalGuides({12.0, 34.0});
+        f.scene->rebuild();
+        action(&f.widget, QStringLiteral("Clear guides"))->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(report->horizontalGuides().isEmpty());
+    }
+
+    void rulers()
+    {
+        QCOMPARE(BrRuler::labelStep(10.0), 5);
+        QCOMPARE(BrRuler::labelStep(3.8), 20);
+        QCOMPARE(BrRuler::labelStep(0.9), 50);
+        QCOMPARE(BrRuler::labelStep(0.01), 1000);
+
+        LayoutFixture f;
+        const int margin = f.view->viewport()->geometry().left() - f.view->frameWidth();
+        QCOMPARE(margin, int(BrDesignView::RulerSize));
+        action(&f.widget, QStringLiteral("Rulers"))->setChecked(false);
+        QCOMPARE(f.view->viewport()->geometry().left() - f.view->frameWidth(), 0);
+        const QList<BrRuler *> rulers = f.view->findChildren<BrRuler *>();
+        QVERIFY(!rulers.first()->isVisible());
+        action(&f.widget, QStringLiteral("Rulers"))->setChecked(true);
+        QVERIFY(rulers.first()->isVisible());
+        QVERIFY(!f.view->grab().isNull());
     }
 
     void newReportLayout()

@@ -115,7 +115,8 @@ bool editText(QWidget *parent, const QString &title, QString &text, bool monospa
 // Properties edited elsewhere (Data menu) or not meant for end users.
 const QSet<QByteArray> &hiddenProperties()
 {
-    static const QSet<QByteArray> hidden = {"queries", "parameters", "maxPages", "geometry"};
+    static const QSet<QByteArray> hidden = {"queries", "parameters", "maxPages", "geometry",
+                                              "verticalGuides", "horizontalGuides"};
     return hidden;
 }
 

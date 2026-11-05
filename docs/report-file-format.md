@@ -83,6 +83,7 @@ Common to every object: `geometry` `[x, y, width, height]` in mm, `align`, `visi
 Report properties: `title`, `paperSize` `[width, height]` in mm (portrait), `landscape`, `margins`
 `[left, top, right, bottom]`, `continuous`, `font`, `localeName` (e.g. `"pt_BR"`), `dataSourceName`,
 `variables`, `queries`, `parameters` (see the [designer guide](designer.md#report-parameters)),
+`verticalGuides`, `horizontalGuides` (positions in mm of the designer guides, never printed),
 `maxPages` and `watermarkText`, `watermarkFont`, `watermarkColor`, `watermarkAngle`,
 `watermarkImage`, `watermarkImageOpacity`.
 

@@ -387,7 +387,7 @@ Every example except `quick_start` opens the preview window, or exports with `--
 The detailed list of pending work is in [TODO.md](TODO.md).
 
 - More barcodes: PDF417, Data Matrix, Code 39
-- Designer: rulers, guides, multi-page templates, expression builder
+- Designer: multi-page templates
 - More translations of the preview and the designer
 - Bands split across pages (very long texts)
 - XLSX, RTF and plain-text export

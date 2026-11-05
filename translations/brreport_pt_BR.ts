@@ -260,6 +260,18 @@
         <translation>Encaixar na &amp;grade (1 mm)</translation>
     </message>
     <message>
+        <source>Snap to &amp;objects and guides</source>
+        <translation>Encaixar em &amp;objetos e guias</translation>
+    </message>
+    <message>
+        <source>&amp;Rulers</source>
+        <translation>&amp;Réguas</translation>
+    </message>
+    <message>
+        <source>&amp;Clear guides</source>
+        <translation>&amp;Limpar guias</translation>
+    </message>
+    <message>
         <source>Main</source>
         <translation>Principal</translation>
     </message>
@@ -1965,6 +1977,13 @@ Campos: %2</translation>
     <message>
         <source> (JSON)</source>
         <translation> (JSON)</translation>
+    </message>
+</context>
+<context>
+    <name>BrRuler</name>
+    <message>
+        <source>Drag from here to create a guide</source>
+        <translation>Arraste daqui para criar uma guia</translation>
     </message>
 </context>
 <context>

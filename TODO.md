@@ -4,7 +4,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 
 ## Designer (end users)
 
-- [ ] **Rulers and guides** around the page; snapping to other objects' edges.
 - [ ] **Protected objects**: let the developer lock objects/bands (not movable, not deletable,
       hidden properties) so end users can only change parts of a report.
 - [ ] **New report wizard**: pick a data source and fields, get a list report (header, column
