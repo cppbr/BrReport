@@ -489,6 +489,397 @@ Campos: %2</translation>
     </message>
 </context>
 <context>
+    <name>BrExpressionEditor</name>
+    <message>
+        <source>Text functions</source>
+        <translation>Funções de texto</translation>
+    </message>
+    <message>
+        <source>Number functions</source>
+        <translation>Funções numéricas</translation>
+    </message>
+    <message>
+        <source>Date functions</source>
+        <translation>Funções de data</translation>
+    </message>
+    <message>
+        <source>Logic functions</source>
+        <translation>Funções lógicas</translation>
+    </message>
+    <message>
+        <source>Report functions</source>
+        <translation>Funções do relatório</translation>
+    </message>
+    <message>
+        <source>upper(text)</source>
+        <translation>upper(texto)</translation>
+    </message>
+    <message>
+        <source>Converts the text to upper case.</source>
+        <translation>Converte o texto para maiúsculas.</translation>
+    </message>
+    <message>
+        <source>lower(text)</source>
+        <translation>lower(texto)</translation>
+    </message>
+    <message>
+        <source>Converts the text to lower case.</source>
+        <translation>Converte o texto para minúsculas.</translation>
+    </message>
+    <message>
+        <source>trim(text)</source>
+        <translation>trim(texto)</translation>
+    </message>
+    <message>
+        <source>Removes the spaces at both ends.</source>
+        <translation>Remove os espaços das duas pontas.</translation>
+    </message>
+    <message>
+        <source>len(text)</source>
+        <translation>len(texto)</translation>
+    </message>
+    <message>
+        <source>Number of characters of the text.</source>
+        <translation>Quantidade de caracteres do texto.</translation>
+    </message>
+    <message>
+        <source>left(text, count)</source>
+        <translation>left(texto, quantidade)</translation>
+    </message>
+    <message>
+        <source>The first characters of the text.</source>
+        <translation>Os primeiros caracteres do texto.</translation>
+    </message>
+    <message>
+        <source>right(text, count)</source>
+        <translation>right(texto, quantidade)</translation>
+    </message>
+    <message>
+        <source>The last characters of the text.</source>
+        <translation>Os últimos caracteres do texto.</translation>
+    </message>
+    <message>
+        <source>substr(text, start, count)</source>
+        <translation>substr(texto, início, quantidade)</translation>
+    </message>
+    <message>
+        <source>Part of the text. The first character is number 1.</source>
+        <translation>Parte do texto. O primeiro caractere é o número 1.</translation>
+    </message>
+    <message>
+        <source>replace(text, old, new)</source>
+        <translation>replace(texto, antigo, novo)</translation>
+    </message>
+    <message>
+        <source>Replaces every occurrence of a text by another.</source>
+        <translation>Troca todas as ocorrências de um texto por outro.</translation>
+    </message>
+    <message>
+        <source>padleft(text, size, character)</source>
+        <translation>padleft(texto, tamanho, caractere)</translation>
+    </message>
+    <message>
+        <source>Fills the left side up to the size: padleft(code, 6, &apos;0&apos;).</source>
+        <translation>Preenche à esquerda até o tamanho: padleft(codigo, 6, &apos;0&apos;).</translation>
+    </message>
+    <message>
+        <source>padright(text, size, character)</source>
+        <translation>padright(texto, tamanho, caractere)</translation>
+    </message>
+    <message>
+        <source>Fills the right side up to the size.</source>
+        <translation>Preenche à direita até o tamanho.</translation>
+    </message>
+    <message>
+        <source>str(value)</source>
+        <translation>str(valor)</translation>
+    </message>
+    <message>
+        <source>Converts a value to text.</source>
+        <translation>Converte um valor para texto.</translation>
+    </message>
+    <message>
+        <source>round(value, decimals)</source>
+        <translation>round(valor, casas)</translation>
+    </message>
+    <message>
+        <source>Rounds the value.</source>
+        <translation>Arredonda o valor.</translation>
+    </message>
+    <message>
+        <source>trunc(value)</source>
+        <translation>trunc(valor)</translation>
+    </message>
+    <message>
+        <source>Removes the decimals.</source>
+        <translation>Remove as casas decimais.</translation>
+    </message>
+    <message>
+        <source>abs(value)</source>
+        <translation>abs(valor)</translation>
+    </message>
+    <message>
+        <source>The value without its sign.</source>
+        <translation>O valor sem o sinal.</translation>
+    </message>
+    <message>
+        <source>min(a, b, ...)</source>
+        <translation>min(a, b, ...)</translation>
+    </message>
+    <message>
+        <source>The lowest of the values.</source>
+        <translation>O menor dos valores.</translation>
+    </message>
+    <message>
+        <source>max(a, b, ...)</source>
+        <translation>max(a, b, ...)</translation>
+    </message>
+    <message>
+        <source>The highest of the values.</source>
+        <translation>O maior dos valores.</translation>
+    </message>
+    <message>
+        <source>num(text)</source>
+        <translation>num(texto)</translation>
+    </message>
+    <message>
+        <source>Converts a text to a number.</source>
+        <translation>Converte um texto para número.</translation>
+    </message>
+    <message>
+        <source>formatnumber(value, mask)</source>
+        <translation>formatnumber(valor, máscara)</translation>
+    </message>
+    <message>
+        <source>Formats a number: formatnumber(price, &apos;#,##0.00&apos;).</source>
+        <translation>Formata um número: formatnumber(preco, &apos;#,##0.00&apos;).</translation>
+    </message>
+    <message>
+        <source>today()</source>
+        <translation>today()</translation>
+    </message>
+    <message>
+        <source>The current date.</source>
+        <translation>A data atual.</translation>
+    </message>
+    <message>
+        <source>now()</source>
+        <translation>now()</translation>
+    </message>
+    <message>
+        <source>The current date and time.</source>
+        <translation>A data e a hora atuais.</translation>
+    </message>
+    <message>
+        <source>year(date)</source>
+        <translation>year(data)</translation>
+    </message>
+    <message>
+        <source>The year of a date.</source>
+        <translation>O ano de uma data.</translation>
+    </message>
+    <message>
+        <source>month(date)</source>
+        <translation>month(data)</translation>
+    </message>
+    <message>
+        <source>The month of a date (1 to 12).</source>
+        <translation>O mês de uma data (1 a 12).</translation>
+    </message>
+    <message>
+        <source>day(date)</source>
+        <translation>day(data)</translation>
+    </message>
+    <message>
+        <source>The day of a date.</source>
+        <translation>O dia de uma data.</translation>
+    </message>
+    <message>
+        <source>formatdate(date, mask)</source>
+        <translation>formatdate(data, máscara)</translation>
+    </message>
+    <message>
+        <source>Formats a date: formatdate(issued, &apos;dd/MM/yyyy&apos;).</source>
+        <translation>Formata uma data: formatdate(emissao, &apos;dd/MM/yyyy&apos;).</translation>
+    </message>
+    <message>
+        <source>if(condition, value if true, value if false)</source>
+        <translation>if(condição, valor se verdadeiro, valor se falso)</translation>
+    </message>
+    <message>
+        <source>Chooses a value: if(total &gt; 100, &apos;High&apos;, &apos;Low&apos;).</source>
+        <translation>Escolhe um valor: if(total &gt; 100, &apos;Alto&apos;, &apos;Baixo&apos;).</translation>
+    </message>
+    <message>
+        <source>isnull(value)</source>
+        <translation>isnull(valor)</translation>
+    </message>
+    <message>
+        <source>True if the value is null or empty.</source>
+        <translation>Verdadeiro se o valor for nulo ou vazio.</translation>
+    </message>
+    <message>
+        <source>coalesce(a, b, ...)</source>
+        <translation>coalesce(a, b, ...)</translation>
+    </message>
+    <message>
+        <source>The first value that is not empty.</source>
+        <translation>O primeiro valor que não estiver vazio.</translation>
+    </message>
+    <message>
+        <source>page()</source>
+        <translation>page()</translation>
+    </message>
+    <message>
+        <source>The current page number.</source>
+        <translation>O número da página atual.</translation>
+    </message>
+    <message>
+        <source>pages()</source>
+        <translation>pages()</translation>
+    </message>
+    <message>
+        <source>The total number of pages.</source>
+        <translation>O total de páginas.</translation>
+    </message>
+    <message>
+        <source>documentpage()</source>
+        <translation>documentpage()</translation>
+    </message>
+    <message>
+        <source>The page number in the whole document.</source>
+        <translation>O número da página no documento inteiro.</translation>
+    </message>
+    <message>
+        <source>documentpages()</source>
+        <translation>documentpages()</translation>
+    </message>
+    <message>
+        <source>The total number of pages of the whole document.</source>
+        <translation>O total de páginas do documento inteiro.</translation>
+    </message>
+    <message>
+        <source>recno()</source>
+        <translation>recno()</translation>
+    </message>
+    <message>
+        <source>The number of the current record.</source>
+        <translation>O número do registro atual.</translation>
+    </message>
+    <message>
+        <source>detailcount()</source>
+        <translation>detailcount()</translation>
+    </message>
+    <message>
+        <source>How many details were printed.</source>
+        <translation>Quantos detalhes foram impressos.</translation>
+    </message>
+    <message>
+        <source>title()</source>
+        <translation>title()</translation>
+    </message>
+    <message>
+        <source>The title of the report.</source>
+        <translation>O título do relatório.</translation>
+    </message>
+    <message>
+        <source>reportdate()</source>
+        <translation>reportdate()</translation>
+    </message>
+    <message>
+        <source>The date and time the report was generated.</source>
+        <translation>A data e a hora em que o relatório foi gerado.</translation>
+    </message>
+    <message>
+        <source>var(name)</source>
+        <translation>var(nome)</translation>
+    </message>
+    <message>
+        <source>The value of a report variable: var(&apos;company&apos;).</source>
+        <translation>O valor de uma variável do relatório: var(&apos;empresa&apos;).</translation>
+    </message>
+    <message>
+        <source>field(name)</source>
+        <translation>field(nome)</translation>
+    </message>
+    <message>
+        <source>The value of a field: field(&apos;name&apos;).</source>
+        <translation>O valor de um campo: field(&apos;nome&apos;).</translation>
+    </message>
+    <message>
+        <source>The object is printed only when this formula is true. Leave it empty to always print.</source>
+        <translation>O objeto só é impresso quando esta fórmula for verdadeira. Deixe vazio para imprimir sempre.</translation>
+    </message>
+    <message>
+        <source>The highlight is applied when this formula is true.</source>
+        <translation>O destaque é aplicado quando esta fórmula for verdadeira.</translation>
+    </message>
+    <message>
+        <source>A new group starts when the value of this formula changes.</source>
+        <translation>Um novo grupo começa quando o valor desta fórmula muda.</translation>
+    </message>
+    <message>
+        <source>The result of this formula is printed.</source>
+        <translation>O resultado desta fórmula é impresso.</translation>
+    </message>
+    <message>
+        <source>Double-click to insert into the formula</source>
+        <translation>Clique duas vezes para inserir na fórmula</translation>
+    </message>
+    <message>
+        <source>Fields</source>
+        <translation>Campos</translation>
+    </message>
+    <message>
+        <source>Parameters</source>
+        <translation>Parâmetros</translation>
+    </message>
+    <message>
+        <source>Variables</source>
+        <translation>Variáveis</translation>
+    </message>
+    <message>
+        <source>Application functions</source>
+        <translation>Funções do aplicativo</translation>
+    </message>
+    <message>
+        <source>Invalid number.</source>
+        <translation>Número inválido.</translation>
+    </message>
+    <message>
+        <source>A text is missing its closing quote.</source>
+        <translation>Falta fechar as aspas de um texto.</translation>
+    </message>
+    <message>
+        <source>A name is missing its closing &apos;]&apos;.</source>
+        <translation>Falta o &apos;]&apos; de fechamento de um nome.</translation>
+    </message>
+    <message>
+        <source>The formula has an invalid character.</source>
+        <translation>A fórmula tem um caractere inválido.</translation>
+    </message>
+    <message>
+        <source>The formula is incomplete or has something out of place.</source>
+        <translation>A fórmula está incompleta ou tem algo fora do lugar.</translation>
+    </message>
+    <message>
+        <source>A &apos;)&apos; is missing.</source>
+        <translation>Falta um &apos;)&apos;.</translation>
+    </message>
+    <message>
+        <source>A function is missing its closing &apos;)&apos;.</source>
+        <translation>Falta o &apos;)&apos; de fechamento de uma função.</translation>
+    </message>
+    <message>
+        <source>The formula is correct.</source>
+        <translation>A fórmula está correta.</translation>
+    </message>
+    <message>
+        <source>Not found: %1. It must exist when the report runs.</source>
+        <translation>Não encontrado: %1. Precisa existir quando o relatório for executado.</translation>
+    </message>
+</context>
+<context>
     <name>BrObjectType</name>
     <message>
         <source>Report</source>
@@ -1514,6 +1905,10 @@ Campos: %2</translation>
     <message>
         <source>Border color</source>
         <translation>Cor da borda</translation>
+    </message>
+    <message>
+        <source>Open the expression builder</source>
+        <translation>Abrir o construtor de fórmulas</translation>
     </message>
     <message>
         <source>Edit in a larger window</source>

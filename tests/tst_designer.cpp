@@ -17,6 +17,7 @@
 
 #include "brdesignerwidget.h"
 #include "brdesignscene_p.h"
+#include "brexpressioneditor_p.h"
 #include "brparameterseditor_p.h"
 #include "brpropertyeditor_p.h"
 #include "brreportwidgets.h"
@@ -27,6 +28,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateEdit>
+#include <QDialogButtonBox>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
@@ -39,6 +41,8 @@
 #include <QSqlQuery>
 #include <QTableWidget>
 #include <QTest>
+#include <QTextBlock>
+#include <QToolButton>
 #include <QTimer>
 #include <QTreeWidget>
 
@@ -50,6 +54,20 @@ QAction *action(QWidget *w, const QString &text)
         if (a->text().remove(QLatin1Char('&')) == text)
             return a;
     return nullptr;
+}
+
+QTreeWidgetItem *treeItem(QTreeWidget *tree, const QString &text)
+{
+    const QList<QTreeWidgetItem *> items = tree->findItems(text, Qt::MatchExactly | Qt::MatchRecursive);
+    return items.isEmpty() ? nullptr : items.first();
+}
+
+// Warnings printed while a report runs, to detect formulas the engine rejects.
+QStringList g_warnings;
+void recordWarning(QtMsgType type, const QMessageLogContext &, const QString &message)
+{
+    if (type == QtWarningMsg)
+        g_warnings << message;
 }
 
 BrBand *detailBand(BrReport *report)
@@ -238,6 +256,142 @@ private slots:
         w.preview();
     }
 
+    void expressionEditor()
+    {
+        BrListDataSource ds({{{QStringLiteral("name"), QStringLiteral("Ana")}, {QStringLiteral("Unit Price"), 10}}});
+        BrReport report;
+        report.setDataSource(&ds);
+        report.addParameter(QStringLiteral("city"), QStringLiteral("City"));
+        report.setVariable(QStringLiteral("company"), QStringLiteral("ACME"));
+        report.registerFunction(QStringLiteral("tax"), [](const QVariantList &) { return 1; });
+        auto *band = report.addBand(Br::BandType::Detail);
+        auto *text = new BrDBText(band);
+
+        BrExpressionEditor dialog(text, "printIf", QStringLiteral("name"));
+        auto *edit = dialog.findChild<QPlainTextEdit *>();
+        auto *tree = dialog.findChild<QTreeWidget *>();
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("status"));
+        QPushButton *ok = dialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+        QVERIFY(edit && tree && status && ok);
+        QVERIFY(ok->isEnabled());
+
+        // Fields, parameters, variables, functions of the application
+        for (const char *name : {"name", "Unit Price", "city", "company", "tax()", "upper(text)"})
+            QVERIFY2(treeItem(tree, QString::fromLatin1(name)), name);
+
+        // Syntax errors block OK; unknown names only warn
+        edit->setPlainText(QStringLiteral("1 +"));
+        QVERIFY(!ok->isEnabled());
+        edit->setPlainText(QStringLiteral("'open"));
+        QVERIFY(!ok->isEnabled());
+        edit->setPlainText(QStringLiteral("nome = 1 and nosuch(tax(city, company, NAME))"));
+        QVERIFY(ok->isEnabled());
+        QVERIFY(status->text().contains(QStringLiteral("nome, nosuch()")));
+        QVERIFY(!status->text().contains(QStringLiteral("tax")));
+        QVERIFY(!status->text().contains(QStringLiteral("city")));
+        edit->setPlainText(QString());
+        QVERIFY(ok->isEnabled());
+        QVERIFY(status->text().isEmpty());
+
+        // Insert a field that needs brackets, a function around the selection, an operator
+        edit->setPlainText(QStringLiteral("name"));
+        edit->selectAll();
+        emit tree->itemDoubleClicked(treeItem(tree, QStringLiteral("upper(text)")), 0);
+        QCOMPARE(edit->toPlainText(), QStringLiteral("upper(name)"));
+        edit->moveCursor(QTextCursor::End);
+        const QList<QToolButton *> buttons = dialog.findChildren<QToolButton *>();
+        for (QToolButton *button : buttons)
+            if (button->text() == QStringLiteral("&&"))
+                button->click();
+        emit tree->itemDoubleClicked(treeItem(tree, QStringLiteral("Unit Price")), 0);
+        QCOMPARE(edit->toPlainText(), QStringLiteral("upper(name) & [Unit Price]"));
+
+        // The cursor goes between the parentheses of a function with arguments
+        edit->clear();
+        emit tree->itemDoubleClicked(treeItem(tree, QStringLiteral("year(date)")), 0);
+        QCOMPARE(edit->textCursor().position(), 5);
+        edit->clear();
+        emit tree->itemDoubleClicked(treeItem(tree, QStringLiteral("today()")), 0);
+        QCOMPARE(edit->textCursor().position(), 7);
+
+        // The property editor shows one line, so the result is one line too
+        edit->setPlainText(QStringLiteral("  1 +\n2  "));
+        QCOMPARE(dialog.formula(), QStringLiteral("1 + 2"));
+
+        QCOMPARE(BrExpressionEditor::quotedName(QStringLiteral("sale.total")), QStringLiteral("sale.total"));
+        QCOMPARE(BrExpressionEditor::quotedName(QStringLiteral("Or")), QStringLiteral("[Or]"));
+        QCOMPARE(BrExpressionEditor::quotedName(QStringLiteral("2nd")), QStringLiteral("[2nd]"));
+    }
+
+    void expressionEditorQualifiedNames()
+    {
+        BrListDataSource ds({{{QStringLiteral("name"), QStringLiteral("Ana")}}});
+        BrListDataSource other({{{QStringLiteral("total"), 1}}});
+        BrReport report;
+        report.setDataSource(&ds);
+        report.addDataSource(QStringLiteral("sale"), &other);
+        auto *text = new BrDBText(report.addBand(Br::BandType::Detail));
+        BrExpressionEditor dialog(text, "dataFormula", QStringLiteral("sale.total + sale.nope"));
+        const QString status = dialog.findChild<QLabel *>(QStringLiteral("status"))->text();
+        QVERIFY2(status.contains(QStringLiteral("sale.nope")), qPrintable(status));
+        QVERIFY2(!status.contains(QStringLiteral("sale.total")), qPrintable(status));
+    }
+
+    void expressionEditorWithoutData()
+    {
+        // No data source: fields cannot be checked, so no name is reported as missing.
+        BrReport report;
+        auto *text = new BrDBText(report.addBand(Br::BandType::Detail));
+        BrExpressionEditor dialog(text, "highlightIf", QStringLiteral("anything > 1"));
+        QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("status"))->text().contains(QStringLiteral("anything")));
+    }
+
+    void expressionFunctionsExistInEngine()
+    {
+        // The catalog is written by hand: every name must run in a real report.
+        BrListDataSource ds({{{QStringLiteral("name"), QStringLiteral("Ana")}}});
+        BrReport report;
+        report.setDataSource(&ds);
+        auto *band = report.addBand(Br::BandType::Detail);
+        const QStringList names = BrExpressionEditor::knownFunctions();
+        for (const QString &name : names) {
+            auto *text = new BrDBText(band);
+            text->setDataFormula(name + QStringLiteral("(1, 1, 1)"));
+        }
+        g_warnings.clear();
+        const QtMessageHandler previous = qInstallMessageHandler(recordWarning);
+        const bool prepared = report.prepare();
+        qInstallMessageHandler(previous);
+        QVERIFY(prepared);
+        QVERIFY2(g_warnings.isEmpty(), qPrintable(g_warnings.join(QLatin1Char('\n'))));
+    }
+
+    void formulaButtonInPropertyEditor()
+    {
+        BrReport report;
+        auto *text = new BrDBText(report.addBand(Br::BandType::Detail));
+        BrPropertyEditor editor;
+        editor.setObjects({text});
+        int builders = 0;
+        const QList<QToolButton *> buttons = editor.findChildren<QToolButton *>();
+        for (QToolButton *button : buttons)
+            builders += button->toolTip() == QStringLiteral("Open the expression builder");
+        QCOMPARE(builders, 3); // dataFormula, printIf, highlightIf
+
+        QTimer::singleShot(0, this, []() {
+            auto *dialog = qobject_cast<BrExpressionEditor *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->findChild<QPlainTextEdit *>()->setPlainText(QStringLiteral("1 = 1"));
+            dialog->accept();
+        });
+        for (QToolButton *button : buttons)
+            if (button->toolTip() == QStringLiteral("Open the expression builder")) {
+                button->click();
+                break;
+            }
+        QCOMPARE(text->dataFormula() + text->printIf() + text->highlightIf(), QStringLiteral("1 = 1"));
+    }
+
     void newReportLayout()
     {
         BrDesignerWidget w;
@@ -384,6 +538,7 @@ private slots:
             QCOMPARE(BrPropertyEditor::labelFor(QStringLiteral("watermarkText")), QStringLiteral("Texto da marca d'água"));
             QCOMPARE(BrPropertyEditor::labelFor(QStringLiteral("PagePreview")), QStringLiteral("Página X de Y"));
             BrPreviewDialog preview;
+            QCOMPARE(BrExpressionEditor::functionCatalog().first().signature, QStringLiteral("upper(texto)"));
             QCOMPARE(preview.windowTitle(), QStringLiteral("Visualização de impressão"));
         }
         BrTranslations::uninstall();

@@ -18,6 +18,7 @@
 #include "brpropertyeditor_p.h"
 
 #include "brdesignerlabels_p.h"
+#include "brexpressioneditor_p.h"
 
 #include "brchart.h"
 #include "brcontrol.h"
@@ -420,6 +421,19 @@ QWidget *BrPropertyEditor::createEditor(const QMetaProperty &p, QObject *object)
             if (idx >= 0 && object->metaObject()->property(idx).read(object).toString() != edit->text())
                 apply(cname, edit->text());
         });
+        if (name == "dataFormula" || name == "printIf" || name == "highlightIf") {
+            auto *builder = new QToolButton(row);
+            builder->setText(QStringLiteral("…"));
+            builder->setToolTip(tr("Open the expression builder"));
+            h->addWidget(builder);
+            connect(builder, &QToolButton::clicked, this, [this, edit, cname, object]() {
+                BrExpressionEditor dialog(object, QByteArray(cname), edit->text(), this);
+                if (dialog.exec() != QDialog::Accepted)
+                    return;
+                edit->setText(dialog.formula());
+                apply(cname, dialog.formula());
+            });
+        }
         if (multiline) {
             auto *more = new QToolButton(row);
             more->setText(QStringLiteral("…"));

@@ -22,6 +22,7 @@
 
 #include <QLocale>
 #include <QString>
+#include <QStringList>
 #include <QVariant>
 #include <QVariantList>
 
@@ -72,6 +73,11 @@ public:
     bool isEmpty() const { return m_source.trimmed().isEmpty(); }
     bool isValid() const { return m_root != nullptr; }
     QString errorString() const { return m_error; }
+
+    /*! Fields and variables the expression refers to, without duplicates. */
+    QStringList identifiers() const;
+    /*! Functions the expression calls (in lower case), without duplicates. */
+    QStringList functions() const;
 
     QVariant evaluate(const BrExpressionContext &context) const;
     /*! Convenience: evaluate with a simple identifier resolver. */

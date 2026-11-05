@@ -95,6 +95,17 @@ private slots:
         QVERIFY(!BrExpression(QStringLiteral("'open")).isValid());
     }
 
+    void namesUsed()
+    {
+        const BrExpression e(QStringLiteral("if(Upper(name) = 'A', [Full Name] + name, str(sale.total + 1))"));
+        QCOMPARE(e.identifiers(), QStringList({QStringLiteral("name"), QStringLiteral("Full Name"),
+                                               QStringLiteral("sale.total")}));
+        QCOMPARE(e.functions(), QStringList({QStringLiteral("if"), QStringLiteral("upper"),
+                                             QStringLiteral("str")}));
+        QVERIFY(BrExpression(QStringLiteral("true and null")).identifiers().isEmpty());
+        QVERIFY(BrExpression(QStringLiteral("1 +")).functions().isEmpty());
+    }
+
     void dates()
     {
         TestContext ctx;

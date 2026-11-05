@@ -186,6 +186,13 @@ BrReport::CustomFunction BrReport::function(const QString &name) const
     return m_functions.value(name.toLower());
 }
 
+QStringList BrReport::functionNames() const
+{
+    QStringList names = m_functions.keys();
+    names.sort();
+    return names;
+}
+
 bool BrReport::prepare()
 {
     m_canceled = false;

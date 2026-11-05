@@ -23,6 +23,7 @@ It is available in two forms:
 | Fields | Drag fields from the *Data* panel into a band (or double-click them with a band selected) |
 | Editing | Move and resize with the mouse (1 mm grid snapping, *View > Snap to grid*), arrow keys (Shift = 5 mm, Alt = 0.1 mm), copy/cut/paste, duplicate (Ctrl+D), delete, change order, align left/right/top/bottom, center, same width/height |
 | Properties | Every property of the selected objects, with editors for colors, fonts, borders, images, choices of fields and data sources, formulas (*Print if*, *Highlight if*, *Formula*) |
+| Formulas | The `…` button next to a formula opens the expression builder: double-click fields, parameters, variables and functions to insert them, or use the operator buttons. A syntax error blocks OK; a name that is not found is only a warning, because the application may provide it when the report runs |
 | Data | SQL queries stored in the report (*Data > Add SQL query*), with parameters taken from report variables (`:name`), and a *Test* button |
 | Parameters | Values asked for before the report runs (*Data > Report parameters*), dragged into bands from the data panel |
 | Undo | Unlimited undo/redo (Ctrl+Z / Ctrl+Y) |

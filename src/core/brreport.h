@@ -276,6 +276,8 @@ public:
     /*! Registers a function callable from expressions (overrides built-ins). */
     void registerFunction(const QString &name, const CustomFunction &function);
     CustomFunction function(const QString &name) const;
+    /*! Names of the registered functions, in lower case and sorted. */
+    QStringList functionNames() const;
 
     /*! Safety limit against runaway layouts (default 10000 pages). */
     int maxPages() const { return m_maxPages; }

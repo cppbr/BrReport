@@ -4,9 +4,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 
 ## Designer (end users)
 
-- [ ] **Expression builder**: dialog for `Formula`, `Print if`, `Highlight if` and group formulas
-      with the available fields, variables, functions and operators, plus syntax checking
-      (BrExpression::errorString()).
 - [ ] **Rulers and guides** around the page; snapping to other objects' edges.
 - [ ] **Protected objects**: let the developer lock objects/bands (not movable, not deletable,
       hidden properties) so end users can only change parts of a report.

@@ -642,6 +642,14 @@ QVariant evalNode(const BrExpression::Node &n, const BrExpressionContext &ctx)
     return {};
 }
 
+void collectNames(const BrExpression::Node &n, BrExpression::Node::Type type, QStringList *names)
+{
+    if (n.type == type && !names->contains(n.name))
+        *names << n.name;
+    for (const auto &child : n.children)
+        collectNames(*child, type, names);
+}
+
 class ResolverContext : public BrExpressionContext
 {
 public:
@@ -683,6 +691,22 @@ void BrExpression::setSource(const QString &source)
     } catch (const std::exception &e) {
         m_error = QString::fromUtf8(e.what());
     }
+}
+
+QStringList BrExpression::identifiers() const
+{
+    QStringList names;
+    if (m_root)
+        collectNames(*m_root, Node::Identifier, &names);
+    return names;
+}
+
+QStringList BrExpression::functions() const
+{
+    QStringList names;
+    if (m_root)
+        collectNames(*m_root, Node::Call, &names);
+    return names;
 }
 
 QVariant BrExpression::evaluate(const BrExpressionContext &context) const

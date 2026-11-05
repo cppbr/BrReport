@@ -7,6 +7,10 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Expression builder in the designer: `Formula`, `Print if`, `Highlight if` and group formulas have
+  a `…` button that lists the fields, parameters, variables, functions and operators and checks the
+  formula as it is typed. New `BrExpression::identifiers()`/`functions()` and
+  `BrReport::functionNames()`.
 - Report parameters: declared in the report (`BrReport::setParameters()`/`addParameter()`, `Report
   parameters` in the designer's Data menu), asked for by `BrPrinting::preview()`/`print()` and the
   designer preview (`BrParametersDialog`), available to SQL queries and formulas. Their choices can
