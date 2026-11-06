@@ -21,6 +21,7 @@ It is available in two forms:
 | Bands | Add Header, Title, Column header, Detail, Column footer, Summary and Footer bands; resize them by dragging the bottom edge; zebra rows, columns, page breaks... in the properties |
 | Groups | *Report > Add group*: choose the field; the detail bands move into the group, which gets a header with the field and a summary band |
 | Sub-reports | *Report > Add sub-report*: choose the data source, then set the master/detail fields |
+| Several pages | *Report > Add cover page* and *Add closing page* add pages of the template around the records (a cover, terms). There can be several; each one is a sub-report with no data source, with a page break, and *Positioning* tells where it prints |
 | Objects | Toolbox: text, field, memo, total, page number, image, rectangle, line, barcode, QR Code, chart, panel. Click the tool, then click inside a band |
 | Fields | Drag fields from the *Data* panel into a band (or double-click them with a band selected) |
 | Editing | Move and resize with the mouse (1 mm grid snapping, *View > Snap to grid*), arrow keys (Shift = 5 mm, Alt = 0.1 mm), copy/cut/paste, duplicate (Ctrl+D), delete, change order, align left/right/top/bottom, center, same width/height, distribute horizontally/vertically |

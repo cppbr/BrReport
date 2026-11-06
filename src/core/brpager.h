@@ -186,7 +186,13 @@ public:
     QString detailFields() const { return m_detailFields; }
     void setDetailFields(const QString &fields) { m_detailFields = fields; }
 
-    /*! Which band slot of the parent the sub-detail occupies (default: Detail). */
+    /*!
+     * Which band slot of the parent the sub-detail occupies (default: Detail). With
+     * Title, a sub-detail of the report prints before the records; with Summary, after
+     * them. Without a data source it then prints once: that is how a report gets a
+     * cover or closing pages. The list starts on a new page with
+     * setPageBreak(Br::PageBreak::After) on the cover.
+     */
     Br::BandType positioning() const { return m_positioning; }
     void setPositioning(Br::BandType type) { m_positioning = type; }
 

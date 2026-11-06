@@ -638,6 +638,70 @@ private slots:
         QVERIFY(end >= lowest - 0.01);
     }
 
+    void templatePagesAroundTheList()
+    {
+        BrListDataSource ds(numberedRows(3));
+        BrReport report;
+        report.setDataSource(&ds);
+        new BrLabel(QStringLiteral("column header"), report.addBand(Br::BandType::ColumnHeader, 5));
+        (new BrDBText(QStringLiteral("id"), report.addBand(Br::BandType::Detail, 5)))->setGeometry(0, 0, 20, 5);
+
+        auto *cover = new BrSubDetail(&report);
+        cover->setPositioning(Br::BandType::Title);
+        cover->setPageBreak(Br::PageBreak::After);
+        new BrLabel(QStringLiteral("cover"), cover->addBand(Br::BandType::Detail, 50));
+        auto *second = new BrSubDetail(&report);
+        second->setPositioning(Br::BandType::Title);
+        second->setPageBreak(Br::PageBreak::After);
+        new BrLabel(QStringLiteral("presentation"), second->addBand(Br::BandType::Detail, 50));
+        auto *closing = new BrSubDetail(&report);
+        closing->setPositioning(Br::BandType::Summary);
+        closing->setPageBreak(Br::PageBreak::Before);
+        new BrLabel(QStringLiteral("terms"), closing->addBand(Br::BandType::Detail, 50));
+        QVERIFY(report.prepare());
+
+        const BrDocument &doc = report.document();
+        QCOMPARE(doc.pageCount(), 3 + 1); // the second one starts after a page break
+        QCOMPARE(doc.pageText(0).trimmed(), QStringLiteral("cover"));
+        QCOMPARE(doc.pageText(1).trimmed(), QStringLiteral("presentation"));
+        QVERIFY(doc.pageText(2).contains(QStringLiteral("column header")));
+        QVERIFY(doc.pageText(2).contains(QStringLiteral("3")));
+        QCOMPARE(doc.pageText(3).trimmed(), QStringLiteral("terms"));
+    }
+
+    void templatePageWithoutBreakKeepsTheColumnHeader()
+    {
+        BrListDataSource ds(numberedRows(1));
+        BrReport report;
+        report.setDataSource(&ds);
+        new BrLabel(QStringLiteral("column header"), report.addBand(Br::BandType::ColumnHeader, 5));
+        report.addBand(Br::BandType::Detail, 5);
+        auto *intro = new BrSubDetail(&report);
+        intro->setPositioning(Br::BandType::Title);
+        new BrLabel(QStringLiteral("introduction"), intro->addBand(Br::BandType::Detail, 20));
+        QVERIFY(report.prepare());
+
+        QCOMPARE(report.document().pageCount(), 1);
+        const BrPage &page = report.document().pages.first();
+        double intros = 0, header = 0;
+        for (const BrPageItem &item : page.items) {
+            if (item.text == QStringLiteral("introduction"))
+                intros = item.rect.top();
+            else if (item.text == QStringLiteral("column header"))
+                header = item.rect.top();
+        }
+        QVERIFY(header >= intros + 20 - 0.01);
+    }
+
+    void subReportWithoutDataStillPrintsNothing()
+    {
+        BrReport report;
+        auto *sub = new BrSubDetail(&report);
+        new BrLabel(QStringLiteral("detail of nothing"), sub->addBand(Br::BandType::Detail, 5));
+        QVERIFY(report.prepare());
+        QVERIFY(!report.document().pageText(0).contains(QStringLiteral("detail of nothing")));
+    }
+
     void stretchingMemo()
     {
         BrReport report;

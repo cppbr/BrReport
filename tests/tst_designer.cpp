@@ -699,6 +699,21 @@ private slots:
         QVERIFY(!menu->menuAction()->isVisible());
     }
 
+    void coverPageIsSavedInTheReport()
+    {
+        BrDesignerWidget widget;
+        action(&widget, QStringLiteral("Add cover page"))->trigger();
+        QCoreApplication::processEvents();
+        const QList<BrSubDetail *> pages = widget.report()->findChildren<BrSubDetail *>();
+        QCOMPARE(pages.size(), 1);
+        QCOMPARE(pages.first()->positioning(), Br::BandType::Title);
+        QCOMPARE(pages.first()->pageBreak(), Br::PageBreak::After);
+
+        BrReport loaded;
+        QVERIFY(loaded.loadFromJson(widget.toJson()));
+        QCOMPARE(loaded.findChildren<BrSubDetail *>().first()->positioning(), Br::BandType::Title);
+    }
+
     void distributeKeepsTheOutermostObjects()
     {
         LayoutFixture f;

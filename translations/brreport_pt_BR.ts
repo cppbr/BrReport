@@ -180,6 +180,14 @@
         <translation>Adicionar &amp;sub-relatório...</translation>
     </message>
     <message>
+        <source>Add &amp;cover page</source>
+        <translation>Adicionar &amp;capa</translation>
+    </message>
+    <message>
+        <source>Add c&amp;losing page</source>
+        <translation>Adicionar página de &amp;encerramento</translation>
+    </message>
+    <message>
         <source>&amp;Page setup and report properties</source>
         <translation>Configurar &amp;página e propriedades do relatório</translation>
     </message>
@@ -558,6 +566,10 @@ Campos: %2</translation>
     <message>
         <source>Group the records by (the data must be sorted by it):</source>
         <translation>Agrupar os registros por (os dados devem estar ordenados por ele):</translation>
+    </message>
+    <message>
+        <source>Add page</source>
+        <translation>Adicionar página</translation>
     </message>
     <message>
         <source>Add sub-report</source>

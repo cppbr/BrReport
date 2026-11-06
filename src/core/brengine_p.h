@@ -154,6 +154,7 @@ private:
     bool m_pendingAccumulate = false;
     bool m_abort = false;
     bool m_lastPage = false;
+    bool m_frontPages = false; // printing the pages of the template before the records
     QVector<int> m_pageSection; // numbering section of every page
     int m_section = 0;
     int m_sectionCount = 1;

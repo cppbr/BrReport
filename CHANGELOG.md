@@ -14,6 +14,9 @@ follows [Semantic Versioning](https://semver.org/).
   shorter (with `shiftOnStretch`, the default), so an empty line of an address leaves no gap.
 
 ### Added
+- Report templates with several pages: a sub-report with no data source and `positioning` set to
+  `Title` or `Summary` prints once before or after the records, as a cover or closing page
+  (*Report > Add cover page / Add closing page*).
 - Detail bands with columns can be filled top to bottom (`columnDirection`), for directories and
   price lists.
 - Bands can be split across pages (`allowSplit`, *Allow split* in the designer): the part that fits

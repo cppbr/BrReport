@@ -166,6 +166,7 @@ private:
     void addBand(int type);
     void addGroup();
     void addSubReport();
+    void addTemplatePage(Br::BandType position);
     void editQuery(const QString &name);
     void removeQuery(const QString &name);
     void editParameters();

@@ -642,6 +642,8 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
     }
     reportMenu->addAction(tr("Add &group..."), this, &BrDesignerWidget::addGroup);
     reportMenu->addAction(tr("Add &sub-report..."), this, &BrDesignerWidget::addSubReport);
+    reportMenu->addAction(tr("Add &cover page"), this, [this]() { addTemplatePage(Br::BandType::Title); });
+    reportMenu->addAction(tr("Add c&losing page"), this, [this]() { addTemplatePage(Br::BandType::Summary); });
     reportMenu->addSeparator();
     reportMenu->addAction(tr("&Page setup and report properties"), this, [this]() {
         d->scene->clearSelection();
@@ -1850,6 +1852,20 @@ void BrDesignerWidget::addGroup()
     group->addBand(Br::BandType::Summary, 6.0);
     commit(tr("Add group"));
     d->scene->selectObjects({h});
+}
+
+void BrDesignerWidget::addTemplatePage(Br::BandType position)
+{
+    if (!canAddTo(&d->report)) {
+        refuse(tr("Nothing can be added here: the object is protected."));
+        return;
+    }
+    auto *page = new BrSubDetail(&d->report);
+    page->setPositioning(position);
+    page->setPageBreak(position == Br::BandType::Title ? Br::PageBreak::After : Br::PageBreak::Before);
+    BrBand *band = page->addBand(Br::BandType::Detail, 60.0);
+    commit(tr("Add page"));
+    d->scene->selectObjects({band});
 }
 
 void BrDesignerWidget::addSubReport()

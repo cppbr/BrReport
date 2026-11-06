@@ -280,7 +280,20 @@ bool BrEngine::run(BrDocument *document, QString *error)
     Frame *rf = push(m_report, m_report->dataSource(), true);
     rf->headersPrinted = true;
     resetPager(m_report);
+    QList<BrSubDetail *> frontPages;
+    for (QObject *child : m_report->children())
+        if (auto *sub = qobject_cast<BrSubDetail *>(child))
+            if (sub->positioning() == Br::BandType::Title && sub->isEnabled())
+                frontPages << sub;
+    m_frontPages = !frontPages.isEmpty();
     newPage();
+    if (m_frontPages) {
+        for (BrSubDetail *sub : std::as_const(frontPages))
+            runSubDetail(sub);
+        m_frontPages = false;
+        if (!m_pendingBreak) // otherwise the next page prints them
+            printSlot(m_report, int(Br::BandType::ColumnHeader), Mode::Fixed);
+    }
     iterateRecords(*rf);
     finishPager(*rf);
     m_lastPage = true;
@@ -408,23 +421,29 @@ void BrEngine::runSubDetail(BrSubDetail *sub)
         return;
     sub->callBeforeOpen(*this);
     BrDataSource *ds = sub->dataSource();
-    if (!ds || !ds->first())
+    // Without data, a sub-report placed before or after the records is a page of the
+    // template (cover, terms): it prints once.
+    const bool templatePage = !ds && sub->dataSourceName().isEmpty()
+                              && sub->positioning() != Br::BandType::Detail;
+    if (!templatePage && (!ds || !ds->first()))
         return;
 
     // Declarative master/detail link (evaluated in the master context)
-    const QStringList linkFields = sub->detailFields().split(QLatin1Char(';'), Qt::SkipEmptyParts);
-    const QStringList masterFields = sub->masterFields().split(QLatin1Char(';'), Qt::SkipEmptyParts);
-    QStringList linkValues;
-    for (int i = 0; i < linkFields.size(); ++i)
-        linkValues << fieldValue(masterFields.value(i, linkFields.at(i)).trimmed()).toString();
-    skipUnlinked(ds, linkFields, linkValues);
-    if (ds->eof())
-        return;
+    QStringList linkFields, linkValues;
+    if (ds) {
+        linkFields = sub->detailFields().split(QLatin1Char(';'), Qt::SkipEmptyParts);
+        const QStringList masterFields = sub->masterFields().split(QLatin1Char(';'), Qt::SkipEmptyParts);
+        for (int i = 0; i < linkFields.size(); ++i)
+            linkValues << fieldValue(masterFields.value(i, linkFields.at(i)).trimmed()).toString();
+        skipUnlinked(ds, linkFields, linkValues);
+        if (ds->eof())
+            return;
+    }
 
     if (sub->pageBreak() == Br::PageBreak::Before && pageHasBody())
         newPage();
 
-    Frame *f = push(sub, ds, true);
+    Frame *f = push(sub, ds, ds != nullptr);
     f->recNo = 1;
     f->linkFields = linkFields;
     f->linkValues = linkValues;
@@ -437,7 +456,9 @@ void BrEngine::runSubDetail(BrSubDetail *sub)
     printSlot(sub, int(Br::BandType::ColumnHeader), Mode::Flow);
     f->headersPrinted = true;
 
-    while (!ds->eof() && !aborted()) {
+    if (templatePage)
+        printRecord();
+    while (ds && !ds->eof() && !aborted()) {
         if (BrGroup *g = sub->group())
             runGroup(g);
         else {
@@ -825,7 +846,8 @@ double BrEngine::bottomLimit() const
     for (const auto &frame : m_stack) {
         if (frame->ending)
             continue;
-        limit -= bandsHeight(frame->pager, int(Br::BandType::ColumnFooter));
+        if (!(frame->isReport && m_frontPages))
+            limit -= bandsHeight(frame->pager, int(Br::BandType::ColumnFooter));
         if (!frame->isReport)
             limit -= bandsHeight(frame->pager, int(Br::BandType::Footer));
     }
@@ -870,7 +892,7 @@ void BrEngine::newPage()
             printSlot(frame->pager, int(Br::BandType::Header), Mode::Fixed);
             if (m_pageNumber == 1)
                 printSlot(frame->pager, int(Br::BandType::Title), Mode::Fixed);
-            if (!frame->ending)
+            if (!frame->ending && !m_frontPages)
                 printSlot(frame->pager, int(Br::BandType::ColumnHeader), Mode::Fixed);
         } else if (frame->headersPrinted) {
             printSlot(frame->pager, int(Br::BandType::Header), Mode::Fixed);
@@ -891,7 +913,7 @@ void BrEngine::closePage()
         Frame &f = **it;
         if (f.ending && !f.isReport)
             continue;
-        if (!f.columnFooterPrinted) {
+        if (!f.columnFooterPrinted && !(f.isReport && m_frontPages)) {
             printSlot(f.pager, int(Br::BandType::ColumnFooter), Mode::Fixed);
             f.columnFooterPrinted = true;
         }
