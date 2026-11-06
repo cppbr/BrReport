@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- `hideIfEmpty` also gives up the space of the object: the objects below move up and the band gets
+  shorter (with `shiftOnStretch`, the default), so an empty line of an address leaves no gap.
+
 ### Added
 - Bands can be split across pages (`allowSplit`, *Allow split* in the designer): the part that fits
   is printed and the rest continues on the next page, for very long memos and contracts, in plain

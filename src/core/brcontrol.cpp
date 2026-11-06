@@ -181,7 +181,7 @@ double BrContainer::layoutChildren(BrRenderContext &ctx, double width, double he
             kids << c;
 
     auto heightOf = [&](BrControl *c, double w) {
-        return std::max(c->height(), c->measureHeight(ctx, w));
+        return c->isCollapsed() ? 0.0 : std::max(c->height(), c->measureHeight(ctx, w));
     };
 
     double top = 0.0;
@@ -202,22 +202,45 @@ double BrContainer::layoutChildren(BrRenderContext &ctx, double width, double he
             freeOrder << c;
     std::stable_sort(freeOrder.begin(), freeOrder.end(),
                      [](BrControl *a, BrControl *b) { return a->y() < b->y(); });
+    const auto isAbove = [](const BrControl *o, const BrControl *c) {
+        return c->y() >= o->y() + o->height() - 0.001 && c->x() < o->x() + o->width()
+               && o->x() < c->x() + c->width();
+    };
+    // Height of the collapsed controls between \a o and \a c, overlapping ones counted once.
+    const auto collapsedBetween = [&](const BrControl *o, const BrControl *c) {
+        double total = 0.0;
+        double cursor = o->y() + o->height();
+        for (const Free &f : free) { // sorted from top to bottom
+            const BrControl *g = f.control;
+            if (g->isCollapsed() && isAbove(o, g) && isAbove(g, c)) {
+                total += std::max(0.0, g->y() + g->height() - std::max(g->y(), cursor));
+                cursor = std::max(cursor, g->y() + g->height());
+            }
+        }
+        return total;
+    };
+    double designBottom = 0.0;
     for (BrControl *c : freeOrder) {
         const double h = heightOf(c, c->width());
         double shift = 0.0;
         if (shiftOnStretch()) {
+            // Keeps the distance to what is above; an object that grew pushes it down
+            // and one that collapsed leaves room, unless something beside it stayed.
+            bool first = true;
             for (const Free &f : free) {
                 const BrControl *o = f.control;
-                const bool below = c->y() >= o->y() + o->height() - 0.001;
-                const bool overlaps = c->x() < o->x() + o->width() && o->x() < c->x() + c->width();
-                const double pushed = f.rect.bottom() - (o->y() + o->height());
-                if (below && overlaps && pushed > 0.0)
-                    shift = std::max(shift, pushed);
+                if (!isAbove(o, c))
+                    continue;
+                const double moved = f.rect.bottom() - (o->y() + o->height()) - collapsedBetween(o, c);
+                shift = first ? moved : std::max(shift, moved);
+                first = false;
             }
+            shift = std::max(shift, -c->y()); // never above the top
         }
         const QRectF r(c->x(), c->y() + shift, c->width(), h);
         free << Free{c, r, h - c->height()};
         maxBottom = std::max(maxBottom, r.bottom());
+        designBottom = std::max(designBottom, c->y() + c->height());
     }
 
     for (BrControl *c : kids) {
@@ -236,8 +259,11 @@ double BrContainer::layoutChildren(BrRenderContext &ctx, double width, double he
         bottomSum += b.second;
 
     double finalHeight = height;
-    if (expand)
-        finalHeight = std::max(height, std::max(maxBottom, top + bottomSum));
+    if (expand) {
+        // The space left by collapsed objects also leaves the band.
+        const double saved = shiftOnStretch() ? std::max(0.0, designBottom - maxBottom) : 0.0;
+        finalHeight = std::max(height - saved, std::max(maxBottom, top + bottomSum));
+    }
 
     for (Free &f : free) {
         if (f.control->stretchToBand())

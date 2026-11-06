@@ -502,6 +502,76 @@ private slots:
         QCOMPARE(allText(report.document()).filter(QStringLiteral("line ")).size(), 100);
     }
 
+    void hideIfEmptyCollapsesItsSpace()
+    {
+        QList<QVariantMap> rows = {{{QStringLiteral("line"), QString()}}};
+        BrListDataSource source(rows);
+        BrReport report;
+        report.addDataSource(QStringLiteral("data"), &source);
+        report.setDataSourceName(QStringLiteral("data"));
+        BrBand *band = report.addBand(Br::BandType::Detail, 20);
+        auto *top = new BrLabel(QStringLiteral("top"), band);
+        top->setGeometry(0, 0, 40, 5);
+        auto *empty = new BrDBText(QStringLiteral("line"), band);
+        empty->setGeometry(0, 5, 40, 5);
+        empty->setHideIfEmpty(true);
+        auto *below = new BrLabel(QStringLiteral("below"), band);
+        below->setGeometry(0, 10, 40, 5);
+        auto *beside = new BrLabel(QStringLiteral("beside"), band);
+        beside->setGeometry(50, 5, 40, 5); // nothing above it: it stays
+        new BrLabel(QStringLiteral("next"), report.addBand(Br::BandType::Summary, 5));
+        QVERIFY(report.prepare());
+
+        const QRectF content = report.contentRect();
+        QHash<QString, double> tops;
+        for (const BrPageItem &item : report.document().pages.first().items)
+            tops[item.text] = item.rect.top() - content.top();
+        QCOMPARE(tops.value(QStringLiteral("below")), 5.0);
+        QCOMPARE(tops.value(QStringLiteral("beside")), 5.0);
+        QCOMPARE(tops.value(QStringLiteral("next")), 15.0); // 20 less the 5 that collapsed
+    }
+
+    void hideIfEmptyLeavesObjectsBesideIt()
+    {
+        QList<QVariantMap> rows = {{{QStringLiteral("line"), QString()}}};
+        BrListDataSource source(rows);
+        BrReport report;
+        report.addDataSource(QStringLiteral("data"), &source);
+        report.setDataSourceName(QStringLiteral("data"));
+        BrBand *band = report.addBand(Br::BandType::Detail, 15);
+        auto *empty = new BrDBText(QStringLiteral("line"), band);
+        empty->setGeometry(0, 0, 40, 5);
+        empty->setHideIfEmpty(true);
+        auto *column = new BrLabel(QStringLiteral("column"), band);
+        column->setGeometry(50, 0, 40, 5);
+        auto *wide = new BrLabel(QStringLiteral("wide"), band);
+        wide->setGeometry(0, 5, 90, 5); // under both: the column stops it
+        QVERIFY(report.prepare());
+        for (const BrPageItem &item : report.document().pages.first().items)
+            if (item.text == QStringLiteral("wide"))
+                QCOMPARE(item.rect.top() - report.contentRect().top(), 5.0);
+    }
+
+    void hideIfEmptyWithShiftOffKeepsTheLayout()
+    {
+        QList<QVariantMap> rows = {{{QStringLiteral("line"), QString()}}};
+        BrListDataSource source(rows);
+        BrReport report;
+        report.addDataSource(QStringLiteral("data"), &source);
+        report.setDataSourceName(QStringLiteral("data"));
+        BrBand *band = report.addBand(Br::BandType::Detail, 15);
+        band->setShiftOnStretch(false);
+        auto *empty = new BrDBText(QStringLiteral("line"), band);
+        empty->setGeometry(0, 0, 40, 5);
+        empty->setHideIfEmpty(true);
+        auto *below = new BrLabel(QStringLiteral("below"), band);
+        below->setGeometry(0, 5, 40, 5);
+        QVERIFY(report.prepare());
+        for (const BrPageItem &item : report.document().pages.first().items)
+            if (item.text == QStringLiteral("below"))
+                QCOMPARE(item.rect.top() - report.contentRect().top(), 5.0);
+    }
+
     void stretchingMemo()
     {
         BrReport report;

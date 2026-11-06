@@ -105,6 +105,7 @@ public:
     void prepare(BrRenderContext &ctx) override;
     double measureHeight(BrRenderContext &ctx, double width) override;
     bool isSplittable() const override { return true; }
+    bool isCollapsed() const override { return m_hideIfEmpty && m_currentText.isEmpty(); }
     void render(BrRenderContext &ctx, const QRectF &rect, BrPage &page) override;
 
 protected:

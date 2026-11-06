@@ -4,7 +4,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 
 ## Report engine
 
-- [ ] `hideIfEmpty` should also collapse the space of empty objects (shift the objects below up).
 - [ ] Multi-page report templates (e.g. a cover page followed by the list).
 - [ ] Multi-column details filled top to bottom (only left to right today).
 - [ ] Watermark on continuous pages: center it on the final page height.

@@ -167,6 +167,8 @@ public:
     virtual double measureHeight(BrRenderContext &ctx, double width);
     /*! Emits the drawing items for \a rect (absolute page mm). */
     virtual void render(BrRenderContext &ctx, const QRectF &rect, BrPage &page);
+    /*! Whether the control gives up its space in the current record (nothing to show). */
+    virtual bool isCollapsed() const { return false; }
     /*! Whether a page break can pass through the control when its band is split. */
     virtual bool isSplittable() const { return false; }
 
@@ -212,7 +214,8 @@ public:
     void setAutoExpand(bool on) { m_autoExpand = on; }
 
     /*!
-     * When a child grows (stretched memo), move down the children placed below it
+     * When a child grows (stretched memo) or collapses (hideIfEmpty), move the children
+     * placed below it
      * that share part of its horizontal span (default true).
      */
     bool shiftOnStretch() const { return m_shiftOnStretch; }
