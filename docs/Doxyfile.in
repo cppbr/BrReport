@@ -1,0 +1,20 @@
+PROJECT_NAME           = BrReport
+PROJECT_NUMBER         = @PROJECT_VERSION@
+PROJECT_BRIEF          = "@PROJECT_DESCRIPTION@"
+OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@/docs
+INPUT                  = @PROJECT_SOURCE_DIR@/src/core \
+                         @PROJECT_SOURCE_DIR@/src/widgets \
+                         @PROJECT_SOURCE_DIR@/src/designer
+FILE_PATTERNS          = *.h
+EXCLUDE_PATTERNS       = *_p.h
+RECURSIVE              = NO
+EXTRACT_ALL            = NO
+HIDE_UNDOC_MEMBERS     = NO
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = NO
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+HTML_OUTPUT            = html
+SOURCE_BROWSER         = NO
+ALPHABETICAL_INDEX     = YES
+SEARCHENGINE           = YES

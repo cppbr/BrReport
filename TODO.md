@@ -14,7 +14,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
       `CMakeLists.txt`.
 - [ ] See the first run of the CI (`.github/workflows/ci.yml`: Linux, Windows with MSVC and MinGW,
       macOS, Qt 5.15 and Qt 6) and add the build badge to the README.
-- [ ] API reference with Doxygen (the public headers are already documented).
 - [ ] Packages: vcpkg and Conan recipes.
 - [ ] More translations (Spanish first).
 

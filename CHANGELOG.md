@@ -21,6 +21,7 @@ follows [Semantic Versioning](https://semver.org/).
   writes complete report files.
 
 ### Added
+- API reference with Doxygen (`cmake --build build --target docs`).
 - SVG images, kept as vectors in PDF, from files, report files and data fields (`BrImage::svg`). QtSvg
   is an optional dependency (`BRREPORT_WITH_SVG`). The prepared report format is now version 3.
 - Export to XLSX, RTF and plain text (for dot-matrix and thermal printers), from `BrReport`,

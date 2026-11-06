@@ -70,6 +70,16 @@ if(TARGET ${BRREPORT_QT}::lupdate)
         VERBATIM)
 endif()
 
+# API reference: `cmake --build build --target docs`, in build/docs/html.
+find_package(Doxygen QUIET)
+if(DOXYGEN_FOUND)
+    configure_file(docs/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+    add_custom_target(docs
+        COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+        COMMENT "Generating the API reference"
+        VERBATIM)
+endif()
+
 if(BRREPORT_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
