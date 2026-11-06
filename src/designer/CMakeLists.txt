@@ -17,6 +17,8 @@ set(BRREPORT_DESIGNER_SOURCES
     brparameterseditor_p.h
     brpropertyeditor.cpp
     brpropertyeditor_p.h
+    brreportwizard.cpp
+    brreportwizard_p.h
 )
 
 add_library(BrReportDesigner ${BRREPORT_DESIGNER_HEADERS} ${BRREPORT_DESIGNER_SOURCES})

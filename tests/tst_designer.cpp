@@ -21,6 +21,7 @@
 #include "brexpressioneditor_p.h"
 #include "brparameterseditor_p.h"
 #include "brpropertyeditor_p.h"
+#include "brreportwizard_p.h"
 #include "brreportwidgets.h"
 #include "brreportcore.h"
 
@@ -896,6 +897,262 @@ private slots:
         QVERIFY(!action(&f.widget, QStringLiteral("Remove protection"))->isVisible());
     }
 
+    void wizardInspectsFields()
+    {
+        BrListDataSource data({{{QStringLiteral("id"), 1}, {QStringLiteral("customer_name"), QStringLiteral("Ana")},
+                                {QStringLiteral("price"), 10.5}, {QStringLiteral("cost"), QStringLiteral("3.25")},
+                                {QStringLiteral("zip"), QStringLiteral("01310")}, {QStringLiteral("day"), QDate(2026, 1, 2)},
+                                {QStringLiteral("empty"), QVariant()}},
+                               {{QStringLiteral("id"), 2}, {QStringLiteral("customer_name"), QStringLiteral("Bruno Lima")},
+                                {QStringLiteral("price"), 7}, {QStringLiteral("cost"), QStringLiteral("1.00")},
+                                {QStringLiteral("zip"), QStringLiteral("04567")}, {QStringLiteral("day"), QDate(2026, 1, 3)},
+                                {QStringLiteral("empty"), QVariant()}}});
+        QHash<QString, BrReportWizard::Column> columns;
+        for (const BrReportWizard::Column &c : BrReportWizard::inspect(&data))
+            columns.insert(c.field, c);
+        using Kind = BrReportWizard::FieldKind;
+        QCOMPARE(columns.value(QStringLiteral("id")).kind, Kind::Integer);
+        QCOMPARE(columns.value(QStringLiteral("customer_name")).kind, Kind::Text);
+        QCOMPARE(columns.value(QStringLiteral("customer_name")).size, 10);
+        QCOMPARE(columns.value(QStringLiteral("price")).kind, Kind::Decimal); // an integer among decimals
+        QCOMPARE(columns.value(QStringLiteral("cost")).kind, Kind::Decimal);  // read as text by some drivers
+        QCOMPARE(columns.value(QStringLiteral("zip")).kind, Kind::Text);      // a code, not a number
+        QCOMPARE(columns.value(QStringLiteral("day")).kind, Kind::Date);
+        QCOMPARE(columns.value(QStringLiteral("empty")).kind, Kind::Unknown);
+        QVERIFY(data.first()); // left ready for the report
+
+        QCOMPARE(BrReportWizard::captionFor(QStringLiteral("customer_name")), QStringLiteral("Customer name"));
+        QCOMPARE(BrReportWizard::captionFor(QStringLiteral("customerName")), QStringLiteral("Customer name"));
+        QCOMPARE(BrReportWizard::captionFor(QStringLiteral("CUSTOMER_NAME")), QStringLiteral("Customer name"));
+        QCOMPARE(BrReportWizard::captionFor(QStringLiteral("id")), QStringLiteral("Id"));
+    }
+
+    void wizardLayoutRuns()
+    {
+        BrListDataSource sales({{{QStringLiteral("city"), QStringLiteral("Recife")}, {QStringLiteral("item"), QStringLiteral("Pen")}, {QStringLiteral("value"), 10.0}},
+                                {{QStringLiteral("city"), QStringLiteral("Recife")}, {QStringLiteral("item"), QStringLiteral("Ink")}, {QStringLiteral("value"), 5.5}},
+                                {{QStringLiteral("city"), QStringLiteral("Natal")}, {QStringLiteral("item"), QStringLiteral("Pad")}, {QStringLiteral("value"), 2.25}}});
+        BrReportWizard::Options options;
+        options.title = QStringLiteral("Sales");
+        options.dataSourceName = QStringLiteral("sales");
+        options.columns = BrReportWizard::inspect(&sales);
+        for (BrReportWizard::Column &c : options.columns)
+            if (c.field == QLatin1String("value"))
+                c.total = int(Br::ResultType::Sum);
+
+        const auto textOf = [](BrReport &report) {
+            QStringList texts;
+            const BrDocument &document = report.document();
+            for (int i = 0; i < document.pageCount(); ++i)
+                texts << document.pageText(i).split(QLatin1Char('\n'));
+            return texts;
+        };
+
+        BrReport plain;
+        plain.addDataSource(QStringLiteral("sales"), &sales);
+        QVERIFY2(plain.loadFromJson(BrReportWizard::buildLayout(options)), qPrintable(plain.errorString()));
+        QVERIFY2(plain.prepare(), qPrintable(plain.errorString()));
+        QCOMPARE(plain.title(), QStringLiteral("Sales"));
+        QVERIFY(!plain.isLandscape());
+        double right = 0;
+        for (BrBand *band : plain.bands())
+            if (band->bandType() == Br::BandType::Detail) {
+                QCOMPARE(band->findChildren<BrDBText *>().size(), 3);
+                for (BrDBText *value : band->findChildren<BrDBText *>())
+                    right = qMax(right, value->geometry().right());
+            }
+        QCOMPARE(right, plain.contentRect().width()); // the columns fill the page
+        QVERIFY2(textOf(plain).contains(QLocale().toString(17.75, 'f', 2)), qPrintable(textOf(plain).join(QLatin1Char('|'))));
+        QVERIFY(textOf(plain).contains(QStringLiteral("Total")));
+
+        // Grouped: the field leaves the columns; the group and the report have their totals
+        options.group = options.columns.first();
+        options.landscape = true;
+        BrReport grouped;
+        grouped.addDataSource(QStringLiteral("sales"), &sales);
+        QVERIFY2(grouped.loadFromJson(BrReportWizard::buildLayout(options)), qPrintable(grouped.errorString()));
+        QVERIFY2(grouped.prepare(), qPrintable(grouped.errorString()));
+        QVERIFY(grouped.isLandscape());
+        const QStringList texts = textOf(grouped);
+        QVERIFY2(texts.contains(QStringLiteral("City: Recife")), qPrintable(texts.join(QLatin1Char('|'))));
+        QVERIFY(!texts.contains(QStringLiteral("City"))); // no column for it
+        QVERIFY(texts.contains(QLocale().toString(15.5, 'f', 2)));
+        QVERIFY(texts.contains(QLocale().toString(2.25, 'f', 2)));
+        QVERIFY(texts.contains(QLocale().toString(17.75, 'f', 2)));
+        QVERIFY(texts.contains(QStringLiteral("Grand total")));
+
+        // Grouped by the only column: it stays, or the detail would be empty
+        options.columns = {options.group};
+        BrReport single;
+        single.addDataSource(QStringLiteral("sales"), &sales);
+        QVERIFY(single.loadFromJson(BrReportWizard::buildLayout(options)));
+        QVERIFY(single.prepare());
+    }
+
+    void wizardPages()
+    {
+        BrListDataSource data({{{QStringLiteral("name"), QStringLiteral("Ana")}, {QStringLiteral("balance"), 10.5}}});
+        BrReportWizard wizard({{QStringLiteral("customers"), &data}});
+        wizard.show();
+        wizard.findChild<QLineEdit *>(QStringLiteral("title"))->setText(QStringLiteral("Customers"));
+        QVERIFY(!wizard.findChild<QPlainTextEdit *>(QStringLiteral("sql"))->isVisible());
+        wizard.next();
+        auto *table = wizard.currentPage()->findChild<QTableWidget *>();
+        QVERIFY(table);
+        QCOMPARE(table->rowCount(), 2);
+        QVERIFY(wizard.currentPage()->isComplete());
+
+        // Text fields offer only a count
+        const int balanceRow = 0; // data sources list their fields in alphabetical order here
+        const int nameRow = 1;
+        QCOMPARE(table->item(nameRow, 0)->text(), QStringLiteral("name"));
+        auto *nameTotal = static_cast<QComboBox *>(table->cellWidget(nameRow, 2));
+        auto *balanceTotal = static_cast<QComboBox *>(table->cellWidget(balanceRow, 2));
+        QCOMPARE(nameTotal->count(), 2);
+        QCOMPARE(balanceTotal->count(), 6);
+        balanceTotal->setCurrentIndex(balanceTotal->findData(int(Br::ResultType::Sum)));
+
+        // Moving keeps each total with its field
+        table->setCurrentCell(balanceRow, 0);
+        const auto clickButton = [&](const QString &text) {
+            for (QPushButton *button : wizard.currentPage()->findChildren<QPushButton *>())
+                if (button->text() == text)
+                    button->click();
+        };
+        clickButton(QStringLiteral("Move down"));
+        QCOMPARE(table->item(nameRow, 0)->text(), QStringLiteral("balance"));
+        QCOMPARE(static_cast<QComboBox *>(table->cellWidget(nameRow, 2))->currentData().toInt(), int(Br::ResultType::Sum));
+        QCOMPARE(table->cellWidget(balanceRow, 2)->property("count").toInt(), 2);
+
+        // At least one field is needed
+        clickButton(QStringLiteral("Uncheck all"));
+        QVERIFY(!wizard.currentPage()->isComplete());
+        clickButton(QStringLiteral("Check all"));
+        QVERIFY(wizard.currentPage()->isComplete());
+        table->item(nameRow, 1)->setText(QStringLiteral("Debt"));
+
+        // Going back and forth keeps the choices
+        wizard.back();
+        wizard.next();
+        QCOMPARE(table->item(nameRow, 1)->text(), QStringLiteral("Debt"));
+
+        wizard.next();
+        auto *group = wizard.currentPage()->findChild<QComboBox *>(QStringLiteral("group"));
+        QVERIFY(group);
+        QCOMPARE(group->count(), 3);
+        QVERIFY(!wizard.currentPage()->findChild<QCheckBox *>(QStringLiteral("landscape"))->isChecked());
+        group->setCurrentIndex(group->findData(QStringLiteral("name")));
+
+        const BrReportWizard::Options options = wizard.options();
+        QCOMPARE(options.title, QStringLiteral("Customers"));
+        QCOMPARE(options.dataSourceName, QStringLiteral("customers"));
+        QVERIFY(options.query.isEmpty());
+        QCOMPARE(options.columns.size(), 2);
+        QCOMPARE(options.columns.first().field, QStringLiteral("name"));
+        QCOMPARE(options.columns.last().caption, QStringLiteral("Debt"));
+        QCOMPARE(options.columns.last().total, int(Br::ResultType::Sum));
+        QCOMPARE(options.group.field, QStringLiteral("name"));
+        QVERIFY(options.zebra);
+    }
+
+    void wizardManyFieldsSuggestLandscape()
+    {
+        QVariantMap row;
+        for (int i = 0; i < 12; ++i)
+            row.insert(QStringLiteral("field_%1").arg(i), QStringLiteral("some long value %1").arg(i));
+        BrListDataSource data({row});
+        BrReportWizard wizard({{QStringLiteral("wide"), &data}});
+        wizard.show();
+        wizard.next();
+        wizard.next();
+        auto *landscape = wizard.currentPage()->findChild<QCheckBox *>(QStringLiteral("landscape"));
+        QVERIFY(landscape->isChecked());
+
+        // A choice of the user is kept
+        landscape->click();
+        wizard.back();
+        wizard.next();
+        QVERIFY(!landscape->isChecked());
+    }
+
+    void wizardFromSql()
+    {
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), QStringLiteral("wizard"));
+            db.setDatabaseName(QStringLiteral(":memory:"));
+            QVERIFY(db.open());
+            QSqlQuery q(db);
+            QVERIFY(q.exec(QStringLiteral("CREATE TABLE product (name TEXT, price REAL)")));
+            QVERIFY(q.exec(QStringLiteral("INSERT INTO product VALUES ('Pen',1.5),('Ink',2.5)")));
+        }
+        BrListDataSource other({{{QStringLiteral("a"), 1}}});
+        BrDesignerWidget w;
+        w.addDataSource(QStringLiteral("query"), &other); // takes the first name for a query
+
+        QTimer::singleShot(0, this, [&]() {
+            auto *wizard = qobject_cast<BrReportWizard *>(QApplication::activeModalWidget());
+            QVERIFY(wizard);
+            auto *source = wizard->findChild<QComboBox *>(QStringLiteral("source"));
+            QCOMPARE(source->count(), 2);
+            source->setCurrentIndex(1);
+            auto *sql = wizard->findChild<QPlainTextEdit *>(QStringLiteral("sql"));
+            QVERIFY(sql->isVisible());
+            auto *error = wizard->findChild<QLabel *>(QStringLiteral("error"));
+
+            // Errors stay on the page
+            wizard->next();
+            QCOMPARE(wizard->currentId(), 0);
+            QVERIFY(error->isVisible());
+
+            wizard->findChild<QComboBox *>(QStringLiteral("connection"))->setCurrentText(QStringLiteral("wizard"));
+            sql->setPlainText(QStringLiteral("SELECT * FROM missing"));
+            wizard->next();
+            QCOMPARE(wizard->currentId(), 0);
+            QVERIFY(error->text().contains(QStringLiteral("missing")));
+
+            // Parameters are not known yet, but the fields are found without records
+            sql->setPlainText(QStringLiteral("SELECT name, price FROM product WHERE name = :name"));
+            wizard->next();
+            QCOMPARE(wizard->currentId(), 1);
+            QVERIFY(!error->isVisible());
+            QCOMPARE(wizard->currentPage()->findChild<QTableWidget *>()->rowCount(), 2);
+
+            wizard->back();
+            sql->setPlainText(QStringLiteral("SELECT name, price FROM product"));
+            wizard->next();
+            wizard->next();
+            wizard->accept();
+        });
+        w.newReportWizard();
+
+        BrReport *report = w.report();
+        QCOMPARE(report->title(), QCoreApplication::translate("BrReportWizard", "New report"));
+        QCOMPARE(report->dataSourceName(), QStringLiteral("query2"));
+        QCOMPARE(report->queries().size(), 1);
+        QCOMPARE(report->queries().first().toMap().value(QStringLiteral("connection")).toString(), QStringLiteral("wizard"));
+        QVERIFY(w.isModified()); // not lost if the window is closed
+        bool fieldInDataPanel = false;
+        for (QTreeWidget *tree : w.findChildren<QTreeWidget *>())
+            fieldInDataPanel = fieldInDataPanel || treeItem(tree, QStringLiteral("price"));
+        QVERIFY(fieldInDataPanel);
+        QVERIFY2(report->prepare(), qPrintable(report->errorString()));
+        QCOMPARE(report->document().pageCount(), 1);
+
+        // Undo goes back to the blank report
+        w.undo();
+        QVERIFY(report->queries().isEmpty());
+    }
+
+    void wizardCancelKeepsTheReport()
+    {
+        BrDesignerWidget w;
+        const QByteArray before = w.toJson();
+        new BrLabel(QStringLiteral("changed"), w.report()->bands().first());
+        QTimer::singleShot(0, this, []() { QApplication::activeModalWidget()->close(); });
+        w.newReportWizard();
+        QVERIFY(w.toJson() != before); // and it did not ask to save
+    }
+
     void newReportLayout()
     {
         BrDesignerWidget w;
@@ -1044,6 +1301,8 @@ private slots:
             BrPreviewDialog preview;
             QCOMPARE(BrExpressionEditor::functionCatalog().first().signature, QStringLiteral("upper(texto)"));
             QCOMPARE(preview.windowTitle(), QStringLiteral("Visualização de impressão"));
+            BrReportWizard wizard({});
+            QCOMPARE(wizard.windowTitle(), QStringLiteral("Assistente de novo relatório"));
         }
         BrTranslations::uninstall();
         QCOMPARE(BrPropertyEditor::labelFor(QStringLiteral("dataField")), QStringLiteral("Field"));

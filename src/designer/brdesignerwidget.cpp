@@ -28,6 +28,7 @@
 #include "brparameterseditor_p.h"
 #include "brpreviewdialog.h"
 #include "brpropertyeditor_p.h"
+#include "brreportwizard_p.h"
 #include "brreport.h"
 #include "brreportfile.h"
 #include "brtextcontrols.h"
@@ -286,6 +287,7 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
     QAction *newAct = m_fileMenu->addAction(icon("document-new", QStyle::SP_FileIcon), tr("&New"), this,
                                             &BrDesignerWidget::newReport);
     newAct->setShortcut(QKeySequence::New);
+    m_fileMenu->addAction(tr("New from &wizard..."), this, &BrDesignerWidget::newReportWizard);
     QAction *openAct = m_fileMenu->addAction(icon("document-open", QStyle::SP_DialogOpenButton), tr("&Open..."),
                                              this, [this]() { openFile(); });
     openAct->setShortcut(QKeySequence::Open);
@@ -601,8 +603,27 @@ bool BrDesignerWidget::loadFromJson(const QByteArray &json, QString *error)
 
 void BrDesignerWidget::newReport()
 {
-    if (!maybeSave())
+    if (maybeSave())
+        startBlankReport();
+}
+
+void BrDesignerWidget::newReportWizard()
+{
+    QMap<QString, BrDataSource *> dataSources;
+    for (auto it = d->dataSources.begin(); it != d->dataSources.end(); ++it)
+        dataSources.insert(it.key(), it.value());
+    BrReportWizard wizard(dataSources, this);
+    if (wizard.exec() != QDialog::Accepted || !maybeSave())
         return;
+    startBlankReport();
+    // A change to the blank report, so that it is not lost without asking to save it.
+    BrReportFile::fromJson(&d->report, BrReportWizard::buildLayout(wizard.options()));
+    commit(tr("New report wizard"));
+    rebuildDataPanel();
+}
+
+void BrDesignerWidget::startBlankReport()
+{
     const QString page = tr("Page %1 of %2");
     const QString json = QStringLiteral(R"({"format":"BrReport","version":1,"report":{"title":"%1","children":[
         {"type":"Band","bandType":"Header","height":12,"borders":{"sides":"b","width":0.3},"children":[

@@ -92,6 +92,8 @@ public:
 
 public slots:
     void newReport();
+    /*! Builds a list report from a data source and fields chosen by the user. */
+    void newReportWizard();
     bool openFile(const QString &fileName = QString());
     bool save();
     bool saveAs();
@@ -119,6 +121,7 @@ private:
 
     friend class BrSnapshotCommand;
     void restoreSnapshot(const QByteArray &json);
+    void startBlankReport();
     void commit(const QString &text);
     void refreshAll();
     void rebuildTree();

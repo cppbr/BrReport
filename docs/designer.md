@@ -15,6 +15,7 @@ It is available in two forms:
 
 | Area | Features |
 |---|---|
+| New report | *File > New from wizard*: choose the data and the fields, and get a list report ready to adjust (see [New report wizard](#new-report-wizard)) |
 | Page | Paper size, orientation, margins, continuous page, watermark, title, locale |
 | Bands | Add Header, Title, Column header, Detail, Column footer, Summary and Footer bands; resize them by dragging the bottom edge; zebra rows, columns, page breaks... in the properties |
 | Groups | *Report > Add group*: choose the field; the detail bands move into the group, which gets a header with the field and a summary band |
@@ -32,6 +33,30 @@ It is available in two forms:
 | Undo | Unlimited undo/redo (Ctrl+Z / Ctrl+Y) |
 | Preview | F5 shows the report with real data |
 | Zoom | Ctrl + mouse wheel, Ctrl+0 fits the page to the window |
+
+## New report wizard
+
+*File > New from wizard* builds a list report in three steps:
+
+1. **Report and data**: the title, and a data source of the application or a SQL query.
+2. **Fields**: which fields to print and in what order, their captions and their totals (sum, count,
+   average, minimum or maximum). Text and dates only offer a count.
+3. **Layout**: group by a field, landscape page, alternate row colors.
+
+The report gets a page header with the title and the date, column headers, the detail, the totals
+and the page numbers. With a group, each group has a header and its totals, followed by the grand
+totals of the report. The group field leaves the columns, because it is printed above each group,
+and the data must be sorted by it (`ORDER BY` in a SQL query).
+
+The first 50 records decide how each field is shown: numbers on the right, two decimals when they
+have decimals, and wider columns for longer values. The columns fill the page, and landscape is
+suggested when they do not fit in portrait. A query without records still lists its fields, but
+without values they are aligned to the left and have no number format: adjust them in the designer
+if needed.
+
+The result replaces the current report, after asking to save it, and is an ordinary report: edit it
+as any other. A query that uses `:name` works too, but the parameter must be declared afterwards in
+*Data > Report parameters*. Canceling the wizard leaves the current report as it was.
 
 ## Language
 

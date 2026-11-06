@@ -7,6 +7,9 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- New report wizard in the designer (*File > New from wizard*, `BrDesignerWidget::newReportWizard()`):
+  pick a data source or SQL query and the fields, with totals and an optional group, and get a list
+  report ready to adjust.
 - Protected objects: the developer can lock the position, deletion, properties and contents of
   objects, bands, groups, sub-reports and the report itself, and hide properties, so that end users
   change only parts of a report (`BrProtection`, `protection` in the report file). The designer obeys

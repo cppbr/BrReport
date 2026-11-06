@@ -28,6 +28,10 @@
         <translation>&amp;Novo</translation>
     </message>
     <message>
+        <source>New from &amp;wizard...</source>
+        <translation>Novo com &amp;assistente...</translation>
+    </message>
+    <message>
         <source>&amp;Open...</source>
         <translation>&amp;Abrir...</translation>
     </message>
@@ -302,6 +306,10 @@
     <message>
         <source>Select a band first, or drag the field into a band.</source>
         <translation>Selecione uma banda primeiro ou arraste o campo para dentro de uma banda.</translation>
+    </message>
+    <message>
+        <source>New report wizard</source>
+        <translation>Assistente de novo relatório</translation>
     </message>
     <message>
         <source>New report</source>
@@ -2065,6 +2073,133 @@ Campos: %2</translation>
     <message>
         <source> (JSON)</source>
         <translation> (JSON)</translation>
+    </message>
+</context>
+<context>
+    <name>BrReportWizard</name>
+    <message>
+        <source>Report and data</source>
+        <translation>Relatório e dados</translation>
+    </message>
+    <message>
+        <source>Name the report and choose where its records come from.</source>
+        <translation>Dê um nome ao relatório e escolha de onde vêm os registros.</translation>
+    </message>
+    <message>
+        <source>New report</source>
+        <translation>Novo relatório</translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation>Título</translation>
+    </message>
+    <message>
+        <source>Data</source>
+        <translation>Dados</translation>
+    </message>
+    <message>
+        <source>SQL query</source>
+        <translation>Consulta SQL</translation>
+    </message>
+    <message>
+        <source>Empty = the application&apos;s default database connection</source>
+        <translation>Vazio = conexão padrão do sistema</translation>
+    </message>
+    <message>
+        <source>Connection</source>
+        <translation>Conexão</translation>
+    </message>
+    <message>
+        <source>SQL</source>
+        <translation>SQL</translation>
+    </message>
+    <message>
+        <source>No fields were found in this data.</source>
+        <translation>Nenhum campo foi encontrado nestes dados.</translation>
+    </message>
+    <message>
+        <source>Type the SQL query.</source>
+        <translation>Digite a consulta SQL.</translation>
+    </message>
+    <message>
+        <source>Fields</source>
+        <translation>Campos</translation>
+    </message>
+    <message>
+        <source>Check the fields to print, from left to right, and the totals you want.</source>
+        <translation>Marque os campos a imprimir, da esquerda para a direita, e os totais desejados.</translation>
+    </message>
+    <message>
+        <source>Field</source>
+        <translation>Campo</translation>
+    </message>
+    <message>
+        <source>Caption</source>
+        <translation>Título</translation>
+    </message>
+    <message>
+        <source>Total</source>
+        <translation>Total</translation>
+    </message>
+    <message>
+        <source>Move up</source>
+        <translation>Mover para cima</translation>
+    </message>
+    <message>
+        <source>Move down</source>
+        <translation>Mover para baixo</translation>
+    </message>
+    <message>
+        <source>Check all</source>
+        <translation>Marcar todos</translation>
+    </message>
+    <message>
+        <source>Uncheck all</source>
+        <translation>Desmarcar todos</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Nenhum</translation>
+    </message>
+    <message>
+        <source>Layout</source>
+        <translation>Layout</translation>
+    </message>
+    <message>
+        <source>Everything can be adjusted in the designer afterwards.</source>
+        <translation>Tudo pode ser ajustado depois no designer.</translation>
+    </message>
+    <message>
+        <source>The data must be sorted by this field, and it leaves the columns, because it is printed above each group.</source>
+        <translation>Os dados precisam estar ordenados por este campo. Ele sai das colunas, porque é impresso acima de cada grupo.</translation>
+    </message>
+    <message>
+        <source>Landscape page</source>
+        <translation>Página em paisagem</translation>
+    </message>
+    <message>
+        <source>Alternate row colors</source>
+        <translation>Alternar as cores das linhas</translation>
+    </message>
+    <message>
+        <source>Group by</source>
+        <translation>Agrupar por</translation>
+    </message>
+    <message>
+        <source>(no group)</source>
+        <translation>(sem grupo)</translation>
+    </message>
+    <message>
+        <source>New report wizard</source>
+        <translation>Assistente de novo relatório</translation>
+    </message>
+    <message>
+        <source>Grand total</source>
+        <translation>Total geral</translation>
+    </message>
+    <message>
+        <source>Page %1 of %2</source>
+        <translation>Página %1 de %2</translation>
     </message>
 </context>
 <context>

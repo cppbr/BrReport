@@ -4,8 +4,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 
 ## Designer (end users)
 
-- [ ] **New report wizard**: pick a data source and fields, get a list report (header, column
-      headers, detail, totals) ready to adjust.
 - [ ] Reorder bands/objects by dragging in the Structure tree; rename from the tree.
 - [ ] Multi-selection: edit position/size of several objects at once; distribute horizontally /
       vertically.
