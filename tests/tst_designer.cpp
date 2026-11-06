@@ -46,6 +46,7 @@
 #include <QSpinBox>
 #include <QSqlDatabase>
 #include <QSqlQuery>
+#include <QStatusBar>
 #include <QTableWidget>
 #include <QTest>
 #include <QTextBlock>
@@ -54,6 +55,7 @@
 #include <QTreeWidget>
 #include <QWindow>
 
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -568,6 +570,132 @@ private slots:
         const double distance = bottom - f.toScene(moved, QPointF()).y();
         f.drag(f.toScene(moved, QPointF(5, 3)), QPointF(0, distance + 0.4));
         QCOMPARE(moved->y(), std::round(moved->y()));
+    }
+
+    void distributeKeepsTheOutermostObjects()
+    {
+        LayoutFixture f;
+        BrDBText *a = f.addText(f.first, QRectF(10, 2, 20, 5));
+        BrDBText *b = f.addText(f.first, QRectF(35, 12, 10, 5));
+        BrDBText *c = f.addText(f.first, QRectF(100, 22, 30, 5));
+
+        f.scene->selectObjects({c, a, b}); // the order of selection does not matter
+        action(&f.widget, QStringLiteral("Distribute horizontally"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(a->x(), 10.0);
+        QCOMPARE(c->x(), 100.0);
+        QCOMPARE(b->x(), 60.0); // 35 mm between each pair
+        QCOMPARE(b->y(), 12.0);
+
+        // Undo restores the position (it recreates the objects, the selection follows them)
+        f.widget.undo();
+        QCoreApplication::processEvents();
+        QList<double> positions;
+        for (QObject *o : f.scene->selectedObjects())
+            positions << qobject_cast<BrControl *>(o)->x();
+        std::sort(positions.begin(), positions.end());
+        QCOMPARE(positions, QList<double>({10.0, 35.0, 100.0}));
+    }
+
+    void distributeVertically()
+    {
+        LayoutFixture f;
+        BrDBText *a = f.addText(f.first, QRectF(10, 0, 20, 4));
+        BrDBText *b = f.addText(f.first, QRectF(40, 3, 20, 2));
+        BrDBText *c = f.addText(f.first, QRectF(70, 20, 20, 6));
+
+        f.scene->selectObjects({a, b, c});
+        action(&f.widget, QStringLiteral("Distribute vertically"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(a->y(), 0.0);
+        QCOMPARE(c->y(), 20.0);
+        QCOMPARE(b->y(), 11.0); // 7 mm above and below
+        QCOMPARE(b->x(), 40.0);
+    }
+
+    void distributeOnlyAmongSiblings()
+    {
+        LayoutFixture f;
+        BrDBText *a = f.addText(f.first, QRectF(10, 2, 10, 5));
+        BrDBText *b = f.addText(f.first, QRectF(20, 2, 10, 5));
+        BrDBText *c = f.addText(f.second, QRectF(100, 2, 10, 5));
+
+        // Two in one band and one in another: nothing to distribute, and the user is told why
+        f.scene->selectObjects({a, b, c});
+        action(&f.widget, QStringLiteral("Distribute horizontally"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(b->x(), 20.0);
+        QVERIFY(!f.widget.statusBar()->currentMessage().isEmpty());
+    }
+
+    void distributeAroundLockedObject()
+    {
+        LayoutFixture f;
+        BrDBText *a = f.addText(f.first, QRectF(0, 2, 10, 5));
+        BrDBText *b = f.addText(f.first, QRectF(12, 2, 10, 5));
+        BrDBText *locked = f.addText(f.first, QRectF(40, 2, 10, 5));
+        BrDBText *c = f.addText(f.first, QRectF(55, 2, 10, 5));
+        BrDBText *d = f.addText(f.first, QRectF(100, 2, 10, 5));
+        locked->setProtection(BrProtection{true, false, false, false, {}});
+        f.commit();
+
+        f.scene->selectObjects({a, b, locked, c, d});
+        action(&f.widget, QStringLiteral("Distribute horizontally"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(locked->x(), 40.0);
+        QCOMPARE(b->x(), 20.0); // between the first object and the locked one
+        QCOMPARE(c->x(), 70.0); // between the locked one and the last object
+    }
+
+    void editPositionOfSeveralObjects()
+    {
+        LayoutFixture f;
+        BrDBText *a = f.addText(f.first, QRectF(10, 2, 20, 5));
+        BrDBText *b = f.addText(f.first, QRectF(40, 2, 25, 5));
+        const auto spin = [&f](int index) {
+            return f.widget.findChild<QDoubleSpinBox *>(QStringLiteral("geometry%1").arg(index));
+        };
+
+        f.scene->selectObjects({a, b});
+        QCoreApplication::processEvents();
+        QVERIFY(spin(0)->text().trimmed().isEmpty()); // different values show as blank
+        QVERIFY(spin(2)->text().trimmed().isEmpty());
+        QCOMPARE(spin(1)->value(), 2.0); // equal values are shown
+        QCOMPARE(spin(3)->value(), 5.0);
+
+        // A value that is edited goes to every object; the others stay
+        spin(1)->setValue(8);
+        QCoreApplication::processEvents();
+        QCOMPARE(a->geometry(), QRectF(10, 8, 20, 5));
+        QCOMPARE(b->geometry(), QRectF(40, 8, 25, 5));
+
+        spin(2)->setValue(30);
+        QCoreApplication::processEvents();
+        QCOMPARE(a->geometry(), QRectF(10, 8, 30, 5));
+        QCOMPARE(b->geometry(), QRectF(40, 8, 30, 5));
+        QCOMPARE(spin(2)->value(), 30.0); // now the same in both
+
+        // The arrow keys on a blank value start from the value of one of the objects
+        spin(0)->stepBy(1);
+        QCoreApplication::processEvents();
+        QCOMPARE(a->x(), b->x());
+        QVERIFY(a->x() == 10.5 || a->x() == 40.5);
+    }
+
+    void editPositionIgnoresBandsInTheSelection()
+    {
+        LayoutFixture f;
+        BrDBText *a = f.addText(f.first, QRectF(10, 2, 20, 5));
+        const QRectF band = f.second->geometry();
+
+        f.scene->selectObjects({a, f.second});
+        QCoreApplication::processEvents();
+        auto *x = f.widget.findChild<QDoubleSpinBox *>(QStringLiteral("geometry0"));
+        QVERIFY(x);
+        x->setValue(50);
+        QCoreApplication::processEvents();
+        QCOMPARE(a->x(), 50.0);
+        QCOMPARE(f.second->geometry(), band);
     }
 
     void multipleObjectsSnapTogether()

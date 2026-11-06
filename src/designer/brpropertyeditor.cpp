@@ -55,9 +55,10 @@
 
 namespace {
 
-QDoubleSpinBox *mmSpin(double value, QWidget *parent, double min = -10000.0)
+template<class SpinBox = QDoubleSpinBox>
+SpinBox *mmSpin(double value, QWidget *parent, double min = -10000.0)
 {
-    auto *s = new QDoubleSpinBox(parent);
+    auto *s = new SpinBox(parent);
     s->setRange(min, 10000.0);
     s->setDecimals(2);
     s->setSingleStep(0.5);
@@ -66,6 +67,60 @@ QDoubleSpinBox *mmSpin(double value, QWidget *parent, double min = -10000.0)
     s->setButtonSymbols(QAbstractSpinBox::NoButtons);
     s->setMinimumWidth(48);
     return s;
+}
+
+/*! Spin box that can be blank, meaning that the selected objects have different values. */
+class BrMixedSpinBox : public QDoubleSpinBox
+{
+public:
+    using QDoubleSpinBox::QDoubleSpinBox;
+
+    void setMixed(double start)
+    {
+        m_start = start;
+        setMinimum(minimum() - 0.01); // the lowest value shows as blank
+        setSpecialValueText(QStringLiteral(" "));
+        setValue(minimum());
+    }
+    bool isBlank() const { return !specialValueText().isEmpty() && value() == minimum(); }
+
+    void stepBy(int steps) override
+    {
+        if (isBlank())
+            setValue(m_start + steps * singleStep());
+        else
+            QDoubleSpinBox::stepBy(steps);
+    }
+
+private:
+    double m_start = 0.0;
+};
+
+/*! The objects that have a position of their own (bands are stacked by the report). */
+QList<BrControl *> positionedControls(const QList<QObject *> &objects)
+{
+    QList<BrControl *> controls;
+    for (QObject *o : objects)
+        if (auto *c = qobject_cast<BrControl *>(o))
+            if (!c->inherits("BrBand"))
+                controls << c;
+    return controls;
+}
+
+double geometryValue(const QRectF &r, int index)
+{
+    const double values[] = {r.x(), r.y(), r.width(), r.height()};
+    return values[index];
+}
+
+void setGeometryValue(QRectF &r, int index, double value)
+{
+    switch (index) {
+    case 0: r.moveLeft(value); break;
+    case 1: r.moveTop(value); break;
+    case 2: r.setWidth(value); break;
+    default: r.setHeight(value); break;
+    }
 }
 
 QString colorText(const QColor &c)
@@ -295,27 +350,36 @@ void BrPropertyEditor::refresh()
     }
 
     // Position and size for objects (not bands/report)
-    auto *control = qobject_cast<BrControl *>(first);
+    const QList<BrControl *> positioned = positionedControls(objs);
     {
-        if (control && !first->inherits("BrBand") && !hidden.contains(QStringLiteral("geometry"))) {
-            const QRectF g = control->geometry();
+        if (!positioned.isEmpty() && !hidden.contains(QStringLiteral("geometry"))) {
             auto *row = new QWidget(m_panel);
             auto *h = new QHBoxLayout(row);
             h->setContentsMargins(0, 0, 0, 0);
-            QList<QDoubleSpinBox *> spins;
-            const double values[] = {g.x(), g.y(), g.width(), g.height()};
             const QStringList tips = {tr("X"), tr("Y"), tr("W", "width"), tr("H", "height")};
             for (int i = 0; i < 4; ++i) {
-                auto *s = mmSpin(values[i], row, i >= 2 ? 0.5 : -10000.0);
+                const double value = geometryValue(positioned.first()->geometry(), i);
+                auto *s = mmSpin<BrMixedSpinBox>(value, row, i >= 2 ? 0.5 : -10000.0);
                 s->setPrefix(tips.at(i) + QLatin1Char(' '));
+                s->setObjectName(QStringLiteral("geometry%1").arg(i));
+                for (BrControl *c : positioned)
+                    if (qAbs(geometryValue(c->geometry(), i) - value) >= 0.005) {
+                        s->setMixed(value);
+                        break;
+                    }
                 h->addWidget(s);
-                spins << s;
-            }
-            for (QDoubleSpinBox *s : spins)
-                connect(s, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, spins]() {
-                    const QRectF r(spins[0]->value(), spins[1]->value(), spins[2]->value(), spins[3]->value());
-                    apply("geometry", r);
+                // Only the edited value changes, so that the objects keep the others.
+                connect(s, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, s, i](double v) {
+                    if (s->isBlank())
+                        return;
+                    for (BrControl *c : positionedControls(objects())) {
+                        QRectF g = c->geometry();
+                        setGeometryValue(g, i, v);
+                        c->setGeometry(g);
+                    }
+                    emit edited(QStringLiteral("geometry"));
                 });
+            }
             row->setEnabled(!positionLocked);
             form->addRow(tr("Position (mm)"), row);
         }

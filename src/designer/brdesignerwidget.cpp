@@ -47,6 +47,7 @@
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QGraphicsView>
+#include <QHash>
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QJsonArray>
@@ -654,6 +655,12 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
         QAction *a = formatMenu->addAction(alignNames.at(i), this, [this, i]() { align(i); });
         alignBar->addAction(a);
     }
+    formatMenu->addSeparator();
+    alignBar->addSeparator();
+    alignBar->addAction(formatMenu->addAction(tr("Distribute horizontally"), this,
+                                              [this]() { distribute(Qt::Horizontal); }));
+    alignBar->addAction(formatMenu->addAction(tr("Distribute vertically"), this,
+                                              [this]() { distribute(Qt::Vertical); }));
 
     // --- Data
     m_dataMenu = menuBar()->addMenu(tr("&Data"));
@@ -1608,6 +1615,61 @@ void BrDesignerWidget::align(int how)
         c->setGeometry(g);
     }
     commit(tr("Align"));
+}
+
+void BrDesignerWidget::distribute(Qt::Orientation orientation)
+{
+    // Positions are relative to the parent: only objects of the same one can be compared.
+    QHash<BrContainer *, QList<BrControl *>> siblings;
+    for (QObject *o : selection())
+        if (auto *c = qobject_cast<BrControl *>(o))
+            if (!qobject_cast<BrBand *>(c) && c->align() == Br::Align::None)
+                siblings[c->parentContainer()] << c;
+
+    const bool horizontal = orientation == Qt::Horizontal;
+    const auto start = [horizontal](const BrControl *c) { return horizontal ? c->x() : c->y(); };
+    const auto size = [horizontal](const BrControl *c) { return horizontal ? c->width() : c->height(); };
+
+    // Equal gaps between the objects from \a first to \a last, which stay in place.
+    const auto spread = [&](const QList<BrControl *> &list, int first, int last) {
+        double free = start(list.at(last)) + size(list.at(last)) - start(list.at(first));
+        for (int i = first; i <= last; ++i)
+            free -= size(list.at(i));
+        const double gap = free / (last - first);
+        double position = start(list.at(first)) + size(list.at(first)) + gap;
+        for (int i = first + 1; i < last; ++i) {
+            BrControl *c = list.at(i);
+            QRectF g = c->geometry();
+            if (horizontal)
+                g.moveLeft(position);
+            else
+                g.moveTop(position);
+            c->setGeometry(g);
+            position += size(c) + gap;
+        }
+    };
+
+    bool enough = false;
+    for (QList<BrControl *> &list : siblings) {
+        if (list.size() < 3)
+            continue;
+        enough = true;
+        std::stable_sort(list.begin(), list.end(),
+                         [&](const BrControl *a, const BrControl *b) { return start(a) < start(b); });
+        // A locked object stays where it is and the others are spread around it.
+        int first = 0;
+        for (int i = 1; i < list.size(); ++i) {
+            if (i == list.size() - 1 || !canMove(list.at(i))) {
+                spread(list, first, i);
+                first = i;
+            }
+        }
+    }
+    if (!enough) {
+        refuse(tr("Select at least three objects of the same band to distribute them."));
+        return;
+    }
+    commit(tr("Distribute"));
 }
 
 void BrDesignerWidget::nudge(double dx, double dy)

@@ -7,6 +7,9 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Multi-selection in the designer: *Format > Distribute horizontally / vertically*, and the position
+  and size in the *Properties* panel apply to every selected object, one value at a time. Values
+  that differ among the objects show as blank.
 - Structure panel of the designer: drag bands and objects to reorder them among their siblings, and
   rename them with a double-click or F2.
 - New report wizard in the designer (*File > New from wizard*, `BrDesignerWidget::newReportWizard()`):

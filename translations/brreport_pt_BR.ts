@@ -228,6 +228,14 @@
         <translation>Mesma altura</translation>
     </message>
     <message>
+        <source>Distribute horizontally</source>
+        <translation>Distribuir na horizontal</translation>
+    </message>
+    <message>
+        <source>Distribute vertically</source>
+        <translation>Distribuir na vertical</translation>
+    </message>
+    <message>
         <source>&amp;Data</source>
         <translation>&amp;Dados</translation>
     </message>
@@ -518,6 +526,14 @@ Campos: %2</translation>
     <message>
         <source>Align</source>
         <translation>Alinhar</translation>
+    </message>
+    <message>
+        <source>Select at least three objects of the same band to distribute them.</source>
+        <translation>Selecione pelo menos três objetos da mesma banda para distribuí-los.</translation>
+    </message>
+    <message>
+        <source>Distribute</source>
+        <translation>Distribuir</translation>
     </message>
     <message>
         <source>Move</source>

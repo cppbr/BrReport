@@ -142,6 +142,7 @@ private:
     void moveInTree(const QList<QObject *> &objects, QObject *parent, int index);
     void renameObject(QObject *object, const QString &name);
     void align(int how);
+    void distribute(Qt::Orientation orientation);
     void nudge(double dx, double dy);
     void addBand(int type);
     void addGroup();
