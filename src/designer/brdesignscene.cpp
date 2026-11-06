@@ -32,6 +32,7 @@
 #include <QJsonDocument>
 #include <QMimeData>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPaintDevice>
 #include <QStyleOptionGraphicsItem>
 
@@ -45,6 +46,7 @@ const QColor kSelection(0x1f, 0x6f, 0xd1);
 const QColor kOutline(0xa0, 0xaa, 0xb8);
 const QColor kGuide(0x00, 0x9c, 0xb0);
 const QColor kSnapLine(0xd8, 0x1b, 0x8c);
+const QColor kLock(0xb0, 0x6a, 0x00);
 
 void paintItems(QPainter *painter, const QList<BrPageItem> &items)
 {
@@ -55,6 +57,24 @@ void paintItems(QPainter *painter, const QList<BrPageItem> &items)
     const double dpi = painter->device() ? painter->device()->logicalDpiY() : 96.0;
     for (const BrPageItem &item : items)
         BrRenderer::renderItem(painter, item, dpi);
+    painter->restore();
+}
+
+void paintLock(QPainter *painter, const QRectF &r)
+{
+    const double x = r.x(), y = r.y(), w = r.width(), h = r.height();
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing);
+    QPen pen(kLock, 1.5);
+    pen.setCosmetic(true);
+    painter->setPen(pen);
+    painter->setBrush(Qt::NoBrush);
+    QPainterPath shackle(QPointF(x + 0.25 * w, y + 0.5 * h));
+    shackle.lineTo(x + 0.25 * w, y + 0.28 * h);
+    shackle.arcTo(QRectF(x + 0.25 * w, y, 0.5 * w, 0.56 * h), 180, -180);
+    shackle.lineTo(x + 0.75 * w, y + 0.5 * h);
+    painter->drawPath(shackle);
+    painter->fillRect(QRectF(x + 0.1 * w, y + 0.45 * h, 0.8 * w, 0.55 * h), kLock);
     painter->restore();
 }
 
@@ -81,12 +101,22 @@ QString bandTypeName(Br::BandType t)
 
 } // namespace
 
+QIcon brProtectionIcon()
+{
+    QPixmap pixmap(16, 16);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    paintLock(&painter, QRectF(2, 1, 12, 14));
+    return QIcon(pixmap);
+}
+
 // ---------------------------------------------------------------------------
 // BrControlItem
 // ---------------------------------------------------------------------------
 
 BrControlItem::BrControlItem(BrControl *control, const QRectF &rect, bool movable, QGraphicsItem *parent)
-    : QGraphicsItem(parent), m_control(control), m_size(rect.size()), m_movable(movable)
+    : QGraphicsItem(parent), m_control(control), m_size(rect.size()), m_movable(movable),
+      m_protected(BrProtection::of(control).any())
 {
     setPos(rect.topLeft());
     setFlag(ItemIsSelectable);
@@ -155,6 +185,10 @@ void BrControlItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, Q
             for (int i = 0; i < 8; ++i)
                 painter->drawRect(handleRect(i));
         }
+    }
+    if (m_protected) {
+        const double size = 10.0 / (designScene() ? std::max(0.5, designScene()->viewScale()) : 4.0);
+        paintLock(painter, QRectF(m_size.width() - size - 0.2, 0.2, size, size));
     }
 }
 
@@ -239,8 +273,9 @@ void BrControlItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 // BrBandItem
 // ---------------------------------------------------------------------------
 
-BrBandItem::BrBandItem(BrBand *band, const QString &caption, double width, int depth)
-    : m_band(band), m_caption(caption), m_width(width), m_height(band->height()), m_depth(depth)
+BrBandItem::BrBandItem(BrBand *band, const QString &caption, double width, int depth, bool resizable)
+    : m_band(band), m_caption(caption), m_width(width), m_height(band->height()), m_depth(depth),
+      m_resizable(resizable), m_protected(BrProtection::of(band).any())
 {
     setFlag(ItemIsSelectable);
     setAcceptHoverEvents(true);
@@ -272,6 +307,9 @@ void BrBandItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWid
                                            QFont(QStringLiteral("Arial"), 7), QColor(0x33, 0x3d, 0x4a),
                                            Qt::AlignLeft | Qt::AlignVCenter);
     paintItems(painter, {text});
+    if (m_protected)
+        paintLock(painter, QRectF(m_width - CaptionHeight + 0.7, -CaptionHeight + 0.7, CaptionHeight - 1.4,
+                                  CaptionHeight - 1.4));
 
     // Band area
     painter->fillRect(bandRect(), Qt::white);
@@ -288,6 +326,8 @@ void BrBandItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *, QWid
 
 bool BrBandItem::onBottomEdge(const QPointF &pos) const
 {
+    if (!m_resizable)
+        return false;
     const BrDesignScene *s = designScene();
     const double tol = 5.0 / (s ? std::max(0.5, s->viewScale()) : 4.0);
     return std::abs(pos.y() - m_height) <= std::min(tol, 1.5) && pos.x() >= 0 && pos.x() <= m_width;
@@ -751,7 +791,8 @@ void BrDesignScene::addBand(BrBand *band, int depth, const QString &label, doubl
         caption += QStringLiteral(" (") + band->objectName() + QLatin1Char(')');
     if (band->columns() > 1)
         caption += QObject::tr(" – %1 columns").arg(band->columns());
-    auto *item = new BrBandItem(band, caption, content.width(), depth);
+    const bool resizable = !m_enforceProtection || !band->protection().move;
+    auto *item = new BrBandItem(band, caption, content.width(), depth, resizable);
     item->setPos(content.left(), y);
     // Upper bands above lower ones: the bottom edge of a band overlaps the next caption.
     item->setZValue(10000 - y);
@@ -765,7 +806,8 @@ void BrDesignScene::addControls(BrContainer *container, const QSizeF &size, QGra
     for (const auto &placed : BrDesignContext::layout(container, size)) {
         BrControl *c = placed.first;
         const QRectF rect = placed.second;
-        auto *item = new BrControlItem(c, rect, c->align() == Br::Align::None, parentItem);
+        const bool locked = m_enforceProtection && c->protection().move;
+        auto *item = new BrControlItem(c, rect, c->align() == Br::Align::None && !locked, parentItem);
         if (auto *child = qobject_cast<BrContainer *>(c))
             addControls(child, rect.size(), item);
     }
@@ -807,6 +849,8 @@ bool BrDesignScene::containerAt(const QPointF &scenePos, BrContainer **container
         if (item->type() == BrControlItem::Type) {
             auto *ci = static_cast<BrControlItem *>(item);
             if (auto *c = qobject_cast<BrContainer *>(ci->control())) {
+                if (m_enforceProtection && c->protection().contents)
+                    return false;
                 *container = c;
                 *local = ci->mapFromScene(scenePos);
                 return true;
@@ -815,6 +859,8 @@ bool BrDesignScene::containerAt(const QPointF &scenePos, BrContainer **container
             auto *bi = static_cast<BrBandItem *>(item);
             const QPointF p = bi->mapFromScene(scenePos);
             if (bi->bandRect().contains(p) && bi->band()) {
+                if (m_enforceProtection && bi->band()->protection().contents)
+                    return false;
                 *container = bi->band();
                 *local = p;
                 return true;

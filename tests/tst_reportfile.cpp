@@ -17,6 +17,7 @@
 
 #include "brreportcore.h"
 
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -291,6 +292,42 @@ private slots:
         QVERIFY(BrReportFile::typeNames().contains(QStringLiteral("Stamp")));
         QVERIFY(BrReportFile::create(QStringLiteral("Stamp")));
         QCOMPARE(BrReportFile::typeName(new BrDBResult(nullptr)), QStringLiteral("DBResult"));
+    }
+
+    void protection()
+    {
+        BrReport report;
+        report.setProtection(BrProtection{false, false, true, false, {QStringLiteral("queries")}});
+        BrBand *band = report.addBand(Br::BandType::Detail, 10);
+        band->setProtection(BrProtection{true, true, false, true, {}});
+        auto *group = new BrGroup(&report);
+        group->setProtection(BrProtection{false, true, false, false, {}});
+        auto *label = new BrLabel(QStringLiteral("Fixed"), band);
+        label->setProtection(BrProtection::all({QStringLiteral("text")}));
+        auto *free = new BrLabel(QStringLiteral("Free"), band);
+
+        const QByteArray json = report.toJson();
+        const QJsonObject root = QJsonDocument::fromJson(json).object().value(QStringLiteral("report")).toObject();
+        const QJsonObject file = root.value(QStringLiteral("children")).toArray().at(0).toObject();
+        QCOMPARE(file.value(QStringLiteral("protection")).toObject().value(QStringLiteral("delete")), QJsonValue(true));
+        QVERIFY(!file.value(QStringLiteral("protection")).toObject().contains(QStringLiteral("properties")));
+        QVERIFY(!file.value(QStringLiteral("children")).toArray().at(1).toObject().contains(QStringLiteral("protection")));
+
+        BrReport loaded;
+        QVERIFY(loaded.loadFromJson(json));
+        QCOMPARE(loaded.protection(), report.protection());
+        QCOMPARE(loaded.bands().first()->protection(), band->protection());
+        QCOMPARE(loaded.findChild<BrGroup *>()->protection(), group->protection());
+        QCOMPARE(loaded.bands().first()->controls().first()->protection(), label->protection());
+        QVERIFY(!loaded.bands().first()->controls().last()->protection().any());
+        QCOMPARE(BrProtection::of(free), BrProtection());
+        QCOMPARE(BrProtection::of(this), BrProtection());
+        QCOMPARE(BrProtection::of(nullptr), BrProtection());
+
+        // Loading another file does not keep the protection of the report
+        BrReport empty;
+        QVERIFY(loaded.loadFromJson(empty.toJson()));
+        QVERIFY(!loaded.protection().any());
     }
 
     void masterDetailLinkInCode()

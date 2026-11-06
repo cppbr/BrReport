@@ -17,7 +17,10 @@
 
 // brdesigner: standalone visual report designer.
 //
-//   brdesigner [report.brt]
+//   brdesigner [--developer] [report.brt]
+//
+// With --developer, the protection of the objects can be edited; without it,
+// the protection stored in the report is obeyed, as end users see it.
 //
 // Data comes from SQL queries stored in the report; configure the database in
 // Data > Database connection (the password is never saved).
@@ -134,7 +137,9 @@ int main(int argc, char *argv[])
     });
 #endif
 
-    const QStringList args = QApplication::arguments();
+    QStringList args = QApplication::arguments();
+    if (args.removeAll(QStringLiteral("--developer")) > 0)
+        designer.setDeveloperMode(true);
     if (args.size() > 1)
         designer.openFile(args.at(1));
     designer.show();

@@ -176,6 +176,18 @@
         <translation>Configurar &amp;página e propriedades do relatório</translation>
     </message>
     <message>
+        <source>Pro&amp;tect selection</source>
+        <translation>Pro&amp;teger seleção</translation>
+    </message>
+    <message>
+        <source>Lock the selected objects and everything inside them for end users</source>
+        <translation>Trava os objetos selecionados e tudo o que há dentro deles para os usuários finais</translation>
+    </message>
+    <message>
+        <source>Remove prot&amp;ection</source>
+        <translation>Remover prot&amp;eção</translation>
+    </message>
+    <message>
         <source>F&amp;ormat</source>
         <translation>F&amp;ormatar</translation>
     </message>
@@ -378,6 +390,10 @@
         <translation>Número do registro</translation>
     </message>
     <message>
+        <source>The queries of this report are protected.</source>
+        <translation>As consultas deste relatório estão protegidas.</translation>
+    </message>
+    <message>
         <source>Edit query</source>
         <translation>Editar consulta</translation>
     </message>
@@ -436,12 +452,24 @@ Campos: %2</translation>
         <translation>Adicionar consulta</translation>
     </message>
     <message>
+        <source>The parameters of this report are protected.</source>
+        <translation>Os parâmetros deste relatório estão protegidos.</translation>
+    </message>
+    <message>
         <source>Edit parameters</source>
         <translation>Editar parâmetros</translation>
     </message>
     <message>
         <source>Remove query</source>
         <translation>Remover consulta</translation>
+    </message>
+    <message>
+        <source>Change protection</source>
+        <translation>Alterar proteção</translation>
+    </message>
+    <message>
+        <source>Nothing can be added to this object: it is protected.</source>
+        <translation>Nada pode ser adicionado a este objeto: ele está protegido.</translation>
     </message>
     <message>
         <source>Insert</source>
@@ -452,12 +480,24 @@ Campos: %2</translation>
         <translation>Inserir %1</translation>
     </message>
     <message>
+        <source>Nothing can be added here: the object is protected.</source>
+        <translation>Nada pode ser adicionado aqui: o objeto está protegido.</translation>
+    </message>
+    <message>
         <source>Paste</source>
         <translation>Colar</translation>
     </message>
     <message>
+        <source>Protected objects were not deleted.</source>
+        <translation>Os objetos protegidos não foram excluídos.</translation>
+    </message>
+    <message>
         <source>Delete</source>
         <translation>Excluir</translation>
+    </message>
+    <message>
+        <source>This object is protected and cannot be moved.</source>
+        <translation>Este objeto está protegido e não pode ser movido.</translation>
     </message>
     <message>
         <source>Change order</source>
@@ -1865,6 +1905,10 @@ Campos: %2</translation>
         <translation>Nome</translation>
     </message>
     <message>
+        <source>Protection</source>
+        <translation>Proteção</translation>
+    </message>
+    <message>
         <source>Select an object to edit its properties.</source>
         <translation>Selecione um objeto para editar suas propriedades.</translation>
     </message>
@@ -1893,6 +1937,50 @@ Campos: %2</translation>
     <message>
         <source>Position (mm)</source>
         <translation>Posição (mm)</translation>
+    </message>
+    <message>
+        <source>This object is protected: its properties cannot be changed.</source>
+        <translation>Este objeto está protegido: suas propriedades não podem ser alteradas.</translation>
+    </message>
+    <message>
+        <source>Protection for end users</source>
+        <translation>Proteção para usuários finais</translation>
+    </message>
+    <message>
+        <source>Lock position and size</source>
+        <translation>Travar posição e tamanho</translation>
+    </message>
+    <message>
+        <source>Cannot be deleted</source>
+        <translation>Não pode ser excluído</translation>
+    </message>
+    <message>
+        <source>Read-only properties</source>
+        <translation>Propriedades somente leitura</translation>
+    </message>
+    <message>
+        <source>Lock contents (add and delete)</source>
+        <translation>Travar conteúdo (adicionar e excluir)</translation>
+    </message>
+    <message>
+        <source>Hidden properties... (%1)</source>
+        <translation>Propriedades ocultas... (%1)</translation>
+    </message>
+    <message>
+        <source>SQL queries</source>
+        <translation>Consultas SQL</translation>
+    </message>
+    <message>
+        <source>Report parameters</source>
+        <translation>Parâmetros do relatório</translation>
+    </message>
+    <message>
+        <source>Hidden properties</source>
+        <translation>Propriedades ocultas</translation>
+    </message>
+    <message>
+        <source>End users do not see the selected properties:</source>
+        <translation>Os usuários finais não veem as propriedades selecionadas:</translation>
     </message>
     <message>
         <source>L</source>

@@ -77,6 +77,15 @@ public:
      */
     void setSaveHandler(const SaveHandler &handler);
 
+    /*!
+     * Developer mode: the protection of the objects (what end users cannot change)
+     * is ignored and can be edited, in the Properties panel and with Report >
+     * Protect selection. Off by default, so that an embedded designer obeys the
+     * protection stored in the reports.
+     */
+    void setDeveloperMode(bool on);
+    bool isDeveloperMode() const;
+
     /*! Menus, so applications can add their own actions. */
     QMenu *fileMenu() const { return m_fileMenu; }
     QMenu *dataMenu() const { return m_dataMenu; }
@@ -122,6 +131,7 @@ private:
 
     QList<QObject *> selection() const;
     void copySelection();
+    void copyObjects(const QList<QObject *> &objects);
     void paste();
     void deleteSelection();
     void duplicateSelection();
@@ -134,6 +144,12 @@ private:
     void editQuery(const QString &name);
     void removeQuery(const QString &name);
     void editParameters();
+    void setSelectionProtected(bool on);
+    bool canMove(const QObject *object) const;
+    bool canDelete(const QObject *object) const;
+    bool canAddTo(const QObject *object) const;
+    bool canEditReport(const char *property) const;
+    void refuse(const QString &message);
     void setZoom(double zoom);
     QObject *targetPager() const;
 };

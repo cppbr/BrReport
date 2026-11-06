@@ -30,6 +30,7 @@
 #include <QComboBox>
 #include <QDateEdit>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
@@ -642,6 +643,257 @@ private slots:
         action(&f.widget, QStringLiteral("Rulers"))->setChecked(true);
         QVERIFY(rulers.first()->isVisible());
         QVERIFY(!f.view->grab().isNull());
+    }
+
+    void protectionBlocksMouseAndKeyboard()
+    {
+        LayoutFixture f;
+        auto *locked = new BrLabel(QStringLiteral("Locked"), f.first);
+        locked->setGeometry(10, 5, 30, 6);
+        locked->setProtection(BrProtection{true, false, false, false, {}});
+        auto *free = new BrLabel(QStringLiteral("Free"), f.first);
+        free->setGeometry(60, 5, 30, 6);
+        f.first->setProtection(BrProtection{true, false, false, false, {}});
+        f.commit();
+
+        // The object does not move or resize, and alone it does not take the arrow keys
+        const QRectF before = locked->geometry();
+        f.drag(f.toScene(locked, QPointF(15, 3)), QPointF(20, 5));
+        QCOMPARE(locked->geometry(), before);
+        f.scene->selectObjects({locked});
+        f.drag(f.toScene(locked, QPointF(30, 6)), QPointF(5, 5));
+        QCOMPARE(locked->geometry(), before);
+        QTest::keyClick(f.view, Qt::Key_Right);
+        QCOMPARE(locked->geometry(), before);
+        action(&f.widget, QStringLiteral("Move down / forward"))->trigger();
+        QCOMPARE(f.first->controls().first(), locked);
+
+        // Aligning never moves the locked object, whichever is the reference
+        f.scene->selectObjects({free, locked});
+        action(&f.widget, QStringLiteral("Align left"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(locked->geometry(), before);
+        free->setGeometry(60, 5, 30, 6); // aligned, it could be on top of the locked one
+        f.commit();
+
+        // Neither the bottom edge of the band
+        const double height = f.first->height();
+        QGraphicsItem *bandItem = nullptr;
+        for (QGraphicsItem *item : f.scene->items())
+            if (item->type() == BrBandItem::Type && static_cast<BrBandItem *>(item)->band() == f.first)
+                bandItem = item;
+        QVERIFY(bandItem);
+        f.drag(bandItem->mapToScene(QPointF(100, height)), QPointF(0, 8));
+        QCOMPARE(f.first->height(), height);
+
+        // In developer mode everything works
+        f.widget.setDeveloperMode(true);
+        f.scene->clearSelection();
+        f.drag(f.toScene(locked, QPointF(15, 3)), QPointF(20, 0));
+        QVERIFY(locked->geometry().x() > before.x() + 10);
+    }
+
+    void protectionBlocksDelete()
+    {
+        LayoutFixture f;
+        auto *keep = new BrLabel(QStringLiteral("Keep"), f.first);
+        keep->setProtection(BrProtection{false, true, false, false, {}});
+        auto *other = new BrLabel(QStringLiteral("Other"), f.first);
+        f.commit();
+
+        // Only what is not protected goes, also when cutting
+        f.scene->selectObjects({keep, other});
+        action(&f.widget, QStringLiteral("Cut"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(f.first->controls().size(), 1);
+        QCOMPARE(f.first->controls().first(), keep);
+
+        // A band cannot take a protected object away with it
+        f.scene->selectObjects({f.first});
+        action(&f.widget, QStringLiteral("Delete"))->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(f.widget.report()->bands().contains(f.first));
+
+        // Neither a group
+        auto *group = new BrGroup(f.widget.report());
+        BrBand *inner = group->addBand(Br::BandType::Detail, 6);
+        inner->setProtection(BrProtection{false, true, false, false, {}});
+        f.commit();
+        QVERIFY(!f.scene->selectedObjects().contains(group));
+        auto *tree = f.widget.findChild<QTreeWidget *>();
+        QTreeWidgetItemIterator it(tree);
+        for (; *it; ++it)
+            (*it)->setSelected(static_cast<QObject *>((*it)->data(0, Qt::UserRole).value<void *>()) == group);
+        action(&f.widget, QStringLiteral("Delete"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(f.widget.report()->findChildren<BrGroup *>().size(), 1);
+    }
+
+    void protectedContents()
+    {
+        LayoutFixture f;
+        auto *child = new BrLabel(QStringLiteral("Child"), f.first);
+        f.first->setProtection(BrProtection{false, false, false, true, {}});
+        f.commit();
+
+        // The toolbox and removal are refused
+        const QPoint inside = f.view->mapFromScene(f.toScene(child, QPointF(45, 10)));
+        action(&f.widget, QStringLiteral("Text"))->trigger();
+        sendMouse(f.view->viewport(), QEvent::MouseButtonPress, inside, Qt::LeftButton, Qt::LeftButton);
+        sendMouse(f.view->viewport(), QEvent::MouseButtonRelease, inside, Qt::LeftButton, Qt::NoButton);
+        QCoreApplication::processEvents();
+        QCOMPARE(f.first->controls().size(), 1);
+        f.scene->setInsertTemplate(QJsonObject());
+        f.scene->selectObjects({child});
+        action(&f.widget, QStringLiteral("Delete"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(f.first->controls().size(), 1);
+
+        // Paste goes to a band that accepts it
+        action(&f.widget, QStringLiteral("Copy"))->trigger();
+        f.scene->selectObjects({f.second});
+        action(&f.widget, QStringLiteral("Paste"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(f.first->controls().size(), 1);
+        QCOMPARE(f.second->controls().size(), 1);
+
+        // The whole report: no new bands
+        f.widget.report()->setProtection(BrProtection{false, false, false, true, {}});
+        f.commit();
+        const int bands = int(f.widget.report()->bands().size());
+        f.scene->selectObjects({f.second});
+        action(&f.widget, QStringLiteral("Footer"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(f.widget.report()->bands().size(), bands);
+    }
+
+    void pastedCopyOfProtectedObjectIsFree()
+    {
+        LayoutFixture f;
+        auto *panel = new BrPanel(f.first);
+        panel->setProtection(BrProtection::all());
+        auto *label = new BrLabel(QStringLiteral("Inside"), panel);
+        label->setProtection(BrProtection::all());
+        f.commit();
+
+        f.scene->selectObjects({panel});
+        action(&f.widget, QStringLiteral("Copy"))->trigger();
+        f.scene->selectObjects({f.second});
+        action(&f.widget, QStringLiteral("Paste"))->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(f.second->controls().size(), 1);
+        BrControl *copy = f.second->controls().first();
+        QVERIFY(!copy->protection().any());
+        QVERIFY(!qobject_cast<BrPanel *>(copy)->controls().first()->protection().any());
+
+        // The developer keeps the protection in the copy
+        f.widget.setDeveloperMode(true);
+        f.scene->selectObjects({f.second});
+        action(&f.widget, QStringLiteral("Paste"))->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(f.second->controls().last()->protection().any());
+    }
+
+    void protectedProperties()
+    {
+        LayoutFixture f;
+        auto *label = new BrLabel(QStringLiteral("Text"), f.first);
+        auto *other = new BrLabel(QStringLiteral("Other"), f.first);
+        label->setProtection(BrProtection{false, false, false, false, {QStringLiteral("text"), QStringLiteral("objectName")}});
+        f.commit();
+        auto *editor = f.widget.findChild<BrPropertyEditor *>();
+        auto rowLabels = [editor]() {
+            QStringList labels;
+            for (QLabel *l : editor->findChildren<QLabel *>())
+                labels << l->text();
+            return labels;
+        };
+
+        f.scene->selectObjects({label});
+        QVERIFY(!rowLabels().contains(QStringLiteral("Text")));
+        QVERIFY(!rowLabels().contains(QStringLiteral("Name")));
+        QVERIFY(rowLabels().contains(QStringLiteral("Color")));
+        QVERIFY(!editor->findChild<QCheckBox *>(QStringLiteral("protectMove")));
+
+        // With several objects selected, what is hidden in one is hidden for all
+        f.scene->selectObjects({other, label});
+        QVERIFY(!rowLabels().contains(QStringLiteral("Text")));
+
+        // Read-only, and the position locked
+        label->setProtection(BrProtection{true, false, true, false, {}});
+        f.scene->selectObjects({label});
+        QVERIFY(rowLabels().contains(QStringLiteral("Text")));
+        const QList<QLineEdit *> edits = editor->findChildren<QLineEdit *>();
+        QVERIFY(!edits.isEmpty());
+        for (QLineEdit *edit : edits)
+            QVERIFY(!edit->isEnabled());
+
+        label->setProtection(BrProtection{true, false, false, false, {}});
+        editor->refresh();
+        auto positionSpin = [editor]() -> QDoubleSpinBox * {
+            for (QDoubleSpinBox *spin : editor->findChildren<QDoubleSpinBox *>())
+                if (spin->prefix() == QLatin1String("X "))
+                    return spin;
+            return nullptr;
+        };
+        QVERIFY(editor->findChildren<QLineEdit *>().first()->isEnabled());
+        QVERIFY(!positionSpin()->isEnabled());
+
+        // In developer mode the protection is edited here, undoable
+        f.commit();
+        f.widget.setDeveloperMode(true);
+        f.scene->selectObjects({label});
+        auto *remove = editor->findChild<QCheckBox *>(QStringLiteral("protectRemove"));
+        QVERIFY(remove);
+        QVERIFY(positionSpin()->isEnabled());
+        remove->setChecked(true);
+        QCoreApplication::processEvents();
+        QVERIFY(label->protection().remove);
+        f.widget.undo(); // recreates the objects
+        const BrProtection restored = f.widget.report()->bands().first()->controls().first()->protection();
+        QVERIFY(!restored.remove);
+        QVERIFY(restored.move);
+    }
+
+    void protectionOfQueriesAndParameters()
+    {
+        BrDesignerWidget w;
+        w.report()->setParameters({QVariantMap{{QStringLiteral("name"), QStringLiteral("start")}}});
+        w.report()->setProtection(BrProtection{false, false, false, false, {QStringLiteral("parameters")}});
+        // A dialog would stop the test here if the protection were ignored
+        action(&w, QStringLiteral("Report parameters..."))->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(!w.isModified());
+    }
+
+    void protectSelectionWithContents()
+    {
+        LayoutFixture f;
+        auto *label = new BrLabel(QStringLiteral("Inside"), f.first);
+        f.commit();
+        QVERIFY(!action(&f.widget, QStringLiteral("Protect selection"))->isVisible());
+        f.widget.setDeveloperMode(true);
+        QAction *protect = action(&f.widget, QStringLiteral("Protect selection"));
+        QVERIFY(protect->isVisible());
+
+        f.scene->selectObjects({f.first});
+        protect->trigger();
+        QCOMPARE(f.first->protection(), BrProtection::all());
+        QCOMPARE(label->protection(), BrProtection::all());
+        const QByteArray json = f.widget.toJson();
+        QVERIFY(json.contains("\"protection\""));
+        int locks = 0;
+        for (QTreeWidgetItemIterator it(f.widget.findChild<QTreeWidget *>()); *it; ++it)
+            locks += !(*it)->icon(0).isNull();
+        QCOMPARE(locks, 2); // the band and the label
+
+        action(&f.widget, QStringLiteral("Remove protection"))->trigger();
+        QVERIFY(!f.first->protection().any());
+        QVERIFY(!label->protection().any());
+
+        // The end user cannot turn the developer mode on from the menus
+        f.widget.setDeveloperMode(false);
+        QVERIFY(!action(&f.widget, QStringLiteral("Remove protection"))->isVisible());
     }
 
     void newReportLayout()

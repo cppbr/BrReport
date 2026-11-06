@@ -28,6 +28,7 @@ It is available in two forms:
 | Formulas | The `…` button next to a formula opens the expression builder: double-click fields, parameters, variables and functions to insert them, or use the operator buttons. A syntax error blocks OK; a name that is not found is only a warning, because the application may provide it when the report runs |
 | Data | SQL queries stored in the report (*Data > Add SQL query*), with parameters taken from report variables (`:name`), and a *Test* button |
 | Parameters | Values asked for before the report runs (*Data > Report parameters*), dragged into bands from the data panel |
+| Protection | Objects locked by the developer show a padlock and cannot be changed (see [Protected objects](#protected-objects)) |
 | Undo | Unlimited undo/redo (Ctrl+Z / Ctrl+Y) |
 | Preview | F5 shows the report with real data |
 | Zoom | Ctrl + mouse wheel, Ctrl+0 fits the page to the window |
@@ -74,6 +75,55 @@ report.addDataSource("customers", customersDataSource);
 report.loadFromJson(loadReportFromDatabase(id));   // or report.load("customers.brt")
 report.setVariable("city", selectedCity);          // values used by the report's SQL queries
 BrPrinting::preview(&report);                       // asks for the parameters declared in the report
+```
+
+## Protected objects
+
+The developer can lock parts of a report, so that end users change only the rest: a tax layout whose
+fields must stay in place, the logo and the header of the company, the SQL of a report.
+
+Protection is edited in **developer mode**, and obeyed everywhere else:
+
+```cpp
+designer->setDeveloperMode(true);   // off by default: an embedded designer obeys the protection
+```
+
+```sh
+brdesigner --developer report.brt
+```
+
+In developer mode, the *Properties* panel has a *Protection for end users* section for the selected
+objects, and *Report > Protect selection* / *Remove protection* apply to the selection and everything
+inside it. The padlock in the page and in the *Structure* panel shows what is protected. To see the
+report as a user does, open it without developer mode.
+
+| Protection | What the end user cannot do |
+|---|---|
+| Lock position and size | Move or resize with the mouse, the arrow keys, the alignment commands or the panel; change the order; for bands, drag the bottom edge or change the type |
+| Cannot be deleted | Delete or cut the object, or a band, panel, group or sub-report that contains it |
+| Read-only properties | Change any property, including the name. On the report, this also blocks queries and parameters in the *Data* menu |
+| Lock contents | Add objects to a band or panel, add bands, groups or sub-reports to a report, group or sub-report, or remove anything from them. An object with this lock cannot be deleted either |
+| Hidden properties | See the chosen properties. On the report, the list includes the SQL queries and the parameters |
+
+What to keep in mind:
+
+- *Cannot be deleted* does not stop a user from unchecking *Visible* or filling in *Print if*. To
+  really keep an object on the page, also use *Read-only properties*, or hide those two.
+- Locks are not inherited: each object has its own. *Protect selection* locks an object and its
+  contents at once, which is what a fixed band usually needs.
+- When several objects are selected, what is locked or hidden in one is locked or hidden for all.
+- A copy pasted by an end user has no protection, so that the user can change and delete it. A copy
+  made in developer mode keeps it.
+- Protection is a restriction of the designer, **not a security feature**: printing ignores it, and a
+  report file is plain text that can be edited outside the designer. Hidden properties can still be
+  read in the file and in the clipboard. Keep what must really be secret out of the report, and
+  store reports where users cannot change them if that matters.
+
+In code:
+
+```cpp
+header->setProtection(BrProtection::all());                                  // everything locked
+total->setProtection(BrProtection{true, true, false, false, {"dataFormula"}}); // move, delete, hidden
 ```
 
 ## Data for end users

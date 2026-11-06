@@ -173,6 +173,35 @@ BrBorders bordersFromJson(const QJsonValue &v)
     return b;
 }
 
+QJsonValue protectionToJson(const BrProtection &p)
+{
+    QJsonObject o;
+    if (p.move)
+        o.insert(QStringLiteral("move"), true);
+    if (p.remove)
+        o.insert(QStringLiteral("delete"), true);
+    if (p.properties)
+        o.insert(QStringLiteral("properties"), true);
+    if (p.contents)
+        o.insert(QStringLiteral("contents"), true);
+    if (!p.hiddenProperties.isEmpty())
+        o.insert(QStringLiteral("hidden"), QJsonArray::fromStringList(p.hiddenProperties));
+    return o;
+}
+
+BrProtection protectionFromJson(const QJsonValue &v)
+{
+    const QJsonObject o = v.toObject();
+    BrProtection p;
+    p.move = o.value(QStringLiteral("move")).toBool();
+    p.remove = o.value(QStringLiteral("delete")).toBool();
+    p.properties = o.value(QStringLiteral("properties")).toBool();
+    p.contents = o.value(QStringLiteral("contents")).toBool();
+    for (const QJsonValue &name : o.value(QStringLiteral("hidden")).toArray())
+        p.hiddenProperties << name.toString();
+    return p;
+}
+
 QJsonValue imageToJson(const QImage &img)
 {
     if (img.isNull())
@@ -467,6 +496,8 @@ QJsonValue BrReportFile::propertyToJson(const QVariant &value, const QMetaProper
     const int type = property.userType();
     if (type == qMetaTypeId<BrBorders>())
         return bordersToJson(value.value<BrBorders>());
+    if (type == qMetaTypeId<BrProtection>())
+        return protectionToJson(value.value<BrProtection>());
     switch (type) {
     case QMetaType::QColor:
         return colorToJson(value.value<QColor>());
@@ -511,6 +542,10 @@ QVariant BrReportFile::propertyFromJson(const QJsonValue &value, const QMetaProp
     if (type == qMetaTypeId<BrBorders>()) {
         good = value.isObject();
         return QVariant::fromValue(bordersFromJson(value));
+    }
+    if (type == qMetaTypeId<BrProtection>()) {
+        good = value.isObject();
+        return QVariant::fromValue(protectionFromJson(value));
     }
     if (type == qMetaTypeId<QMarginsF>()) {
         const QList<double> m = doubles(value, 4, &good);

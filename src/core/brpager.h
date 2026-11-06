@@ -47,6 +47,7 @@ class BRREPORT_EXPORT BrPager : public QObject
     Q_PROPERTY(bool enabled READ isEnabled WRITE setEnabled)
     Q_PROPERTY(bool keepHeaderWithDetail READ keepHeaderWithDetail WRITE setKeepHeaderWithDetail)
     Q_PROPERTY(bool resetPageNumber READ resetPageNumber WRITE setResetPageNumber)
+    Q_PROPERTY(BrProtection protection READ protection WRITE setProtection)
 public:
     explicit BrPager(BrPager *parent = nullptr);
     ~BrPager() override;
@@ -89,11 +90,20 @@ public:
     bool resetPageNumber() const { return m_resetPageNumber; }
     void setResetPageNumber(bool on) { m_resetPageNumber = on; }
 
+    /*!
+     * What the end user cannot change in the report designer. For the report,
+     * BrProtection::properties and "queries"/"parameters" in hiddenProperties also
+     * block the Data menu.
+     */
+    BrProtection protection() const { return m_protection; }
+    void setProtection(const BrProtection &protection) { m_protection = protection; }
+
 private:
     Br::PageBreak m_pageBreak = Br::PageBreak::None;
     bool m_resetPageNumber = false;
     bool m_enabled = true;
     bool m_keepHeaderWithDetail = false;
+    BrProtection m_protection;
 };
 
 /*!

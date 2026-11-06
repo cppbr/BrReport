@@ -24,9 +24,13 @@
 // This file is not part of the BrReport API. It may change without notice.
 //
 
+#include "brglobal.h"
+
 #include <QMetaProperty>
 #include <QPointer>
 #include <QScrollArea>
+
+#include <functional>
 
 class QFormLayout;
 
@@ -44,6 +48,9 @@ public:
     void setObjects(const QList<QObject *> &objects);
     QList<QObject *> objects() const;
 
+    /*! Shows the protection of the objects as editors, instead of obeying it. */
+    void setDeveloperMode(bool on) { m_developerMode = on; }
+
     /*! Rebuilds the editors from the current values. */
     void refresh();
 
@@ -57,9 +64,13 @@ signals:
 private:
     QWidget *createEditor(const QMetaProperty &property, QObject *object);
     void apply(const char *name, const QVariant &value);
+    void addProtectionEditors(QFormLayout *form, QObject *object);
+    void applyProtection(const std::function<void(BrProtection &)> &change);
+    void editHiddenProperties(QObject *object);
 
     QList<QPointer<QObject>> m_objects;
     QWidget *m_panel = nullptr;
+    bool m_developerMode = false;
 };
 
 #endif // BRPROPERTYEDITOR_P_H

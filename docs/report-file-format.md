@@ -76,7 +76,7 @@ Any report built in code can be saved with `report.save("file.brt")` (every exam
 | `Chart` | | `chartType`, `title`, `labels`, `seriesData`, `dataSourceName`, `labelField`, `valueFields`, `showLegend`, `showValues`, `valueFormat` |
 
 Common to every object: `geometry` `[x, y, width, height]` in mm, `align`, `visible`, `printIf`,
-`background`, `color`, `font`, `borders`, `stretchToBand`. Text objects also have `alignment`,
+`background`, `color`, `font`, `borders`, `stretchToBand`, `protection`. Text objects also have `alignment`,
 `layout`, `wordWrap`, `autoStretch`, `angle`, `padding`, `hideIfEmpty`, `shrinkToFit`, `allowHtml`,
 `highlightIf`, `highlightColor`, `highlightBackground`, `highlightBold`.
 
@@ -84,7 +84,7 @@ Report properties: `title`, `paperSize` `[width, height]` in mm (portrait), `lan
 `[left, top, right, bottom]`, `continuous`, `font`, `localeName` (e.g. `"pt_BR"`), `dataSourceName`,
 `variables`, `queries`, `parameters` (see the [designer guide](designer.md#report-parameters)),
 `verticalGuides`, `horizontalGuides` (positions in mm of the designer guides, never printed),
-`maxPages` and `watermarkText`, `watermarkFont`, `watermarkColor`, `watermarkAngle`,
+`protection`, `maxPages` and `watermarkText`, `watermarkFont`, `watermarkColor`, `watermarkAngle`,
 `watermarkImage`, `watermarkImageOpacity`.
 
 The property names are the `Q_PROPERTY` names of the classes (`BrBand`, `BrDBText`...), so the API
@@ -101,6 +101,7 @@ documentation in the headers also describes the file.
 | Rectangles, sizes, margins | arrays of numbers in mm |
 | Images | `"data:image/png;base64,..."` |
 | Chart series | `[{ "name": "2026", "values": [120, 98], "color": "#1f77b4" }]` |
+| Protection | `{ "move": true, "delete": true, "properties": true, "contents": true, "hidden": ["text"] }` (groups and sub-reports have it too; see [protected objects](designer.md#protected-objects)) |
 
 ## Behavior without code
 

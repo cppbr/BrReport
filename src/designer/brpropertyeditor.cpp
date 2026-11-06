@@ -42,6 +42,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMarginsF>
 #include <QMetaEnum>
 #include <QPageSize>
@@ -116,8 +117,27 @@ bool editText(QWidget *parent, const QString &title, QString &text, bool monospa
 const QSet<QByteArray> &hiddenProperties()
 {
     static const QSet<QByteArray> hidden = {"queries", "parameters", "maxPages", "geometry",
-                                              "verticalGuides", "horizontalGuides"};
+                                              "verticalGuides", "horizontalGuides", "protection"};
     return hidden;
+}
+
+// Properties shown for \a object, most specific class first, without duplicates.
+QList<QMetaProperty> listedProperties(const QObject *object)
+{
+    static const QSet<QByteArray> pagerOnly = {"pageBreak", "enabled", "keepHeaderWithDetail", "resetPageNumber"};
+    QSet<QByteArray> seen;
+    QList<QMetaProperty> props;
+    const QMetaObject *mo = object->metaObject();
+    for (int i = mo->propertyCount() - 1; i >= QObject::staticMetaObject.propertyCount(); --i) {
+        const QMetaProperty p = mo->property(i);
+        if (seen.contains(p.name()) || !p.isWritable() || hiddenProperties().contains(p.name()))
+            continue;
+        if (qobject_cast<const BrReport *>(object) && pagerOnly.contains(p.name()))
+            continue;
+        seen.insert(p.name());
+        props.prepend(p);
+    }
+    return props;
 }
 
 /*!
@@ -193,6 +213,7 @@ QString BrPropertyEditor::labelFor(const QString &name)
         {QStringLiteral("allowHtml"), tr("HTML text")},
         {QStringLiteral("qrErrorCorrection"), tr("QR error correction")},
         {QStringLiteral("objectName"), tr("Name")},
+        {QStringLiteral("protection"), tr("Protection")},
     };
     if (special.contains(name))
         return special.value(name);
@@ -232,6 +253,26 @@ void BrPropertyEditor::refresh()
                              m_panel);
     outer->addWidget(title);
 
+    // Several objects can be selected: what is locked in one is locked for all.
+    bool readOnly = false, positionLocked = false;
+    QSet<QString> hidden;
+    if (!m_developerMode) {
+        for (QObject *o : objs) {
+            const BrProtection protection = BrProtection::of(o);
+            readOnly = readOnly || protection.properties;
+            positionLocked = positionLocked || protection.move;
+            for (const QString &name : protection.hiddenProperties)
+                hidden.insert(name);
+        }
+    }
+
+    // Above the long list of properties, so that they are seen without scrolling.
+    if (m_developerMode) {
+        auto *protectionForm = new QFormLayout;
+        outer->addLayout(protectionForm);
+        addProtectionEditors(protectionForm, first);
+    }
+
     auto *form = new QFormLayout;
     form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     form->setLabelAlignment(Qt::AlignRight);
@@ -247,12 +288,16 @@ void BrPropertyEditor::refresh()
             emit edited(QStringLiteral("objectName"));
         }
     });
-    form->addRow(tr("Name"), nameEdit);
+    if (hidden.contains(QStringLiteral("objectName"))) {
+        delete nameEdit;
+    } else {
+        form->addRow(tr("Name"), nameEdit);
+    }
 
     // Position and size for objects (not bands/report)
     auto *control = qobject_cast<BrControl *>(first);
     {
-        if (control && !first->inherits("BrBand")) {
+        if (control && !first->inherits("BrBand") && !hidden.contains(QStringLiteral("geometry"))) {
             const QRectF g = control->geometry();
             auto *row = new QWidget(m_panel);
             auto *h = new QHBoxLayout(row);
@@ -271,30 +316,114 @@ void BrPropertyEditor::refresh()
                     const QRectF r(spins[0]->value(), spins[1]->value(), spins[2]->value(), spins[3]->value());
                     apply("geometry", r);
                 });
+            row->setEnabled(!positionLocked);
             form->addRow(tr("Position (mm)"), row);
         }
     }
 
-    // Properties, most specific class first, without duplicates
-    QSet<QByteArray> seen;
-    QList<QMetaProperty> props;
-    const QMetaObject *mo = first->metaObject();
-    for (int i = mo->propertyCount() - 1; i >= QObject::staticMetaObject.propertyCount(); --i) {
-        const QMetaProperty p = mo->property(i);
-        if (seen.contains(p.name()) || !p.isWritable() || hiddenProperties().contains(p.name()))
+    static const QSet<QByteArray> positionProperties = {"align", "height", "bandType"};
+    for (const QMetaProperty &p : listedProperties(first)) {
+        if (hidden.contains(QString::fromLatin1(p.name())))
             continue;
-        static const QSet<QByteArray> pagerOnly = {"pageBreak", "enabled", "keepHeaderWithDetail", "resetPageNumber"};
-        if (qobject_cast<BrReport *>(first) && pagerOnly.contains(p.name()))
-            continue;
-        seen.insert(p.name());
-        props.prepend(p);
-    }
-    for (const QMetaProperty &p : props) {
-        if (QWidget *editor = createEditor(p, first))
+        if (QWidget *editor = createEditor(p, first)) {
+            editor->setEnabled(!positionLocked || !positionProperties.contains(p.name()));
             form->addRow(labelFor(QString::fromLatin1(p.name())), editor);
+        }
+    }
+    if (readOnly) {
+        for (QWidget *w : m_panel->findChildren<QWidget *>(QString(), Qt::FindDirectChildrenOnly))
+            if (w != title)
+                w->setEnabled(false);
+        auto *note = new QLabel(tr("This object is protected: its properties cannot be changed."), m_panel);
+        note->setWordWrap(true);
+        outer->insertWidget(1, note);
     }
     outer->addStretch();
     setWidget(m_panel);
+}
+
+void BrPropertyEditor::applyProtection(const std::function<void(BrProtection &)> &change)
+{
+    for (QObject *o : objects()) {
+        if (o->metaObject()->indexOfProperty("protection") < 0)
+            continue;
+        BrProtection protection = BrProtection::of(o);
+        change(protection);
+        o->setProperty("protection", QVariant::fromValue(protection));
+    }
+    emit edited(QStringLiteral("protection"));
+}
+
+void BrPropertyEditor::addProtectionEditors(QFormLayout *form, QObject *object)
+{
+    const BrProtection protection = BrProtection::of(object);
+    auto addCheck = [this, form](const QString &name, const QString &text, bool value, bool BrProtection::*field) {
+        auto *check = new QCheckBox(text, m_panel);
+        check->setObjectName(name);
+        check->setChecked(value);
+        connect(check, &QCheckBox::toggled, this, [this, field](bool on) {
+            applyProtection([field, on](BrProtection &p) { p.*field = on; });
+        });
+        form->addRow(QString(), check);
+    };
+
+    form->addRow(new QLabel(QStringLiteral("<b>%1</b>").arg(tr("Protection for end users")), m_panel));
+    if (!qobject_cast<BrReport *>(object)) {
+        addCheck(QStringLiteral("protectMove"), tr("Lock position and size"), protection.move, &BrProtection::move);
+        addCheck(QStringLiteral("protectRemove"), tr("Cannot be deleted"), protection.remove, &BrProtection::remove);
+    }
+    addCheck(QStringLiteral("protectProperties"), tr("Read-only properties"), protection.properties,
+             &BrProtection::properties);
+    if (qobject_cast<BrContainer *>(object) || qobject_cast<BrPager *>(object))
+        addCheck(QStringLiteral("protectContents"), tr("Lock contents (add and delete)"), protection.contents,
+                 &BrProtection::contents);
+
+    auto *button = new QPushButton(tr("Hidden properties... (%1)").arg(protection.hiddenProperties.size()), m_panel);
+    button->setObjectName(QStringLiteral("protectHidden"));
+    connect(button, &QPushButton::clicked, this, [this, object]() { editHiddenProperties(object); });
+    form->addRow(QString(), button);
+}
+
+void BrPropertyEditor::editHiddenProperties(QObject *object)
+{
+    QList<QPair<QString, QString>> names = {{QStringLiteral("objectName"), tr("Name")}};
+    if (qobject_cast<BrControl *>(object) && !object->inherits("BrBand"))
+        names.append({QStringLiteral("geometry"), tr("Position (mm)")});
+    if (qobject_cast<BrReport *>(object)) {
+        names.append({QStringLiteral("queries"), tr("SQL queries")});
+        names.append({QStringLiteral("parameters"), tr("Report parameters")});
+    }
+    for (const QMetaProperty &p : listedProperties(object)) {
+        const QString name = QString::fromLatin1(p.name());
+        names.append({name, labelFor(name)});
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Hidden properties"));
+    auto *list = new QListWidget(&dialog);
+    const QStringList current = BrProtection::of(object).hiddenProperties;
+    for (const auto &name : std::as_const(names)) {
+        auto *item = new QListWidgetItem(name.second, list);
+        item->setData(Qt::UserRole, name.first);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(current.contains(name.first) ? Qt::Checked : Qt::Unchecked);
+    }
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->addWidget(new QLabel(tr("End users do not see the selected properties:"), &dialog));
+    layout->addWidget(list);
+    layout->addWidget(buttons);
+    dialog.resize(340, 440);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    QStringList hidden;
+    for (int i = 0; i < list->count(); ++i)
+        if (list->item(i)->checkState() == Qt::Checked)
+            hidden << list->item(i)->data(Qt::UserRole).toString();
+    applyProtection([&hidden](BrProtection &p) { p.hiddenProperties = hidden; });
 }
 
 QWidget *BrPropertyEditor::createEditor(const QMetaProperty &p, QObject *object)

@@ -31,6 +31,7 @@
 
 #include <QGraphicsItem>
 #include <QGraphicsScene>
+#include <QIcon>
 #include <QJsonObject>
 #include <QLineF>
 #include <QPointer>
@@ -42,6 +43,9 @@ class BrControl;
 class BrDesignScene;
 class BrGuideItem;
 class BrReport;
+
+/*! Padlock shown next to protected objects in the Structure panel. */
+QIcon brProtectionIcon();
 
 /*! Graphics item showing one report object (control) while designing. */
 class BrControlItem : public QGraphicsItem
@@ -75,6 +79,7 @@ private:
     QPointer<BrControl> m_control;
     QSizeF m_size;
     bool m_movable;
+    bool m_protected;
     QList<BrPageItem> m_items;
     int m_handle = -1;
     bool m_moving = false;
@@ -89,7 +94,7 @@ public:
     enum { Type = UserType + 2 };
     static constexpr double CaptionHeight = 4.5; // mm
 
-    BrBandItem(BrBand *band, const QString &caption, double width, int depth);
+    BrBandItem(BrBand *band, const QString &caption, double width, int depth, bool resizable);
 
     int type() const override { return Type; }
     BrBand *band() const { return m_band; }
@@ -113,6 +118,8 @@ private:
     double m_width;
     double m_height;
     int m_depth;
+    bool m_resizable;
+    bool m_protected;
     QList<BrPageItem> m_items;
     bool m_resizing = false;
 };
@@ -176,6 +183,10 @@ public:
     /*! Align moved and resized objects with the other objects and the guides. */
     bool snapToObjects() const { return m_snapObjects; }
     void setSnapToObjects(bool on) { m_snapObjects = on; }
+
+    /*! Obey the protection of the objects (end users). Takes effect on rebuild(). */
+    bool protectionEnforced() const { return m_enforceProtection; }
+    void setProtectionEnforced(bool on) { m_enforceProtection = on; }
 
     /*! Starts moving the selection with the mouse, \a grabber being under it. */
     void beginMove(BrControlItem *grabber);
@@ -246,6 +257,7 @@ private:
     double m_grid = 1.0;
     bool m_snap = true;
     bool m_snapObjects = true;
+    bool m_enforceProtection = true;
     QList<MovingItem> m_moving;
     QRectF m_movingBounds;
     QSet<QGraphicsItem *> m_snapExcluded; // what is being moved or resized

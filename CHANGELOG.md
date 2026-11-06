@@ -7,6 +7,10 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Protected objects: the developer can lock the position, deletion, properties and contents of
+  objects, bands, groups, sub-reports and the report itself, and hide properties, so that end users
+  change only parts of a report (`BrProtection`, `protection` in the report file). The designer obeys
+  it by default; `BrDesignerWidget::setDeveloperMode()` and `brdesigner --developer` edit it.
 - Rulers and guides in the designer: drag from a ruler to create a guide, drag it back to remove it.
   Moved and resized objects snap to the edges and centers of other objects and to the guides. Guides
   are stored in the report file (`verticalGuides`, `horizontalGuides`) and never printed.

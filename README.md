@@ -67,6 +67,7 @@ applications with a ready-made preview window, or in console and server programs
 
 - Visual designer for developers and end users: toolbox, drag fields into bands, move/resize with
   grid snapping, property editor, groups, sub-reports, alignment, copy/paste, undo/redo, preview.
+- Protected objects: lock parts of a report, so that end users change only the rest.
 - Standalone application (`brdesigner`) or a widget to embed in your application
   (`BrDesignerWidget`), saving to files or to your database.
 

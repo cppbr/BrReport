@@ -80,6 +80,7 @@ class BRREPORT_EXPORT BrControl : public QObject
     Q_PROPERTY(QFont font READ font WRITE setFont RESET resetFont)
     Q_PROPERTY(BrBorders borders READ borders WRITE setBorders)
     Q_PROPERTY(bool stretchToBand READ stretchToBand WRITE setStretchToBand)
+    Q_PROPERTY(BrProtection protection READ protection WRITE setProtection)
 public:
     /*!
      * Called once per print. Change the control (text, colors, visibility...) or
@@ -142,6 +143,10 @@ public:
     bool stretchToBand() const { return m_stretchToBand; }
     void setStretchToBand(bool on) { m_stretchToBand = on; }
 
+    /*! What the end user cannot change in the report designer. */
+    BrProtection protection() const { return m_protection; }
+    void setProtection(const BrProtection &protection) { m_protection = protection; }
+
     BrContainer *parentContainer() const;
     /*! The band this control belongs to (nullptr if not inside a band). */
     BrBand *band() const;
@@ -182,6 +187,7 @@ private:
     BrBorders m_borders;
     QFont m_font;
     bool m_hasFont = false;
+    BrProtection m_protection;
     BeforePrintHandler m_beforePrint;
 };
 

@@ -143,6 +143,19 @@ QString describe(const QObject *o)
     return text;
 }
 
+/*! A copy made by an end user belongs to that user, who must be able to change it. */
+QJsonObject withoutProtection(QJsonObject json)
+{
+    json.remove(QStringLiteral("protection"));
+    if (json.contains(QStringLiteral("children"))) {
+        QJsonArray children = json.value(QStringLiteral("children")).toArray();
+        for (int i = 0; i < children.size(); ++i)
+            children[i] = withoutProtection(children.at(i).toObject());
+        json.insert(QStringLiteral("children"), children);
+    }
+    return json;
+}
+
 QJsonObject geometryTemplate(const char *type, double w, double h, QJsonObject extra = {})
 {
     extra.insert(QStringLiteral("type"), QString::fromLatin1(type));
@@ -217,8 +230,10 @@ struct BrDesignerWidget::Private
     QAction *pointerTool = nullptr;
     QAction *snapAction = nullptr;
     QList<QAction *> fileOnlyActions;
+    QList<QAction *> developerActions;
     double zoom = 1.0;
     bool syncing = false;
+    bool developerMode = false;
 };
 
 BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new Private)
@@ -297,7 +312,11 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
     editMenu->addAction(redoAct);
     editMenu->addSeparator();
     QAction *cutAct = editMenu->addAction(icon("edit-cut", QStyle::SP_DialogDiscardButton), tr("Cu&t"), this, [this]() {
-        copySelection();
+        QList<QObject *> objects = selection();
+        objects.erase(std::remove_if(objects.begin(), objects.end(),
+                                     [this](const QObject *o) { return !canDelete(o); }),
+                      objects.end());
+        copyObjects(objects);
         deleteSelection();
     });
     cutAct->setShortcut(QKeySequence::Cut);
@@ -378,6 +397,15 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
         d->scene->clearSelection();
         d->properties->setObjects({&d->report});
     });
+    QAction *protectSeparator = reportMenu->addSeparator();
+    QAction *protectAct = reportMenu->addAction(tr("Pro&tect selection"), this,
+                                                [this]() { setSelectionProtected(true); });
+    protectAct->setToolTip(tr("Lock the selected objects and everything inside them for end users"));
+    QAction *unprotectAct = reportMenu->addAction(tr("Remove prot&ection"), this,
+                                                  [this]() { setSelectionProtected(false); });
+    d->developerActions = {protectSeparator, protectAct, unprotectAct};
+    for (QAction *a : std::as_const(d->developerActions))
+        a->setVisible(false);
 
     // --- Format (alignment)
     QMenu *formatMenu = menuBar()->addMenu(tr("F&ormat"));
@@ -517,6 +545,21 @@ void BrDesignerWidget::addDataSource(const QString &name, BrDataSource *dataSour
     d->dataSources.insert(name, dataSource);
     d->report.addDataSource(name, dataSource);
     rebuildDataPanel();
+}
+
+void BrDesignerWidget::setDeveloperMode(bool on)
+{
+    d->developerMode = on;
+    d->scene->setProtectionEnforced(!on);
+    d->properties->setDeveloperMode(on);
+    for (QAction *a : std::as_const(d->developerActions))
+        a->setVisible(on);
+    refreshAll();
+}
+
+bool BrDesignerWidget::isDeveloperMode() const
+{
+    return d->developerMode;
 }
 
 bool BrDesignerWidget::isModified() const
@@ -763,6 +806,8 @@ void BrDesignerWidget::rebuildTree()
         auto *item = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(d->tree);
         item->setText(0, describe(o));
         item->setData(0, Qt::UserRole, QVariant::fromValue<void *>(o));
+        if (BrProtection::of(o).any())
+            item->setIcon(0, brProtectionIcon());
         item->setSelected(selected.contains(o));
         for (QObject *c : layoutChildren(o))
             add(c, item);
@@ -896,6 +941,10 @@ void BrDesignerWidget::rebuildDataPanel()
 void BrDesignerWidget::editQuery(const QString &name)
 {
 #ifdef BRREPORT_HAS_SQL
+    if (!canEditReport("queries")) {
+        refuse(tr("The queries of this report are protected."));
+        return;
+    }
     QVariantList queries = d->report.queries();
     int index = -1;
     for (int i = 0; i < queries.size(); ++i)
@@ -994,6 +1043,10 @@ void BrDesignerWidget::editQuery(const QString &name)
 
 void BrDesignerWidget::editParameters()
 {
+    if (!canEditReport("parameters")) {
+        refuse(tr("The parameters of this report are protected."));
+        return;
+    }
     BrParametersEditor editor(d->report.parameters(), &d->report, this);
     if (editor.exec() != QDialog::Accepted)
         return;
@@ -1005,6 +1058,10 @@ void BrDesignerWidget::editParameters()
 
 void BrDesignerWidget::removeQuery(const QString &name)
 {
+    if (!canEditReport("queries")) {
+        refuse(tr("The queries of this report are protected."));
+        return;
+    }
     QVariantList queries = d->report.queries();
     for (int i = 0; i < queries.size(); ++i) {
         if (queries.at(i).toMap().value(QStringLiteral("name")).toString().compare(name, Qt::CaseInsensitive) == 0) {
@@ -1022,8 +1079,71 @@ void BrDesignerWidget::removeQuery(const QString &name)
 // Editing
 // ---------------------------------------------------------------------------
 
+bool BrDesignerWidget::canMove(const QObject *object) const
+{
+    return d->developerMode || !BrProtection::of(object).move;
+}
+
+bool BrDesignerWidget::canDelete(const QObject *object) const
+{
+    if (d->developerMode)
+        return true;
+    if (BrProtection::of(object->parent()).contents)
+        return false;
+    // Deleting an object also deletes everything inside it.
+    QList<QObject *> affected = object->findChildren<QObject *>();
+    affected << const_cast<QObject *>(object);
+    for (const QObject *o : std::as_const(affected)) {
+        const BrProtection protection = BrProtection::of(o);
+        if (protection.remove || protection.contents)
+            return false;
+    }
+    return true;
+}
+
+bool BrDesignerWidget::canAddTo(const QObject *object) const
+{
+    return d->developerMode || !BrProtection::of(object).contents;
+}
+
+bool BrDesignerWidget::canEditReport(const char *property) const
+{
+    if (d->developerMode)
+        return true;
+    const BrProtection protection = d->report.protection();
+    return !protection.properties && !protection.hiddenProperties.contains(QString::fromLatin1(property));
+}
+
+void BrDesignerWidget::refuse(const QString &message)
+{
+    statusBar()->showMessage(message, 5000);
+}
+
+void BrDesignerWidget::setSelectionProtected(bool on)
+{
+    QList<QObject *> affected;
+    for (QObject *o : selection()) {
+        affected << o;
+        affected << o->findChildren<QObject *>();
+    }
+    for (QObject *o : std::as_const(affected)) {
+        if (!isLayoutObject(o))
+            continue;
+        const BrProtection protection =
+            on ? BrProtection::all(BrProtection::of(o).hiddenProperties) : BrProtection();
+        o->setProperty("protection", QVariant::fromValue(protection));
+    }
+    commit(tr("Change protection"));
+}
+
 void BrDesignerWidget::insertObject(QObject *container, const QPointF &pos, const QJsonObject &templ)
 {
+    if (!canAddTo(container)) {
+        d->pointerTool->setChecked(true);
+        d->scene->setInsertTemplate(QJsonObject());
+        refuse(tr("Nothing can be added to this object: it is protected."));
+        return;
+    }
     QJsonObject json = templ;
     QJsonArray g = json.value(QStringLiteral("geometry")).toArray();
     const double w = g.size() == 4 ? g.at(2).toDouble() : 30.0;
@@ -1043,8 +1163,13 @@ void BrDesignerWidget::insertObject(QObject *container, const QPointF &pos, cons
 
 void BrDesignerWidget::copySelection()
 {
+    copyObjects(selection());
+}
+
+void BrDesignerWidget::copyObjects(const QList<QObject *> &objects)
+{
     QJsonArray array;
-    for (QObject *o : selection())
+    for (QObject *o : objects)
         if (o != &d->report)
             array << BrReportFile::objectToJson(o);
     if (array.isEmpty())
@@ -1068,20 +1193,20 @@ void BrDesignerWidget::paste()
     QObject *selected = selection().value(0);
     QList<QObject *> created;
     for (const QJsonValue &v : array) {
-        QJsonObject json = v.toObject();
+        QJsonObject json = d->developerMode ? v.toObject() : withoutProtection(v.toObject());
         const QString type = json.value(QStringLiteral("type")).toString();
         QObject *target = nullptr;
         for (QObject *o = selected; o; o = o->parent())
-            if (BrReportFile::canContain(o, type)) {
+            if (BrReportFile::canContain(o, type) && canAddTo(o)) {
                 target = o;
                 break;
             }
-        if (!target && BrReportFile::canContain(&d->report, type))
+        if (!target && BrReportFile::canContain(&d->report, type) && canAddTo(&d->report))
             target = &d->report;
         if (!target) {
             const QList<BrBand *> details = d->report.findChildren<BrBand *>();
             for (BrBand *b : details)
-                if (b->bandType() == Br::BandType::Detail) {
+                if (b->bandType() == Br::BandType::Detail && canAddTo(b)) {
                     target = b;
                     break;
                 }
@@ -1097,8 +1222,11 @@ void BrDesignerWidget::paste()
         if (QObject *o = BrReportFile::objectFromJson(json, target))
             created << o;
     }
-    if (created.isEmpty())
+    if (created.isEmpty()) {
+        if (!array.isEmpty())
+            refuse(tr("Nothing can be added here: the object is protected."));
         return;
+    }
     commit(tr("Paste"));
     d->scene->selectObjects(created);
 }
@@ -1111,8 +1239,13 @@ void BrDesignerWidget::duplicateSelection()
 
 void BrDesignerWidget::deleteSelection()
 {
-    QList<QObject *> objs = selection();
-    objs.removeAll(&d->report);
+    const QList<QObject *> selected = selection();
+    QList<QObject *> objs;
+    for (QObject *o : selected)
+        if (o != &d->report && canDelete(o))
+            objs << o;
+    if (objs.size() < selected.size() - int(selected.contains(&d->report)))
+        refuse(tr("Protected objects were not deleted."));
     if (objs.isEmpty())
         return;
     d->scene->clearSelection();
@@ -1135,6 +1268,10 @@ void BrDesignerWidget::moveInOrder(int delta)
     if (objs.size() != 1 || objs.first() == &d->report)
         return;
     QObject *o = objs.first();
+    if (!canMove(o)) {
+        refuse(tr("This object is protected and cannot be moved."));
+        return;
+    }
     QObject *parent = o->parent();
     QList<QObject *> siblings = layoutChildren(parent);
     const int i = int(siblings.indexOf(o));
@@ -1159,8 +1296,10 @@ void BrDesignerWidget::align(int how)
                 controls << c;
     if (controls.isEmpty())
         return;
-    const QRectF ref = controls.first()->geometry();
+    const QRectF ref = controls.first()->geometry(); // a protected object can be the reference
     for (BrControl *c : controls) {
+        if (!canMove(c))
+            continue;
         QRectF g = c->geometry();
         switch (how) {
         case 0: g.moveLeft(ref.left()); break;
@@ -1188,7 +1327,7 @@ void BrDesignerWidget::nudge(double dx, double dy)
     bool moved = false;
     for (QObject *o : selection()) {
         auto *c = qobject_cast<BrControl *>(o);
-        if (!c || qobject_cast<BrBand *>(c) || c->align() != Br::Align::None)
+        if (!c || qobject_cast<BrBand *>(c) || c->align() != Br::Align::None || !canMove(c))
             continue;
         c->setGeometry(c->geometry().translated(dx, dy));
         moved = true;
@@ -1210,6 +1349,10 @@ QObject *BrDesignerWidget::targetPager() const
 void BrDesignerWidget::addBand(int type)
 {
     auto *pager = qobject_cast<BrPager *>(targetPager());
+    if (!canAddTo(pager)) {
+        refuse(tr("Nothing can be added here: the object is protected."));
+        return;
+    }
     BrBand *band = pager->addBand(Br::BandType(type), 8.0);
     commit(tr("Add band"));
     d->scene->selectObjects({band});
@@ -1220,6 +1363,10 @@ void BrDesignerWidget::addGroup()
     auto *pager = qobject_cast<BrPager *>(targetPager());
     while (BrGroup *g = pager->group())
         pager = g;
+    if (!canAddTo(pager)) {
+        refuse(tr("Nothing can be added here: the object is protected."));
+        return;
+    }
 
     // Field list from the pager's data source
     QStringList fields;
@@ -1280,6 +1427,10 @@ void BrDesignerWidget::addSubReport()
     auto *pager = qobject_cast<BrPager *>(targetPager());
     while (BrGroup *g = pager->group())
         pager = g;
+    if (!canAddTo(pager)) {
+        refuse(tr("Nothing can be added here: the object is protected."));
+        return;
+    }
     bool ok = false;
     const QString name = QInputDialog::getItem(this, tr("Add sub-report"),
                                                tr("Data source of the sub-report (e.g. the items of each order):"),
