@@ -823,7 +823,8 @@ void BrEngine::newPage()
     m_pendingBreak = false;
     m_columnBand = nullptr;
     m_y = m_report->contentRect().top();
-    drawWatermark();
+    if (!m_report->isContinuous()) // there the height is known only at the end
+        drawWatermark();
 
     for (const auto &frame : m_stack) {
         if (frame->ending && !frame->isReport)
@@ -872,8 +873,10 @@ void BrEngine::closePage()
                           : m_pageBottom - bandsHeight(m_report, int(Br::BandType::Footer), true);
     for (BrBand *b : m_report->bands(Br::BandType::Footer))
         printBand(b, Mode::Fixed, &y);
-    if (continuous)
+    if (continuous) {
         m_doc->pages.last().size.setHeight(y + m_report->margins().bottom());
+        drawWatermark();
+    }
     m_hasPage = true;
 }
 
@@ -884,6 +887,7 @@ void BrEngine::drawWatermark()
         return;
     BrPage &page = m_doc->pages.last();
     const QRectF content = m_report->contentRect();
+    QList<BrPageItem> items;
     if (!wm.image.isNull()) {
         QImage img = wm.image.convertToFormat(QImage::Format_ARGB32);
         const double opacity = qBound(0.0, wm.imageOpacity, 1.0);
@@ -893,21 +897,19 @@ void BrEngine::drawWatermark()
                 line[xx] = qRgba(qRed(line[xx]), qGreen(line[xx]), qBlue(line[xx]),
                                  int(qAlpha(line[xx]) * opacity));
         }
-        // On a continuous page the final height is unknown: use the nominal page size.
         const QRectF area(content.left(), content.top(), content.width(),
-                          m_report->pageSizeMm().height() - m_report->margins().top()
-                              - m_report->margins().bottom());
+                          page.size.height() - m_report->margins().top() - m_report->margins().bottom());
         QSizeF size = img.size();
         size.scale(area.size(), Qt::KeepAspectRatio);
         QRectF target(QPointF(), size);
         target.moveCenter(area.center());
-        page.items << BrPageItem::makeImage(target, img);
+        items << BrPageItem::makeImage(target, img);
     }
     if (!wm.text.isEmpty()) {
-        const QRectF rect(QPointF(0, 0), m_report->pageSizeMm());
-        page.items << BrPageItem::makeText(rect, wm.text, wm.font, wm.color, Qt::AlignCenter,
-                                           wm.angle);
+        const QRectF rect(QPointF(0, 0), page.size);
+        items << BrPageItem::makeText(rect, wm.text, wm.font, wm.color, Qt::AlignCenter, wm.angle);
     }
+    page.items = items + page.items; // behind everything else
 }
 
 // ---------------------------------------------------------------------------

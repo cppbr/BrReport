@@ -6,6 +6,9 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- The watermark of a continuous page is centered on its final height.
+
 ### Changed
 - `hideIfEmpty` also gives up the space of the object: the objects below move up and the band gets
   shorter (with `shiftOnStretch`, the default), so an empty line of an address leaves no gap.

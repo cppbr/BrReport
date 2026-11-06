@@ -572,6 +572,27 @@ private slots:
                 QCOMPARE(item.rect.top() - report.contentRect().top(), 5.0);
     }
 
+    void watermarkIsCenteredOnContinuousPages()
+    {
+        BrListDataSource ds(numberedRows(100));
+        BrReport report;
+        report.setDataSource(&ds);
+        report.setPageSizeMm(80, 100);
+        report.setContinuous(true);
+        BrWatermark watermark;
+        watermark.text = QStringLiteral("COPY");
+        report.setWatermark(watermark);
+        report.addBand(Br::BandType::Detail, 5);
+        new BrLabel(QStringLiteral("row"), report.bands(Br::BandType::Detail).first());
+        QVERIFY(report.prepare());
+
+        const BrPage &page = report.document().pages.first();
+        QVERIFY(page.size.height() > 500);
+        const BrPageItem &first = page.items.first(); // behind everything else
+        QCOMPARE(first.text, QStringLiteral("COPY"));
+        QCOMPARE(first.rect.center().y(), page.size.height() / 2);
+    }
+
     void stretchingMemo()
     {
         BrReport report;
