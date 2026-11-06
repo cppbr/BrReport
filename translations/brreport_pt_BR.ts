@@ -512,6 +512,10 @@ Campos: %2</translation>
         <translation>Alterar ordem</translation>
     </message>
     <message>
+        <source>Rename</source>
+        <translation>Renomear</translation>
+    </message>
+    <message>
         <source>Align</source>
         <translation>Alinhar</translation>
     </message>

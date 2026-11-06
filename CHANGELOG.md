@@ -7,6 +7,8 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Structure panel of the designer: drag bands and objects to reorder them among their siblings, and
+  rename them with a double-click or F2.
 - New report wizard in the designer (*File > New from wizard*, `BrDesignerWidget::newReportWizard()`):
   pick a data source or SQL query and the fields, with totals and an optional group, and get a list
   report ready to adjust.

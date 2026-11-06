@@ -4,7 +4,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 
 ## Designer (end users)
 
-- [ ] Reorder bands/objects by dragging in the Structure tree; rename from the tree.
 - [ ] Multi-selection: edit position/size of several objects at once; distribute horizontally /
       vertically.
 - [ ] Remember window layout, zoom and recent files (QSettings) in `brdesigner`.

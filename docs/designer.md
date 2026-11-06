@@ -16,6 +16,7 @@ It is available in two forms:
 | Area | Features |
 |---|---|
 | New report | *File > New from wizard*: choose the data and the fields, and get a list report ready to adjust (see [New report wizard](#new-report-wizard)) |
+| Structure | Drag objects and bands to change their order among their siblings; double-click or F2 renames (see [Structure panel](#structure-panel)) |
 | Page | Paper size, orientation, margins, continuous page, watermark, title, locale |
 | Bands | Add Header, Title, Column header, Detail, Column footer, Summary and Footer bands; resize them by dragging the bottom edge; zebra rows, columns, page breaks... in the properties |
 | Groups | *Report > Add group*: choose the field; the detail bands move into the group, which gets a header with the field and a summary band |
@@ -57,6 +58,21 @@ if needed.
 The result replaces the current report, after asking to save it, and is an ordinary report: edit it
 as any other. A query that uses `:name` works too, but the parameter must be declared afterwards in
 *Data > Report parameters*. Canceling the wizard leaves the current report as it was.
+
+## Structure panel
+
+The *Structure* panel lists the bands and objects of the report as they are stored.
+
+**Drag** one or more rows to another place among their siblings. A line shows where they go, and
+*Undo* restores the order. The order of objects in a band is the order they are drawn, so the last
+one stays on top. Rows only move within the same parent: to move an object to another band, use cut
+and paste.
+
+Bands print by type, so a detail cannot go above a header: a drop only works when it changes what is
+printed, such as swapping two detail bands or the order of a detail and a sub-report.
+
+**Double-click** a row or press **F2** to rename the object. Objects with *Read-only properties*, or
+with the name hidden, cannot be renamed; objects with *Lock position and size* cannot be dragged.
 
 ## Language
 

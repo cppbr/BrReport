@@ -66,6 +66,13 @@
 #include <QStyle>
 #include <QTimer>
 #include <QToolBar>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QLineEdit>
+#include <QPaintEvent>
+#include <QPainter>
+#include <QScrollBar>
+#include <QStyledItemDelegate>
 #include <QTreeWidget>
 #include <QUndoStack>
 #include <QVBoxLayout>
@@ -117,6 +124,52 @@ QObject *objectAt(const QList<int> &path, QObject *root)
         o = kids.at(i);
     }
     return o;
+}
+
+/*! \a parent's children with \a moved taken out and inserted at \a index of the current list. */
+QList<QObject *> childrenWithMoved(const QObject *parent, const QList<QObject *> &moved, int index)
+{
+    const QList<QObject *> siblings = layoutChildren(parent);
+    QList<QObject *> result;
+    for (int i = 0; i <= siblings.size(); ++i) {
+        if (i == index)
+            result << moved;
+        if (i < siblings.size() && !moved.contains(siblings.at(i)))
+            result << siblings.at(i);
+    }
+    return result;
+}
+
+void setChildOrder(QObject *parent, const QList<QObject *> &children)
+{
+    for (QObject *c : children) { // re-append in the new order
+        c->setParent(nullptr);
+        c->setParent(parent);
+    }
+}
+
+/*! The part of the report where an object prints; the order only matters within it. */
+int printSection(const QObject *o)
+{
+    if (auto *b = qobject_cast<const BrBand *>(o))
+        return int(b->bandType());
+    if (auto *s = qobject_cast<const BrSubDetail *>(o))
+        return int(s->positioning());
+    return int(Br::BandType::Detail);
+}
+
+/*! Whether going from \a before to \a after changes what is printed: bands print by type. */
+bool printsDifferently(QList<QObject *> before, QList<QObject *> after)
+{
+    const auto bySection = [](const QObject *a, const QObject *b) { return printSection(a) < printSection(b); };
+    std::stable_sort(before.begin(), before.end(), bySection);
+    std::stable_sort(after.begin(), after.end(), bySection);
+    return before != after;
+}
+
+QObject *objectOf(const QModelIndex &index)
+{
+    return static_cast<QObject *>(index.data(Qt::UserRole).value<void *>());
 }
 
 QString describe(const QObject *o)
@@ -187,6 +240,177 @@ protected:
     }
 };
 
+/*!
+ * Report structure. The selected siblings can be dragged to another place among
+ * their siblings; the tree is rebuilt from the report, so the drop only asks for it.
+ */
+class StructureTree : public QTreeWidget
+{
+public:
+    using MoveHandler = std::function<bool(const QList<QObject *> &, QObject *, int)>;
+
+    explicit StructureTree(QWidget *parent) : QTreeWidget(parent)
+    {
+        setHeaderHidden(true);
+        setSelectionMode(QAbstractItemView::ExtendedSelection);
+        setDragEnabled(true);
+        setDragDropMode(QAbstractItemView::InternalMove);
+        setDefaultDropAction(Qt::MoveAction);
+        setDropIndicatorShown(false); // it cannot show a place after a whole expanded branch
+        setExpandsOnDoubleClick(false);
+        setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
+    }
+
+    /*! Restores the position after a rebuild, which resets it. */
+    void setScrollPosition(int position)
+    {
+        executeDelayedItemsLayout();
+        updateGeometries();
+        verticalScrollBar()->setValue(position);
+    }
+
+    MoveHandler canDrop; //!< Whether a drop there would change something.
+    MoveHandler drop;    //!< Called after the drag, when the tree can be rebuilt.
+
+protected:
+    // The default would serialize the items, and their objects cannot be: the selection says what moves.
+    QStringList mimeTypes() const override { return {structureMime()}; }
+    QMimeData *mimeData(const QList<QTreeWidgetItem *> &) const override
+    {
+        auto *mime = new QMimeData;
+        mime->setData(structureMime(), QByteArray());
+        return mime;
+    }
+
+    void dragEnterEvent(QDragEnterEvent *event) override
+    {
+        QTreeWidget::dragEnterEvent(event);
+        event->setAccepted(isOwnDrag(event));
+    }
+
+    void dragMoveEvent(QDragMoveEvent *event) override
+    {
+        QTreeWidget::dragMoveEvent(event); // scrolls near the edges
+        const Target target = targetAt(event);
+        setDropLine(target.valid ? target.line : QRect());
+        event->setAccepted(target.valid);
+    }
+
+    void dragLeaveEvent(QDragLeaveEvent *event) override
+    {
+        QTreeWidget::dragLeaveEvent(event);
+        setDropLine(QRect());
+    }
+
+    void dropEvent(QDropEvent *event) override
+    {
+        const Target target = targetAt(event);
+        setDropLine(QRect());
+        stopAutoScroll();
+        setState(NoState);
+        if (!target.valid) {
+            event->ignore();
+            return;
+        }
+        event->setDropAction(Qt::CopyAction); // a move would make the view remove the rows
+        event->accept();
+        QMetaObject::invokeMethod(
+            this, [this, target]() { drop(target.objects, target.parent, target.index); }, Qt::QueuedConnection);
+    }
+
+    void paintEvent(QPaintEvent *event) override
+    {
+        QTreeWidget::paintEvent(event);
+        if (!m_dropLine.isNull()) {
+            QPainter painter(viewport());
+            painter.fillRect(m_dropLine, palette().highlight());
+        }
+    }
+
+private:
+    struct Target
+    {
+        bool valid = false;
+        QList<QObject *> objects;
+        QObject *parent = nullptr;
+        int index = -1;
+        QRect line;
+    };
+
+    bool isOwnDrag(const QDropEvent *event) const { return event->mimeData()->hasFormat(structureMime()); }
+    static QString structureMime() { return QStringLiteral("application/x-brreport-structure"); }
+
+    Target targetAt(const QDropEvent *event) const
+    {
+        Target target;
+        const QList<QTreeWidgetItem *> items = selectedItems();
+        if (!isOwnDrag(event) || items.isEmpty() || !items.first()->parent())
+            return target;
+        QTreeWidgetItem *parentItem = items.first()->parent();
+        for (QTreeWidgetItem *item : items)
+            if (item->parent() != parentItem)
+                return target;
+
+        // A row inside a sibling counts as that sibling, with everything it contains.
+        const QPoint pos = event->position().toPoint();
+        QTreeWidgetItem *anchor = itemAt(pos);
+        while (anchor && anchor->parent() != parentItem)
+            anchor = anchor->parent();
+        if (!anchor)
+            return target;
+        QRect branch = visualItemRect(anchor);
+        for (QTreeWidgetItem *last = anchor; last->isExpanded() && last->childCount() > 0;) {
+            last = last->child(last->childCount() - 1);
+            branch |= visualItemRect(last);
+        }
+        const bool after = pos.y() > branch.center().y();
+
+        QList<QTreeWidgetItem *> ordered = items;
+        std::sort(ordered.begin(), ordered.end(), [parentItem](QTreeWidgetItem *a, QTreeWidgetItem *b) {
+            return parentItem->indexOfChild(a) < parentItem->indexOfChild(b);
+        });
+        for (QTreeWidgetItem *item : std::as_const(ordered))
+            target.objects << static_cast<QObject *>(item->data(0, Qt::UserRole).value<void *>());
+        target.parent = static_cast<QObject *>(parentItem->data(0, Qt::UserRole).value<void *>());
+        target.index = parentItem->indexOfChild(anchor) + (after ? 1 : 0);
+        target.line = QRect(branch.left(), (after ? branch.bottom() : branch.top()) - 1,
+                            viewport()->width() - branch.left(), 2);
+        target.valid = canDrop(target.objects, target.parent, target.index);
+        return target;
+    }
+
+    void setDropLine(const QRect &line)
+    {
+        if (line != m_dropLine) {
+            m_dropLine = line;
+            viewport()->update();
+        }
+    }
+
+    QRect m_dropLine;
+};
+
+/*! Edits only the name of an object, which is a part of the text of its row. */
+class StructureDelegate : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    std::function<void(QObject *, const QString &)> renamed;
+
+    void setEditorData(QWidget *editor, const QModelIndex &index) const override
+    {
+        if (auto *edit = qobject_cast<QLineEdit *>(editor))
+            edit->setText(objectOf(index)->objectName());
+    }
+
+    void setModelData(QWidget *editor, QAbstractItemModel *, const QModelIndex &index) const override
+    {
+        if (auto *edit = qobject_cast<QLineEdit *>(editor))
+            renamed(objectOf(index), edit->text().trimmed());
+    }
+};
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -219,7 +443,7 @@ struct BrDesignerWidget::Private
     BrReport report;
     BrDesignScene *scene = nullptr;
     BrDesignView *view = nullptr;
-    QTreeWidget *tree = nullptr;
+    StructureTree *tree = nullptr;
     DataTree *data = nullptr;
     BrPropertyEditor *properties = nullptr;
     QUndoStack undo;
@@ -256,9 +480,20 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
     setCentralWidget(d->view);
 
     // --- Docks
-    d->tree = new QTreeWidget(this);
-    d->tree->setHeaderHidden(true);
-    d->tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    d->tree = new StructureTree(this);
+    d->tree->canDrop = [this](const QList<QObject *> &objects, QObject *parent, int index) {
+        return printsDifferently(layoutChildren(parent), childrenWithMoved(parent, objects, index));
+    };
+    d->tree->drop = [this](const QList<QObject *> &objects, QObject *parent, int index) {
+        moveInTree(objects, parent, index);
+        return true;
+    };
+    auto *treeDelegate = new StructureDelegate(d->tree);
+    treeDelegate->renamed = [this](QObject *object, const QString &name) {
+        // The editor is still closing: the tree cannot be rebuilt yet.
+        QMetaObject::invokeMethod(this, [this, object, name]() { renameObject(object, name); }, Qt::QueuedConnection);
+    };
+    d->tree->setItemDelegate(treeDelegate);
     auto *treeDock = new QDockWidget(tr("Structure"), this);
     treeDock->setObjectName(QStringLiteral("structureDock"));
     treeDock->setWidget(d->tree);
@@ -822,11 +1057,16 @@ void BrDesignerWidget::rebuildTree()
     const bool was = d->syncing;
     d->syncing = true;
     const QList<QObject *> selected = d->scene->selectedObjects();
+    const int scroll = d->tree->verticalScrollBar()->value();
     d->tree->clear();
     std::function<void(QObject *, QTreeWidgetItem *)> add = [&](QObject *o, QTreeWidgetItem *parent) {
         auto *item = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(d->tree);
         item->setText(0, describe(o));
         item->setData(0, Qt::UserRole, QVariant::fromValue<void *>(o));
+        Qt::ItemFlags flags = item->flags();
+        flags.setFlag(Qt::ItemIsDragEnabled, parent != nullptr);
+        flags.setFlag(Qt::ItemIsEditable, canRename(o));
+        item->setFlags(flags);
         if (BrProtection::of(o).any())
             item->setIcon(0, brProtectionIcon());
         item->setSelected(selected.contains(o));
@@ -835,6 +1075,7 @@ void BrDesignerWidget::rebuildTree()
     };
     add(&d->report, nullptr);
     d->tree->expandAll();
+    d->tree->setScrollPosition(scroll);
     d->syncing = was;
 }
 
@@ -1127,6 +1368,14 @@ bool BrDesignerWidget::canAddTo(const QObject *object) const
     return d->developerMode || !BrProtection::of(object).contents;
 }
 
+bool BrDesignerWidget::canRename(const QObject *object) const
+{
+    if (d->developerMode)
+        return true;
+    const BrProtection protection = BrProtection::of(object);
+    return !protection.properties && !protection.hiddenProperties.contains(QStringLiteral("objectName"));
+}
+
 bool BrDesignerWidget::canEditReport(const char *property) const
 {
     if (d->developerMode)
@@ -1300,12 +1549,30 @@ void BrDesignerWidget::moveInOrder(int delta)
     if (j < 0 || j >= siblings.size())
         return;
     siblings.swapItemsAt(i, j);
-    for (QObject *s : siblings) { // re-append in the new order
-        s->setParent(nullptr);
-        s->setParent(parent);
-    }
+    setChildOrder(parent, siblings);
     commit(tr("Change order"));
     d->scene->selectObjects({o});
+}
+
+void BrDesignerWidget::moveInTree(const QList<QObject *> &objects, QObject *parent, int index)
+{
+    for (const QObject *o : objects)
+        if (!canMove(o)) {
+            refuse(tr("This object is protected and cannot be moved."));
+            return;
+        }
+    setChildOrder(parent, childrenWithMoved(parent, objects, index));
+    commit(tr("Change order"));
+    d->scene->selectObjects(objects);
+}
+
+void BrDesignerWidget::renameObject(QObject *object, const QString &name)
+{
+    if (object->objectName() == name || !canRename(object))
+        return;
+    object->setObjectName(name);
+    commit(tr("Rename"));
+    d->scene->selectObjects({object});
 }
 
 void BrDesignerWidget::align(int how)

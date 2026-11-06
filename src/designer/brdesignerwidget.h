@@ -139,6 +139,8 @@ private:
     void deleteSelection();
     void duplicateSelection();
     void moveInOrder(int delta);
+    void moveInTree(const QList<QObject *> &objects, QObject *parent, int index);
+    void renameObject(QObject *object, const QString &name);
     void align(int how);
     void nudge(double dx, double dy);
     void addBand(int type);
@@ -151,6 +153,7 @@ private:
     bool canMove(const QObject *object) const;
     bool canDelete(const QObject *object) const;
     bool canAddTo(const QObject *object) const;
+    bool canRename(const QObject *object) const;
     bool canEditReport(const char *property) const;
     void refuse(const QString &message);
     void setZoom(double zoom);

@@ -39,7 +39,10 @@
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
+#include <QMimeData>
 #include <QPushButton>
+#include <QRegularExpression>
+#include <QScrollBar>
 #include <QSpinBox>
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -49,6 +52,7 @@
 #include <QToolButton>
 #include <QTimer>
 #include <QTreeWidget>
+#include <QWindow>
 
 #include <cmath>
 
@@ -143,6 +147,49 @@ struct LayoutFixture
         QCoreApplication::processEvents();
     }
 };
+
+/*! Drops the tree's selection on \a pos; returns whether the tree accepted that place. */
+bool dropInTree(QTreeWidget *tree, const QPoint &pos)
+{
+    QMimeData mime;
+    mime.setData(tree->model()->mimeTypes().constFirst(), QByteArray());
+    QWidget *viewport = tree->viewport();
+    QDragEnterEvent enter(QPointF(pos), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(viewport, &enter);
+    if (!enter.isAccepted())
+        return false;
+    QDragMoveEvent move(QPointF(pos), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(viewport, &move);
+    if (!move.isAccepted()) {
+        QDragLeaveEvent leave;
+        QCoreApplication::sendEvent(viewport, &leave);
+        return false;
+    }
+    QDropEvent drop(QPointF(pos), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(viewport, &drop);
+    QCoreApplication::processEvents();
+    return true;
+}
+
+QTreeWidgetItem *itemOf(QTreeWidget *tree, const QObject *object)
+{
+    for (QTreeWidgetItemIterator it(tree); *it; ++it)
+        if ((*it)->data(0, Qt::UserRole).value<void *>() == object)
+            return *it;
+    return nullptr;
+}
+
+void selectInTree(QTreeWidget *tree, const QList<const QObject *> &objects)
+{
+    tree->clearSelection();
+    for (const QObject *o : objects)
+        itemOf(tree, o)->setSelected(true);
+}
+
+QPoint aboveRow(QTreeWidget *tree, const QObject *object)
+{
+    return tree->visualItemRect(itemOf(tree, object)).topLeft() + QPoint(5, 1);
+}
 
 BrBand *detailBand(BrReport *report)
 {
@@ -895,6 +942,160 @@ private slots:
         // The end user cannot turn the developer mode on from the menus
         f.widget.setDeveloperMode(false);
         QVERIFY(!action(&f.widget, QStringLiteral("Remove protection"))->isVisible());
+    }
+
+    void structureReordersSiblings()
+    {
+        LayoutFixture f;
+        auto *a = f.addText(f.first, QRectF(0, 0, 10, 5));
+        auto *b = f.addText(f.first, QRectF(0, 6, 10, 5));
+        auto *c = f.addText(f.first, QRectF(0, 12, 10, 5));
+        auto *tree = f.widget.findChild<QTreeWidget *>();
+
+        selectInTree(tree, {c});
+        QVERIFY(dropInTree(tree, aboveRow(tree, a)));
+        const QList<BrDBText *> moved = f.first->findChildren<BrDBText *>();
+        QCOMPARE(moved, (QList<BrDBText *>{c, a, b}));
+        QVERIFY(itemOf(tree, c)->isSelected());
+
+        // Several objects keep their relative order, whatever order they were selected in.
+        selectInTree(tree, {b, c});
+        QVERIFY(dropInTree(tree, aboveRow(tree, a)));
+        QCOMPARE(f.first->findChildren<BrDBText *>(), (QList<BrDBText *>{c, b, a}));
+
+        f.widget.undo();
+        BrBand *band = f.widget.report()->bands(Br::BandType::Detail).first();
+        const QList<BrDBText *> restored = band->findChildren<BrDBText *>();
+        QCOMPARE(restored.size(), 3);
+        QCOMPARE(restored.at(1)->geometry().y(), 0.0); // a, the second object before the last drop
+    }
+
+    void structureDragDoesNotSerializeTheItems()
+    {
+        LayoutFixture f;
+        auto *text = f.addText(f.first, QRectF(0, 0, 10, 5));
+        auto *tree = f.widget.findChild<QTreeWidget *>();
+        QVERIFY(QTest::qWaitForWindowExposed(&f.widget));
+        QTest::failOnWarning(QRegularExpression(QStringLiteral("unable to save type")));
+
+        // The offscreen platform ends the drag at once, but only after asking for its data.
+        QWindow *window = f.widget.windowHandle();
+        const QPoint start = tree->viewport()->mapTo(&f.widget, tree->visualItemRect(itemOf(tree, text)).center());
+        QTest::mouseMove(window, start);
+        QTest::mousePress(window, Qt::LeftButton, Qt::NoModifier, start);
+        for (int i = 1; i <= 8; ++i)
+            QTest::mouseMove(window, start - QPoint(0, i * 3));
+        QTest::mouseRelease(window, Qt::LeftButton, Qt::NoModifier, start - QPoint(0, 24));
+    }
+
+    void structureOnlyAcceptsDropsThatChangeSomething()
+    {
+        LayoutFixture f;
+        BrBand *second = f.widget.report()->addBand(Br::BandType::Detail, 10);
+        auto *a = f.addText(f.first, QRectF(0, 0, 10, 5));
+        auto *b = f.addText(f.first, QRectF(0, 6, 10, 5));
+        auto *other = f.addText(second, QRectF(0, 0, 10, 5));
+        auto *tree = f.widget.findChild<QTreeWidget *>();
+        const QByteArray before = f.widget.report()->toJson();
+
+        selectInTree(tree, {a});
+        QVERIFY(!dropInTree(tree, aboveRow(tree, a))); // the same place
+        QVERIFY(!dropInTree(tree, aboveRow(tree, other))); // another band
+        QVERIFY(!dropInTree(tree, aboveRow(tree, f.first))); // the band that contains it
+
+        selectInTree(tree, {a, f.first}); // not siblings
+        QVERIFY(!dropInTree(tree, aboveRow(tree, b)));
+
+        selectInTree(tree, {f.widget.report()}); // the report is the root
+        QVERIFY(!dropInTree(tree, aboveRow(tree, f.first)));
+
+        // Bands print by type: a summary above a detail would change nothing on paper.
+        selectInTree(tree, {f.second});
+        QVERIFY(!dropInTree(tree, aboveRow(tree, f.first)));
+        QCOMPARE(f.widget.report()->toJson(), before);
+
+        // Between bands of the same type, it changes the printing order, wherever the row points.
+        selectInTree(tree, {second});
+        QVERIFY(dropInTree(tree, aboveRow(tree, a)));
+        QCOMPARE(f.widget.report()->bands(Br::BandType::Detail), (QList<BrBand *>{second, f.first}));
+    }
+
+    void structureObeysProtection()
+    {
+        LayoutFixture f;
+        auto *a = f.addText(f.first, QRectF(0, 0, 10, 5));
+        auto *b = f.addText(f.first, QRectF(0, 6, 10, 5));
+        BrProtection locked;
+        locked.move = true;
+        b->setProtection(locked);
+        f.commit();
+        auto *tree = f.widget.findChild<QTreeWidget *>();
+
+        selectInTree(tree, {b});
+        dropInTree(tree, aboveRow(tree, a));
+        QCOMPARE(f.first->findChildren<BrDBText *>(), (QList<BrDBText *>{a, b}));
+
+        f.widget.setDeveloperMode(true);
+        selectInTree(tree, {b});
+        QVERIFY(dropInTree(tree, aboveRow(tree, a)));
+        QCOMPARE(f.first->findChildren<BrDBText *>(), (QList<BrDBText *>{b, a}));
+    }
+
+    void structureRenames()
+    {
+        LayoutFixture f;
+        auto *text = f.addText(f.first, QRectF(0, 0, 10, 5));
+        text->setObjectName(QStringLiteral("before"));
+        f.commit();
+        auto *tree = f.widget.findChild<QTreeWidget *>();
+
+        tree->setCurrentItem(itemOf(tree, text));
+        tree->editItem(itemOf(tree, text));
+        auto *edit = tree->viewport()->findChild<QLineEdit *>();
+        QVERIFY(edit);
+        QCOMPARE(edit->text(), QStringLiteral("before")); // not the whole row
+        edit->setText(QStringLiteral("  total  "));
+        QTest::keyClick(edit, Qt::Key_Return);
+        QTRY_COMPARE(text->objectName(), QStringLiteral("total")); // the editor closes later
+        QVERIFY(itemOf(tree, text)->text(0).contains(QStringLiteral("\"total\"")));
+        QVERIFY(f.widget.isModified());
+
+        f.widget.undo();
+        QCOMPARE(f.widget.report()->findChildren<BrDBText *>().first()->objectName(), QStringLiteral("before"));
+    }
+
+    void structureRenameObeysProtection()
+    {
+        LayoutFixture f;
+        auto *readOnly = f.addText(f.first, QRectF(0, 0, 10, 5));
+        auto *hidden = f.addText(f.first, QRectF(0, 6, 10, 5));
+        auto *free = f.addText(f.first, QRectF(0, 12, 10, 5));
+        BrProtection properties;
+        properties.properties = true;
+        readOnly->setProtection(properties);
+        BrProtection name;
+        name.hiddenProperties = {QStringLiteral("objectName")};
+        hidden->setProtection(name);
+        f.commit();
+        auto *tree = f.widget.findChild<QTreeWidget *>();
+
+        QVERIFY(!(itemOf(tree, readOnly)->flags() & Qt::ItemIsEditable));
+        QVERIFY(!(itemOf(tree, hidden)->flags() & Qt::ItemIsEditable));
+        QVERIFY(itemOf(tree, free)->flags() & Qt::ItemIsEditable);
+
+        f.widget.setDeveloperMode(true);
+        QVERIFY(itemOf(tree, readOnly)->flags() & Qt::ItemIsEditable);
+    }
+
+    void structureKeepsItsScrollPosition()
+    {
+        LayoutFixture f;
+        for (int i = 0; i < 40; ++i)
+            f.addText(f.first, QRectF(0, 0, 10, 5));
+        auto *tree = f.widget.findChild<QTreeWidget *>();
+        tree->verticalScrollBar()->setValue(15);
+        f.commit();
+        QCOMPARE(tree->verticalScrollBar()->value(), 15);
     }
 
     void wizardInspectsFields()
