@@ -14,6 +14,8 @@ follows [Semantic Versioning](https://semver.org/).
   shorter (with `shiftOnStretch`, the default), so an empty line of an address leaves no gap.
 
 ### Added
+- Barcodes: Code 39, Data Matrix (ECC 200, up to 144x144) and PDF417, with `BrDataMatrixEncoder` and
+  `BrPdf417Encoder`.
 - Report templates with several pages: a sub-report with no data source and `positioning` set to
   `Title` or `Summary` prints once before or after the records, as a cover or closing page
   (*Report > Add cover page / Add closing page*).

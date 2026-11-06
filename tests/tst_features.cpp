@@ -210,6 +210,36 @@ private slots:
         QVERIFY(lineBottom > 22.0); // grew with the band (design: 10 + 12)
     }
 
+    void twoDimensionalCodesInAReport()
+    {
+        BrReport report;
+        BrBand *band = report.addBand(Br::BandType::Detail, 40);
+        auto *matrix = new BrBarcode(Br::BarcodeType::DataMatrix, QStringLiteral("123456"), band);
+        matrix->setGeometry(0, 0, 30, 30);
+        auto *stacked = new BrBarcode(Br::BarcodeType::Pdf417, QStringLiteral("document"), band);
+        stacked->setGeometry(40, 0, 60, 30);
+        auto *bars = new BrBarcode(Br::BarcodeType::Code39, QStringLiteral("CODE39"), band);
+        bars->setGeometry(110, 0, 60, 30);
+        QVERIFY(report.prepare());
+
+        const QRectF content = report.contentRect();
+        int inMatrix = 0, inStacked = 0;
+        for (const BrPageItem &item : report.document().pages.first().items) {
+            if (item.kind != BrPageItem::Rect)
+                continue;
+            const QRectF r = item.rect.translated(-content.topLeft());
+            if (r.right() <= 30.01) {
+                ++inMatrix;
+                QVERIFY(r.bottom() <= 30.01);
+            } else if (r.left() >= 39.99 && r.right() <= 100.01) {
+                ++inStacked;
+            }
+        }
+        QVERIFY(inMatrix > 10);
+        QVERIFY(inStacked > 100);
+        QVERIFY(report.document().pageText(0).contains(QStringLiteral("CODE39")));
+    }
+
     void hideIfEmptyAndShrink()
     {
         BrReport report;

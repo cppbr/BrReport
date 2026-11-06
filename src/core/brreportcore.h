@@ -33,6 +33,7 @@
 #include "brformat.h"
 #include "brgraphics.h"
 #include "brpager.h"
+#include "brmatrixcode.h"
 #include "brqrcode.h"
 #include "brrendercontext.h"
 #include "brrenderer.h"

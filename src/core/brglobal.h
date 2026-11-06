@@ -136,7 +136,10 @@ enum class BarcodeType {
     Code128,        //!< Full ASCII, automatic B/C code set switching.
     Ean13,          //!< 12 or 13 digits (check digit computed/validated).
     Interleaved2of5, //!< Numeric (used e.g. by Brazilian bank slips / "boletos").
-    QrCode           //!< 2D QR Code (URLs, PIX, NFC-e...). See BrQrEncoder.
+    QrCode,          //!< 2D QR Code (URLs, PIX, NFC-e...). See BrQrEncoder.
+    Code39,          //!< Digits, capital letters and - . $ / + % and space.
+    DataMatrix,      //!< 2D Data Matrix ECC 200 (small parts, health). See BrDataMatrixEncoder.
+    Pdf417           //!< 2D stacked PDF417 (documents, ID cards). See BrPdf417Encoder.
 };
 Q_ENUM_NS(BarcodeType)
 

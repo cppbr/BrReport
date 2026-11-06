@@ -16,6 +16,7 @@
  */
 
 #include "brbarcode.h"
+#include "brmatrixcode.h"
 #include "brqrcode.h"
 
 #include <QPoint>
@@ -70,6 +71,84 @@ private slots:
         // Brazilian bank slip: 44 digits
         QVERIFY(BrBarcodeEncoder::interleaved2of5(QString(44, QLatin1Char('9'))).isValid());
     }
+    void code39()
+    {
+        const auto r = BrBarcodeEncoder::code39(QStringLiteral("A1"));
+        QVERIFY(r.isValid());
+        QCOMPARE(r.humanText, QStringLiteral("A1"));
+        // * A 1 *: 4 characters of 9 elements (3 wide) and 3 gaps
+        QCOMPARE(r.widths.size(), 4 * 9 + 3);
+        QCOMPARE(r.totalModules(), 4 * (6 + 3 * 3) + 3);
+        // The start character, then the gap
+        QCOMPARE(r.widths.mid(0, 10), QVector<int>({1, 3, 1, 1, 3, 1, 3, 1, 1, 1}));
+        QCOMPARE(BrBarcodeEncoder::code39(QStringLiteral("A1"), 2).totalModules(), 4 * (6 + 3 * 2) + 3);
+        QVERIFY(!BrBarcodeEncoder::code39(QStringLiteral("abc")).isValid());
+        QVERIFY(!BrBarcodeEncoder::code39(QStringLiteral("A*B")).isValid());
+        QVERIFY(!BrBarcodeEncoder::code39(QString()).isValid());
+    }
+
+    void dataMatrixReferenceCodewords()
+    {
+        // The example of a 10x10 symbol: digit pairs, then Reed-Solomon
+        QCOMPARE(BrDataMatrixEncoder::codewords(QStringLiteral("123456")),
+                 QVector<int>({142, 164, 186, 114, 25, 5, 88, 102}));
+    }
+
+    void dataMatrixSizesAndFinder()
+    {
+        const auto check = [](const QString &text, int size) {
+            const BrMatrixCode code = BrDataMatrixEncoder::encode(text);
+            QVERIFY(code.isValid());
+            QCOMPARE(code.width, size);
+            QCOMPARE(code.height, size);
+            for (int i = 0; i < size; ++i) {
+                QVERIFY(code.module(0, i));        // solid left edge
+                QVERIFY(code.module(i, size - 1)); // solid bottom edge
+                QCOMPARE(code.module(i, 0), i % 2 == 0); // timing along the top
+            }
+        };
+        check(QStringLiteral("AAA"), 10);
+        check(QStringLiteral("AAAA"), 12);
+        check(QString(44, QLatin1Char('A')), 26);
+        check(QString(62, QLatin1Char('A')), 32); // two data regions per side
+        check(QString(1558, QLatin1Char('A')), 144);
+        QVERIFY(!BrDataMatrixEncoder::encode(QString(1559, QLatin1Char('A'))).isValid());
+        QVERIFY(!BrDataMatrixEncoder::encode(QString()).isValid());
+
+        // The inner finder lines of a symbol with several data regions
+        const BrMatrixCode code = BrDataMatrixEncoder::encode(QString(62, QLatin1Char('A')));
+        for (int i = 0; i < code.height; ++i)
+            QVERIFY(code.module(16, i));
+    }
+
+    void pdf417Structure()
+    {
+        const BrMatrixCode code = BrPdf417Encoder::encode(QStringLiteral("Hello, PDF417 world!"));
+        QVERIFY(code.isValid());
+        QCOMPARE(code.height % 3, 0); // rows of 3 modules
+        QCOMPARE((code.width - 69) % 17, 0);
+        const auto bits = [&code](int row, int from, int count) {
+            QString s;
+            for (int x = from; x < from + count; ++x)
+                s += code.module(x, row * 3) ? QLatin1Char('1') : QLatin1Char('0');
+            return s;
+        };
+        for (int row = 0; row < code.height / 3; ++row) {
+            QCOMPARE(bits(row, 0, 17), QStringLiteral("11111111010101000"));
+            QCOMPARE(bits(row, code.width - 18, 18), QStringLiteral("111111101000101001"));
+        }
+    }
+
+    void pdf417Shape()
+    {
+        const QString text(300, QLatin1Char('x'));
+        const BrMatrixCode wide = BrPdf417Encoder::encode(text, 6.0);
+        const BrMatrixCode tall = BrPdf417Encoder::encode(text, 0.5);
+        QVERIFY(double(wide.width) / wide.height > double(tall.width) / tall.height);
+        QVERIFY(!BrPdf417Encoder::encode(QString(2000, QLatin1Char('x'))).isValid());
+        QVERIFY(!BrPdf417Encoder::encode(QString()).isValid());
+    }
+
     void qrReferenceMatrix()
     {
         // Version 1-Q, mask 6, verified against an independent encoder.

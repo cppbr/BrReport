@@ -42,7 +42,7 @@ applications with a ready-made preview window, or in console and server programs
   date, title, record number), image, data image, shapes, panel, rotated text.
 - **Rich text**: HTML inside texts (`<b>`, `<i>`, colors, lists, simple tables).
 - **Charts**: pie, bars, horizontal bars and lines, from static values or a data source.
-- **Barcodes**: QR Code, Code 128, EAN-13 and Interleaved 2 of 5.
+- **Barcodes**: QR Code, Data Matrix, PDF417, Code 128, Code 39, EAN-13 and Interleaved 2 of 5.
 - **Automatic layout**: page breaks, growing bands for long texts, bands split across pages, objects pushed down by the ones
   that grow above them, cells that stretch to the band height, aligned objects, borders and
   backgrounds.
@@ -388,7 +388,6 @@ Every example except `quick_start` opens the preview window, or exports with `--
 
 The detailed list of pending work is in [TODO.md](TODO.md).
 
-- More barcodes: PDF417, Data Matrix, Code 39
 - More translations of the preview and the designer
 - XLSX, RTF and plain-text export
 - Translations of the preview window

@@ -1410,6 +1410,10 @@ Campos: %2</translation>
         <translation>Code 128</translation>
     </message>
     <message>
+        <source>Code39</source>
+        <translation>Code 39</translation>
+    </message>
+    <message>
         <source>Color</source>
         <translation>Cor</translation>
     </message>
@@ -1598,8 +1602,16 @@ Campos: %2</translation>
         <translation>Informação</translation>
     </message>
     <message>
+        <source>Data matrix</source>
+        <translation>Data Matrix</translation>
+    </message>
+    <message>
         <source>Interleaved2of5</source>
         <translation>Intercalado 2 de 5</translation>
+    </message>
+    <message>
+        <source>Pdf417</source>
+        <translation>PDF417</translation>
     </message>
     <message>
         <source>Justify</source>

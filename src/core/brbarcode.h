@@ -22,6 +22,8 @@
 
 #include <QVector>
 
+struct BrMatrixCode;
+
 /*!
  * Encodes barcode symbols as a sequence of module widths, starting with a bar
  * and alternating bar/space.
@@ -44,6 +46,8 @@ public:
     static Result ean13(const QString &data);
     /*! Odd-length input is padded with a leading zero. Wide bars are \a ratio modules. */
     static Result interleaved2of5(const QString &data, int ratio = 3);
+    /*! Without a check digit. Wide bars are \a ratio modules. */
+    static Result code39(const QString &data, int ratio = 3);
 
     /*! EAN-13 check digit for 12 digits (returns -1 on invalid input). */
     static int ean13CheckDigit(const QString &twelveDigits);
@@ -53,8 +57,8 @@ public:
  * Barcode control. The bars fill the control width; the human
  * readable text is printed below them when showText() is true.
  *
- * With Br::BarcodeType::QrCode the symbol is drawn as the largest square that
- * fits the control, centered; showText() and moduleWidth() then do not apply.
+ * Two-dimensional types (QR Code, Data Matrix, PDF417) are drawn as large as they
+ * fit the control, centered; showText() and moduleWidth() then do not apply.
  */
 class BRREPORT_EXPORT BrBarcode : public BrControl
 {
@@ -87,7 +91,7 @@ public:
     double moduleWidth() const { return m_moduleWidth; }
     void setModuleWidth(double mm) { m_moduleWidth = mm; }
 
-    /*! Wide/narrow ratio for Interleaved 2 of 5 (2 or 3; default 3). */
+    /*! Wide/narrow ratio for Interleaved 2 of 5 and Code 39 (2 or 3; default 3). */
     int ratio() const { return m_ratio; }
     void setRatio(int ratio) { m_ratio = ratio; }
 
@@ -99,8 +103,8 @@ public:
     void setQrErrorCorrection(Br::QrErrorCorrection level) { m_qrEcc = level; }
 
     /*!
-     * Blank margin around a QR Code, in modules (default 2). The standard asks
-     * for 4; less is fine when the area around the control is already blank.
+     * Blank margin around a two-dimensional code, in modules (default 2). The QR Code
+     * standard asks for 4; less is fine when the area around the control is already blank.
      */
     int quietZone() const { return m_quietZone; }
     void setQuietZone(int modules) { m_quietZone = qMax(0, modules); }
@@ -123,7 +127,7 @@ private:
     Br::QrErrorCorrection m_qrEcc = Br::QrErrorCorrection::Medium;
     int m_quietZone = 2;
 
-    void renderQrCode(const QRectF &rect, BrPage &page);
+    void renderMatrix(const BrMatrixCode &code, const QRectF &rect, BrPage &page);
 };
 
 /*! Barcode whose data comes from a field or expression. */

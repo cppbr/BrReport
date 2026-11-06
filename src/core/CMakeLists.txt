@@ -14,6 +14,7 @@ set(BRREPORT_CORE_HEADERS
     brformat.h
     brgraphics.h
     brpager.h
+    brmatrixcode.h
     brqrcode.h
     brrendercontext.h
     brrenderer.h
@@ -40,6 +41,7 @@ set(BRREPORT_CORE_SOURCES
     brformat.cpp
     brgraphics.cpp
     brpager.cpp
+    brmatrixcode.cpp
     brqrcode.cpp
     brrendercontext.cpp
     brrenderer.cpp
