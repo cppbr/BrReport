@@ -14,6 +14,8 @@ follows [Semantic Versioning](https://semver.org/).
   shorter (with `shiftOnStretch`, the default), so an empty line of an address leaves no gap.
 
 ### Added
+- Detail bands with columns can be filled top to bottom (`columnDirection`), for directories and
+  price lists.
 - Bands can be split across pages (`allowSplit`, *Allow split* in the designer): the part that fits
   is printed and the rest continues on the next page, for very long memos and contracts, in plain
   or HTML text. Lines of text, images, barcodes and charts are not cut. A band taller than a page is

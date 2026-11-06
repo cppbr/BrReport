@@ -5,7 +5,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 ## Report engine
 
 - [ ] Multi-page report templates (e.g. a cover page followed by the list).
-- [ ] Multi-column details filled top to bottom (only left to right today).
 
 ## Objects and output
 

@@ -519,7 +519,8 @@ void BrEngine::printBand(BrBand *band, Mode mode, double *fixedY)
     const bool multiColumn = mode == Mode::Flow && !fixedY && band->columns() > 1
                              && band->bandType() == Br::BandType::Detail;
     if (mode == Mode::Flow && m_columnBand != band)
-        m_columnBand = nullptr; // any other band ends a row of columns
+        endColumns(); // any other band ends a row of columns
+    const bool down = multiColumn && band->columnDirection() == Br::ColumnDirection::Down;
     const double width = multiColumn
                              ? (m_width - band->columnSpacing() * (band->columns() - 1)) / band->columns()
                              : m_width;
@@ -530,7 +531,7 @@ void BrEngine::printBand(BrBand *band, Mode mode, double *fixedY)
             continue;
         band->prepare(*this);
         double h = band->measureHeight(*this, width);
-        const bool newRow = !multiColumn || m_columnBand != band || m_column == 0;
+        const bool newRow = !multiColumn || m_columnBand != band || (!down && m_column == 0);
         const bool canSplit = mode == Mode::Flow && !multiColumn && !m_report->isContinuous();
         const bool splittable = canSplit && band->allowSplit();
 
@@ -563,9 +564,31 @@ void BrEngine::printBand(BrBand *band, Mode mode, double *fixedY)
 
         double x = m_left;
         double y = fixedY ? *fixedY : m_y;
-        if (multiColumn) {
+        if (down) {
+            bool startColumns = newRow;
+            if (!newRow && m_y + h > bottomLimit() + kEpsilon) {
+                if (++m_column < band->columns()) {
+                    m_y = m_rowTop;
+                } else {
+                    newPage();
+                    startColumns = true;
+                    band->prepare(*this); // page-dependent content
+                    h = band->measureHeight(*this, width);
+                }
+            }
+            if (startColumns) {
+                m_columnBand = band;
+                m_columnsDown = true;
+                m_column = 0;
+                m_rowTop = m_y;
+                m_columnBottom = m_y;
+            }
+            x = m_left + m_column * (width + band->columnSpacing());
+            y = m_y;
+        } else if (multiColumn) {
             if (newRow) {
                 m_columnBand = band;
+                m_columnsDown = false;
                 m_column = 0;
                 m_rowTop = m_y;
                 m_rowHeight = 0.0;
@@ -581,7 +604,10 @@ void BrEngine::printBand(BrBand *band, Mode mode, double *fixedY)
             band->render(*this, QRectF(x, y, width, h), m_doc->pages.last());
         band->setBackground(savedBackground);
 
-        if (multiColumn) {
+        if (down) {
+            m_y += h;
+            m_columnBottom = std::max(m_columnBottom, m_y);
+        } else if (multiColumn) {
             if (h > m_rowHeight) {
                 m_rowHeight = h;
                 m_y = m_rowTop + h;
@@ -733,6 +759,13 @@ void BrEngine::printSplit(BrBand *band, double x, double width, double height)
     }
 }
 
+void BrEngine::endColumns()
+{
+    if (m_columnBand && m_columnsDown)
+        m_y = std::max(m_y, m_columnBottom);
+    m_columnBand = nullptr;
+}
+
 bool BrEngine::bandPrintsOnThisPage(BrBand *band) const
 {
     if (band->pager() != m_report)
@@ -852,6 +885,7 @@ void BrEngine::newPage()
 
 void BrEngine::closePage()
 {
+    endColumns();
     // Column footers / group footers right after the content, innermost first.
     for (auto it = m_stack.rbegin(); it != m_stack.rend(); ++it) {
         Frame &f = **it;

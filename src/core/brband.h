@@ -44,6 +44,7 @@ class BRREPORT_EXPORT BrBand : public BrContainer
     Q_PROPERTY(bool printOnLastPage READ printOnLastPage WRITE setPrintOnLastPage)
     Q_PROPERTY(int columns READ columns WRITE setColumnCount)
     Q_PROPERTY(double columnSpacing READ columnSpacing WRITE setColumnSpacing)
+    Q_PROPERTY(Br::ColumnDirection columnDirection READ columnDirection WRITE setColumnDirection)
 public:
     using AfterPrintHandler = std::function<void(BrBand &band)>;
 
@@ -89,7 +90,8 @@ public:
 
     /*!
      * Detail bands: number of records printed side by side (labels, cards).
-     * Records fill a row from left to right before starting the next row.
+     * By default records fill a row from left to right before starting the next
+     * row; see setColumnDirection().
      */
     int columns() const { return m_columns; }
     void setColumns(int count, double spacing = 0.0)
@@ -100,6 +102,10 @@ public:
     double columnSpacing() const { return m_columnSpacing; }
     void setColumnCount(int count) { m_columns = qMax(1, count); }
     void setColumnSpacing(double spacing) { m_columnSpacing = qMax(0.0, spacing); }
+
+    /*! Whether records fill rows (default) or go down a column to the bottom of the page first. */
+    Br::ColumnDirection columnDirection() const { return m_columnDirection; }
+    void setColumnDirection(Br::ColumnDirection direction) { m_columnDirection = direction; }
 
     void setAfterPrint(const AfterPrintHandler &handler) { m_afterPrint = handler; }
     void callAfterPrint();
@@ -116,6 +122,7 @@ private:
     bool m_printOnLastPage = true;
     int m_columns = 1;
     double m_columnSpacing = 0.0;
+    Br::ColumnDirection m_columnDirection = Br::ColumnDirection::Across;
     AfterPrintHandler m_afterPrint;
 };
 

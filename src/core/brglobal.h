@@ -81,6 +81,13 @@ enum class PageBreak {
 };
 Q_ENUM_NS(PageBreak)
 
+/*! Order in which the records fill the columns of a detail band. */
+enum class ColumnDirection {
+    Across, //!< Left to right, row by row (labels, cards).
+    Down    //!< Top to bottom, column by column (directories, price lists).
+};
+Q_ENUM_NS(ColumnDirection)
+
 /*! System information displayed by BrSystemInfo. */
 enum class InfoType {
     Date,           //!< Report date.

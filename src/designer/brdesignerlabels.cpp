@@ -27,6 +27,7 @@
 namespace {
 
 [[maybe_unused]] const char *const kPropertyLabels[] = {
+    QT_TRANSLATE_NOOP("BrProperty", "Across"),
     QT_TRANSLATE_NOOP("BrProperty", "After"),
     QT_TRANSLATE_NOOP("BrProperty", "Align"),
     QT_TRANSLATE_NOOP("BrProperty", "Alignment"),
@@ -46,6 +47,8 @@ namespace {
     QT_TRANSLATE_NOOP("BrProperty", "Bottom"),
     QT_TRANSLATE_NOOP("BrProperty", "Allow split"),
     QT_TRANSLATE_NOOP("BrProperty", "Carbon copies"),
+    QT_TRANSLATE_NOOP("BrProperty", "Column direction"),
+    QT_TRANSLATE_NOOP("BrProperty", "Down"),
     QT_TRANSLATE_NOOP("BrProperty", "Carbon copy"),
     QT_TRANSLATE_NOOP("BrProperty", "Center"),
     QT_TRANSLATE_NOOP("BrProperty", "Chart type"),

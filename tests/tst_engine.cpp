@@ -593,6 +593,51 @@ private slots:
         QCOMPARE(first.rect.center().y(), page.size.height() / 2);
     }
 
+    void columnsFilledTopToBottom()
+    {
+        BrListDataSource ds(numberedRows(100));
+        BrReport report;
+        report.setDataSource(&ds);
+        report.setPageSizeMm(100, 90);
+        const QRectF content = report.contentRect();
+        const int rowsPerColumn = int(content.height() / 5);
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        band->setColumns(2, 4);
+        band->setColumnDirection(Br::ColumnDirection::Down);
+        (new BrDBText(QStringLiteral("id"), band))->setGeometry(0, 0, 20, 5);
+        new BrLabel(QStringLiteral("end"), report.addBand(Br::BandType::Summary, 5));
+        QVERIFY(report.prepare());
+
+        const double second = content.left() + (content.width() - 4) / 2 + 4;
+        const BrDocument &doc = report.document();
+        QHash<int, QPointF> position;
+        QHash<int, int> pageOf;
+        for (int p = 0; p < doc.pageCount(); ++p)
+            for (const BrPageItem &item : doc.pages.at(p).items)
+                if (item.kind == BrPageItem::Text && item.text.toInt() > 0) {
+                    position[item.text.toInt()] = item.rect.topLeft();
+                    pageOf[item.text.toInt()] = p;
+                }
+        QCOMPARE(position.size(), 100);
+        QCOMPARE(position.value(1), content.topLeft());
+        QCOMPARE(position.value(rowsPerColumn).x(), content.left());
+        QCOMPARE(position.value(rowsPerColumn + 1), QPointF(second, content.top()));
+        QCOMPARE(pageOf.value(2 * rowsPerColumn), 0);
+        QCOMPARE(pageOf.value(2 * rowsPerColumn + 1), 1);
+        QCOMPARE(position.value(2 * rowsPerColumn + 1), content.topLeft());
+
+        // The next band goes under the tallest column, at the left
+        const BrPage &last = doc.pages.last();
+        double lowest = 0, end = 0;
+        for (const BrPageItem &item : last.items) {
+            if (item.text == QStringLiteral("end"))
+                end = item.rect.top();
+            else
+                lowest = std::max(lowest, item.rect.bottom());
+        }
+        QVERIFY(end >= lowest - 0.01);
+    }
+
     void stretchingMemo()
     {
         BrReport report;

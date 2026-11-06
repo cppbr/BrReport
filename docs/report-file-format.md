@@ -62,7 +62,7 @@ Any report built in code can be saved with `report.save("file.brt")` (every exam
 
 | Type | Can contain | Main properties |
 |---|---|---|
-| `Band` | objects | `bandType`, `height`, `pageBreak`, `allowSplit`, `carbonCopies`, `alternateBackground`, `columns`, `columnSpacing`, `printOnFirstPage`, `printOnLastPage`, `printIf` |
+| `Band` | objects | `bandType`, `height`, `pageBreak`, `allowSplit`, `carbonCopies`, `alternateBackground`, `columns`, `columnSpacing`, `columnDirection`, `printOnFirstPage`, `printOnLastPage`, `printIf` |
 | `Group` | bands, groups, sub-reports | `dataFields`, `dataFormula`, `pageBreak`, `keepHeaderWithDetail`, `resetPageNumber` |
 | `SubDetail` | bands, groups, sub-reports | `dataSourceName`, `masterFields`, `detailFields`, `positioning`, `pageBreak`, `resetPageNumber` |
 | `Panel` | objects | `autoExpand`, `shiftOnStretch` |

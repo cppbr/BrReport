@@ -1290,6 +1290,10 @@ Campos: %2</translation>
 <context>
     <name>BrProperty</name>
     <message>
+        <source>Across</source>
+        <translation>Na horizontal</translation>
+    </message>
+    <message>
         <source>After</source>
         <translation>Depois</translation>
     </message>
@@ -1364,6 +1368,14 @@ Campos: %2</translation>
     <message>
         <source>Carbon copies</source>
         <translation>Vias</translation>
+    </message>
+    <message>
+        <source>Column direction</source>
+        <translation>Direção das colunas</translation>
+    </message>
+    <message>
+        <source>Down</source>
+        <translation>Na vertical</translation>
     </message>
     <message>
         <source>Carbon copy</source>

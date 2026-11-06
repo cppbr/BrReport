@@ -118,6 +118,7 @@ private:
     void printSlot(BrPager *pager, int bandType, Mode mode);
     void printBand(BrBand *band, Mode mode, double *fixedY = nullptr);
     void printSplit(BrBand *band, double x, double width, double height);
+    void endColumns();
 
     void newPage();
     void closePage();
@@ -162,6 +163,8 @@ private:
     int m_column = 0;
     double m_rowTop = 0.0;
     double m_rowHeight = 0.0;
+    bool m_columnsDown = false;   // the columns of m_columnBand are filled top to bottom
+    double m_columnBottom = 0.0;  // bottom of the tallest of those columns
     int m_detailCount = 0;
     int m_carbon = 1;
     QList<QRectF> *m_keepAreas = nullptr; // areas that printSplit() must not cut
