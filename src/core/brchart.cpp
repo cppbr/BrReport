@@ -145,7 +145,7 @@ void BrChart::prepare(BrRenderContext &ctx)
     m_curLabels = m_labels;
     m_curSeries = m_series;
     if (ctx.isDesignMode() && (m_dataSource || !m_dataSourceName.isEmpty() || !m_valueFields.isEmpty())) {
-        m_curLabels = {QStringLiteral("A"), QStringLiteral("B"), QStringLiteral("C"), QStringLiteral("D")};
+        m_curLabels = QStringList{QStringLiteral("A"), QStringLiteral("B"), QStringLiteral("C"), QStringLiteral("D")};
         m_curSeries.clear();
         const QStringList names = m_valueFields.isEmpty() ? QStringList{QStringLiteral("Series")} : m_valueFields;
         for (int i = 0; i < names.size(); ++i)

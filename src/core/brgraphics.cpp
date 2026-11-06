@@ -245,25 +245,25 @@ void BrDraw::render(BrRenderContext &, const QRectF &rect, BrPage &page)
         break;
     case Br::DrawKind::HorizontalLine:
         item.kind = BrPageItem::Line;
-        item.points = QPolygonF({QPointF(rect.left(), rect.center().y()),
+        item.points = QPolygonF(QVector<QPointF>{QPointF(rect.left(), rect.center().y()),
                                  QPointF(rect.right(), rect.center().y())});
         break;
     case Br::DrawKind::VerticalLine:
         item.kind = BrPageItem::Line;
-        item.points = QPolygonF({QPointF(rect.center().x(), rect.top()),
+        item.points = QPolygonF(QVector<QPointF>{QPointF(rect.center().x(), rect.top()),
                                  QPointF(rect.center().x(), rect.bottom())});
         break;
     case Br::DrawKind::DiagonalDown:
         item.kind = BrPageItem::Line;
-        item.points = QPolygonF({r.topLeft(), r.bottomRight()});
+        item.points = QPolygonF(QVector<QPointF>{r.topLeft(), r.bottomRight()});
         break;
     case Br::DrawKind::DiagonalUp:
         item.kind = BrPageItem::Line;
-        item.points = QPolygonF({r.bottomLeft(), r.topRight()});
+        item.points = QPolygonF(QVector<QPointF>{r.bottomLeft(), r.topRight()});
         break;
     case Br::DrawKind::Triangle:
         item.kind = BrPageItem::Polygon;
-        item.points = QPolygonF({QPointF(r.center().x(), r.top()), r.bottomRight(), r.bottomLeft()});
+        item.points = QPolygonF(QVector<QPointF>{QPointF(r.center().x(), r.top()), r.bottomRight(), r.bottomLeft()});
         break;
     }
     page.items << item;

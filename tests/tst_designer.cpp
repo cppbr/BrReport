@@ -162,11 +162,11 @@ bool dropInTree(QTreeWidget *tree, const QPoint &pos)
     QMimeData mime;
     mime.setData(tree->model()->mimeTypes().constFirst(), QByteArray());
     QWidget *viewport = tree->viewport();
-    QDragEnterEvent enter(QPointF(pos), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+    QDragEnterEvent enter(pos, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
     QCoreApplication::sendEvent(viewport, &enter);
     if (!enter.isAccepted())
         return false;
-    QDragMoveEvent move(QPointF(pos), Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+    QDragMoveEvent move(pos, Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
     QCoreApplication::sendEvent(viewport, &move);
     if (!move.isAccepted()) {
         QDragLeaveEvent leave;
@@ -1246,7 +1246,9 @@ private slots:
         auto *text = f.addText(f.first, QRectF(0, 0, 10, 5));
         auto *tree = f.widget.findChild<QTreeWidget *>();
         QVERIFY(QTest::qWaitForWindowExposed(&f.widget));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 3, 0)
         QTest::failOnWarning(QRegularExpression(QStringLiteral("unable to save type")));
+#endif
 
         // The offscreen platform ends the drag at once, but only after asking for its data.
         QWindow *window = f.widget.windowHandle();
@@ -1344,7 +1346,7 @@ private slots:
         properties.properties = true;
         readOnly->setProtection(properties);
         BrProtection name;
-        name.hiddenProperties = {QStringLiteral("objectName")};
+        name.hiddenProperties = QStringList{QStringLiteral("objectName")};
         hidden->setProtection(name);
         f.commit();
         auto *tree = f.widget.findChild<QTreeWidget *>();

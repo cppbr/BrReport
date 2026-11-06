@@ -29,7 +29,7 @@ target_link_libraries(BrReportWidgets PUBLIC
 # --- Translations: .ts -> .qm, embedded as resources (:/brreport/translations)
 file(GLOB BRREPORT_TS_FILES ${PROJECT_SOURCE_DIR}/translations/*.ts)
 find_package(${BRREPORT_QT} QUIET COMPONENTS LinguistTools)
-if(TARGET ${BRREPORT_QT}::lrelease AND QT_VERSION_MAJOR GREATER_EQUAL 6)
+if(TARGET ${BRREPORT_QT}::lrelease)
     set(BRREPORT_QM_FILES)
     foreach(ts ${BRREPORT_TS_FILES})
         get_filename_component(base ${ts} NAME_WE)
@@ -39,13 +39,29 @@ if(TARGET ${BRREPORT_QT}::lrelease AND QT_VERSION_MAJOR GREATER_EQUAL 6)
             DEPENDS ${ts} VERBATIM)
         list(APPEND BRREPORT_QM_FILES ${qm})
     endforeach()
-    qt_add_resources(BrReportWidgets brreport_translations
-        PREFIX /brreport/translations
-        BASE ${CMAKE_CURRENT_BINARY_DIR}/translations
-        FILES ${BRREPORT_QM_FILES})
+    if(QT_VERSION_MAJOR GREATER_EQUAL 6)
+        qt_add_resources(BrReportWidgets brreport_translations
+            PREFIX /brreport/translations
+            BASE ${CMAKE_CURRENT_BINARY_DIR}/translations
+            FILES ${BRREPORT_QM_FILES})
+    else()
+        # Qt 5 has no resource target: rcc runs by hand, once the .qm files exist.
+        set(qrc ${CMAKE_CURRENT_BINARY_DIR}/translations/brreport_translations.qrc)
+        set(qrc_files "")
+        foreach(qm ${BRREPORT_QM_FILES})
+            get_filename_component(name ${qm} NAME)
+            string(APPEND qrc_files "<file>${name}</file>")
+        endforeach()
+        file(WRITE ${qrc} "<RCC><qresource prefix=\"/brreport/translations\">${qrc_files}</qresource></RCC>")
+        set(qrc_cpp ${CMAKE_CURRENT_BINARY_DIR}/qrc_brreport_translations.cpp)
+        add_custom_command(OUTPUT ${qrc_cpp}
+            COMMAND ${BRREPORT_QT}::rcc --name brreport_translations -o ${qrc_cpp} ${qrc}
+            DEPENDS ${BRREPORT_QM_FILES} VERBATIM)
+        target_sources(BrReportWidgets PRIVATE ${qrc_cpp})
+    endif()
     target_compile_definitions(BrReportWidgets PRIVATE BRREPORT_HAS_TRANSLATIONS)
 else()
-    message(WARNING "BrReport: Qt LinguistTools (Qt 6) not found, the user interface will not be translated.")
+    message(WARNING "BrReport: Qt LinguistTools not found, the user interface will not be translated.")
 endif()
 
 set_target_properties(BrReportWidgets PROPERTIES

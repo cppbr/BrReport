@@ -13,6 +13,9 @@ follows [Semantic Versioning](https://semver.org/).
 - `hideIfEmpty` also gives up the space of the object: the objects below move up and the band gets
   shorter (with `shiftOnStretch`, the default), so an empty line of an address leaves no gap.
 
+### Fixed
+- BrReport builds with Qt 5.15 as promised, and the translations are embedded there too.
+
 ### Changed
 - The `master_detail_sql` and `grouped_sales` examples use declarative properties only, so `--save`
   writes complete report files.

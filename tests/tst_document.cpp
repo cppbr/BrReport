@@ -18,6 +18,7 @@
 #include "brreportcore.h"
 
 #include <QBuffer>
+#include <QtMath>
 #include <QTemporaryDir>
 #include <QTest>
 

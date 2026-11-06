@@ -92,6 +92,12 @@
 
 namespace {
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+using TreeItems = const QList<QTreeWidgetItem *> &;
+#else
+using TreeItems = const QList<QTreeWidgetItem *>;
+#endif
+
 const char kSettingsGroup[] = "designer";
 const int kMaxRecentFiles = 8;
 
@@ -236,7 +242,7 @@ public:
 
 protected:
     QStringList mimeTypes() const override { return {QStringLiteral(BRREPORT_OBJECT_MIME)}; }
-    QMimeData *mimeData(const QList<QTreeWidgetItem *> &items) const override
+    QMimeData *mimeData(TreeItems items) const override
     {
         if (items.isEmpty() || items.first()->data(0, Qt::UserRole).isNull())
             return nullptr;
@@ -281,7 +287,7 @@ public:
 protected:
     // The default would serialize the items, and their objects cannot be: the selection says what moves.
     QStringList mimeTypes() const override { return {structureMime()}; }
-    QMimeData *mimeData(const QList<QTreeWidgetItem *> &) const override
+    QMimeData *mimeData(TreeItems) const override
     {
         auto *mime = new QMimeData;
         mime->setData(structureMime(), QByteArray());
@@ -358,7 +364,11 @@ private:
                 return target;
 
         // A row inside a sibling counts as that sibling, with everything it contains.
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         const QPoint pos = event->position().toPoint();
+#else
+        const QPoint pos = event->pos();
+#endif
         QTreeWidgetItem *anchor = itemAt(pos);
         while (anchor && anchor->parent() != parentItem)
             anchor = anchor->parent();

@@ -86,7 +86,7 @@ BrPageItem BrPageItem::makeLine(const QPointF &p1, const QPointF &p2, const QCol
 {
     BrPageItem it;
     it.kind = Line;
-    it.points = QPolygonF({p1, p2});
+    it.points = QPolygonF(QVector<QPointF>{p1, p2});
     it.rect = QRectF(p1, p2).normalized();
     it.penColor = pen;
     it.penWidth = penWidth;

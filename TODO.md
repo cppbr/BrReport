@@ -14,8 +14,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
       `CMakeLists.txt`.
 - [ ] Continuous integration (GitHub Actions): Linux, Windows (MSVC and MinGW) and macOS, Qt 5.15
       and Qt 6; build badge in the README.
-- [ ] Build and test with Qt 5.15 (only Qt 6 has been tested); embed translations with Qt 5 too
-      (`qt5_add_translation`).
 - [ ] API reference with Doxygen (the public headers are already documented).
 - [ ] Packages: vcpkg and Conan recipes.
 - [ ] More translations (Spanish first).

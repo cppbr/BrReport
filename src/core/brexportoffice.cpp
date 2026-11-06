@@ -286,7 +286,9 @@ private:
 };
 
 /*! A drawing object positioned on the page. */
-QByteArray rtfShape(const QRectF &r, int type, const QList<QPair<const char *, int>> &properties, int order)
+using ShapeProperties = QList<QPair<QByteArray, int>>;
+
+QByteArray rtfShape(const QRectF &r, int type, const ShapeProperties &properties, int order)
 {
     QByteArray out = "{\\shp{\\*\\shpinst\\shpleft" + QByteArray::number(twips(r.left()))
                      + "\\shptop" + QByteArray::number(twips(r.top()))
@@ -296,7 +298,7 @@ QByteArray rtfShape(const QRectF &r, int type, const QList<QPair<const char *, i
                      + QByteArray::number(order)
                      + "{\\sp{\\sn shapeType}{\\sv " + QByteArray::number(type) + "}}";
     for (const auto &p : properties)
-        out += QByteArray("{\\sp{\\sn ") + p.first + "}{\\sv " + QByteArray::number(p.second) + "}}";
+        out += "{\\sp{\\sn " + p.first + "}{\\sv " + QByteArray::number(p.second) + "}}";
     return out + "}}\n";
 }
 
@@ -309,17 +311,17 @@ QByteArray rtfShapeOf(const BrPageItem &item, int order)
 {
     const bool filled = item.brushColor.isValid() && item.kind != BrPageItem::Line;
     const bool outlined = item.penStyle != Qt::NoPen && item.penColor.isValid();
-    QList<QPair<const char *, int>> properties{{"fFilled", filled ? 1 : 0}, {"fLine", outlined ? 1 : 0}};
+    ShapeProperties properties{{"fFilled", filled ? 1 : 0}, {"fLine", outlined ? 1 : 0}};
     if (filled)
-        properties << qMakePair("fillColor", rtfColor(item.brushColor));
+        properties.append({"fillColor", rtfColor(item.brushColor)});
     if (outlined) {
-        properties << qMakePair("lineColor", rtfColor(item.penColor));
-        properties << qMakePair("lineWidth", qRound(std::max(item.penWidth, 0.1) * 36000.0));
+        properties.append({"lineColor", rtfColor(item.penColor)});
+        properties.append({"lineWidth", qRound(std::max(item.penWidth, 0.1) * 36000.0)});
     }
     if (item.kind == BrPageItem::Line) {
         const QPointF a = item.points.at(0), b = item.points.at(1);
         if ((a.x() < b.x()) != (a.y() < b.y()) && a.x() != b.x() && a.y() != b.y())
-            properties << qMakePair("fFlipV", 1);
+            properties.append({"fFlipV", 1});
         return rtfShape(QRectF(a, b).normalized(), 20, properties, order);
     }
     return rtfShape(item.rect, item.kind == BrPageItem::Ellipse ? 3 : 1, properties, order);

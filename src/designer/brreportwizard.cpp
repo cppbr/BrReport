@@ -230,7 +230,7 @@ public:
         sqlForm->addRow(BrReportWizard::tr("Connection"), m_connection);
         sqlForm->addRow(BrReportWizard::tr("SQL"), m_sql);
         layout->addWidget(m_sqlBox, 1);
-        connect(m_source, &QComboBox::currentIndexChanged, this, [this]() {
+        connect(m_source, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
             m_sqlBox->setVisible(m_source->currentData().isNull());
         });
         m_sqlBox->setVisible(m_source->currentData().isNull());
