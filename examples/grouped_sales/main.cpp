@@ -100,9 +100,7 @@ int main(int argc, char *argv[])
 
     // Group 2: month, nested in the region group
     auto *byMonth = new BrGroup(byRegion);
-    byMonth->setKeyFunction([](BrRenderContext &ctx) {
-        return ctx.fieldValue(QStringLiteral("date")).toDate().month();
-    });
+    byMonth->setDataFormula(QStringLiteral("month(date)"));
 
     BrBand *monthTitle = byMonth->addBand(Br::BandType::Title, 8);
     auto *monthName = new BrDBText(monthTitle);

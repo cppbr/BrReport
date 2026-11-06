@@ -80,17 +80,14 @@ int main(int argc, char *argv[])
     if (!createDatabase())
         return 1;
 
-    BrSqlDataSource invoices;
-    if (!invoices.exec(QStringLiteral("SELECT * FROM invoice ORDER BY id"))) {
-        QTextStream(stderr) << invoices.lastError() << Qt::endl;
-        return 1;
-    }
-    BrSqlDataSource items;
-
+    // The queries belong to the report, so --save writes a complete report file.
     BrReport report;
     report.setTitle(QStringLiteral("Invoices"));
     report.setLocale(QLocale(QLocale::English, QLocale::UnitedStates));
-    report.setDataSource(&invoices);
+    report.addQuery(QStringLiteral("invoices"), QStringLiteral("SELECT * FROM invoice ORDER BY id"));
+    report.addQuery(QStringLiteral("items"),
+                    QStringLiteral("SELECT * FROM item ORDER BY invoice_id, description"));
+    report.setDataSourceName(QStringLiteral("invoices"));
     report.setMargins(15, 15, 15, 15);
     const QString money = QStringLiteral("#,##0.00");
 
@@ -121,15 +118,11 @@ int main(int argc, char *argv[])
     code->setFont(QFont(QStringLiteral("Arial"), 7));
 
     // Detail records: invoice items
-    auto *lines = new BrSubDetail(&report, &items);
+    auto *lines = new BrSubDetail(&report);
+    lines->setDataSourceName(QStringLiteral("items"));
+    lines->setMasterFields(QStringLiteral("id"));
+    lines->setDetailFields(QStringLiteral("invoice_id"));
     lines->setResetPageNumber(true); // "page X of Y" counts the pages of each invoice
-    lines->setBeforeOpen([&items](BrSubDetail &, BrRenderContext &ctx) {
-        QSqlQuery q;
-        q.prepare(QStringLiteral("SELECT * FROM item WHERE invoice_id = ? ORDER BY description"));
-        q.addBindValue(ctx.fieldValue(QStringLiteral("id")));
-        q.exec();
-        items.setQuery(std::move(q));
-    });
 
     BrBand *cols = lines->addBand(Br::BandType::Header, 7);
     cols->setBorders(BrBorders::bottomOnly(0.3));

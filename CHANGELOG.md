@@ -13,6 +13,10 @@ follows [Semantic Versioning](https://semver.org/).
 - `hideIfEmpty` also gives up the space of the object: the objects below move up and the band gets
   shorter (with `shiftOnStretch`, the default), so an empty line of an address leaves no gap.
 
+### Changed
+- The `master_detail_sql` and `grouped_sales` examples use declarative properties only, so `--save`
+  writes complete report files.
+
 ### Added
 - SVG images, kept as vectors in PDF, from files, report files and data fields (`BrImage::svg`). QtSvg
   is an optional dependency (`BRREPORT_WITH_SVG`). The prepared report format is now version 3.

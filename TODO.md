@@ -8,12 +8,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 ## Objects and output
 
 
-## Examples
-
-- [ ] `master_detail_sql` and `grouped_sales` still use C++ lambdas (SQL re-query per invoice,
-      group by month): convert them to declarative properties (masterFields/detailFields, group
-      `dataFormula` such as `month(date)`) so that `--save` produces complete report files.
-
 ## Project
 
 - [ ] Publish the repository; replace `<repository-url>` in the README; add the homepage URL to
