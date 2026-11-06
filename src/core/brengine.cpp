@@ -22,6 +22,13 @@
 #include "brpager.h"
 #include "brreport.h"
 #include "brtextcontrols.h"
+#include "brtextmetrics.h"
+
+#include <QHash>
+
+#include <algorithm>
+#include <functional>
+#include <limits>
 
 namespace {
 const double kEpsilon = 0.001;
@@ -524,6 +531,8 @@ void BrEngine::printBand(BrBand *band, Mode mode, double *fixedY)
         band->prepare(*this);
         double h = band->measureHeight(*this, width);
         const bool newRow = !multiColumn || m_columnBand != band || m_column == 0;
+        const bool canSplit = mode == Mode::Flow && !multiColumn && !m_report->isContinuous();
+        const bool splittable = canSplit && band->allowSplit();
 
         if (mode == Mode::Flow) {
             bool broke = false;
@@ -532,7 +541,7 @@ void BrEngine::printBand(BrBand *band, Mode mode, double *fixedY)
                     newPage();
                     broke = true;
                 }
-                if (!broke && m_y + h > bottomLimit() + kEpsilon && pageHasBody()) {
+                if (!broke && m_y + h > bottomLimit() + kEpsilon && pageHasBody() && !splittable) {
                     newPage();
                     broke = true;
                 }
@@ -564,7 +573,12 @@ void BrEngine::printBand(BrBand *band, Mode mode, double *fixedY)
             x = m_left + m_column * (width + band->columnSpacing());
             y = m_rowTop;
         }
-        band->render(*this, QRectF(x, y, width, h), m_doc->pages.last());
+        // A band that is alone on the page and still does not fit can only be split.
+        const bool split = canSplit && y + h > bottomLimit() + kEpsilon && (splittable || !pageHasBody());
+        if (split)
+            printSplit(band, x, width, h);
+        else
+            band->render(*this, QRectF(x, y, width, h), m_doc->pages.last());
         band->setBackground(savedBackground);
 
         if (multiColumn) {
@@ -575,7 +589,7 @@ void BrEngine::printBand(BrBand *band, Mode mode, double *fixedY)
             m_column = (m_column + 1) % band->columns();
         } else if (fixedY) {
             *fixedY += h;
-        } else {
+        } else if (!split) {
             m_y += h;
         }
         band->callAfterPrint();
@@ -583,6 +597,140 @@ void BrEngine::printBand(BrBand *band, Mode mode, double *fixedY)
             m_pendingBreak = true;
     }
     m_carbon = 1;
+}
+
+void BrEngine::printSplit(BrBand *band, double x, double width, double height)
+{
+    BrPage whole;
+    QList<QRectF> keep;
+    m_keepAreas = &keep;
+    band->render(*this, QRectF(x, 0, width, height), whole);
+    m_keepAreas = nullptr;
+
+    // An item of the band, in coordinates from the top of the band.
+    struct Part
+    {
+        QRectF bounds;
+        QRectF block;                       // what must stay on one page with the item
+        bool cuttable = false;              // frames: drawn on every page they pass through
+        QList<QPair<double, double>> lines; // rich text: cut between these lines
+        double shown = 0.0;                 // rich text: printed down to here
+        bool placed = false;
+    };
+    QList<Part> parts;
+    parts.reserve(whole.items.size());
+    for (const BrPageItem &item : std::as_const(whole.items)) {
+        Part part;
+        part.bounds = item.points.isEmpty() ? item.rect : item.points.boundingRect();
+        part.block = part.bounds;
+        const bool verticalLine = item.kind == BrPageItem::Line && item.points.size() == 2
+                                  && qFuzzyCompare(item.points.at(0).x() + 1.0, item.points.at(1).x() + 1.0);
+        part.cuttable = part.bounds.height() > kEpsilon && (item.kind == BrPageItem::Rect || verticalLine);
+        for (const QRectF &area : std::as_const(keep)) {
+            if (area.contains(part.bounds.center()) && part.bounds.height() <= area.height() + kEpsilon) {
+                part.block = area;
+                part.cuttable = false;
+                break;
+            }
+        }
+        if (item.kind == BrPageItem::RichText) {
+            part.shown = part.bounds.top();
+            const auto lines = BrTextMetrics::richTextLines(item.font, item.text, item.rect.width());
+            for (const auto &line : lines)
+                part.lines << qMakePair(part.bounds.top() + line.first, part.bounds.top() + line.second);
+        }
+        parts << part;
+    }
+    const auto isRich = [&whole](int i) { return whole.items.at(i).kind == BrPageItem::RichText; };
+
+    // Calls \a visit with the top of each piece that goes past \a limit.
+    const auto forEachLeftOver = [&](double limit, const std::function<void(int, double, double)> &visit) {
+        for (int i = 0; i < parts.size(); ++i) {
+            const Part &part = parts.at(i);
+            if (isRich(i)) {
+                for (const auto &line : part.lines)
+                    if (line.second > limit + kEpsilon && line.first >= part.shown - kEpsilon)
+                        visit(i, line.first, line.second);
+            } else if (!part.cuttable && !part.placed && part.block.bottom() > limit + kEpsilon) {
+                visit(i, part.block.top(), part.block.bottom());
+            }
+        }
+    };
+    const auto nextTop = [&](double limit) {
+        double next = limit;
+        forEachLeftOver(limit, [&next](int, double top, double) { next = std::min(next, top); });
+        return next;
+    };
+
+    // Puts on the page what is complete down to \a limit, \a top being at the current position.
+    // What is left over goes to the next page whole, so columns of text with lines of
+    // different heights lose at most one line each.
+    const auto place = [&](double top, double limit) {
+        QHash<int, double> richEnd;
+        forEachLeftOver(limit, [&](int i, double lineTop, double) {
+            if (isRich(i))
+                richEnd[i] = std::min(richEnd.value(i, limit), lineTop);
+        });
+        const double dy = m_y - top;
+        QList<BrPageItem> &items = m_doc->pages.last().items;
+        for (int i = 0; i < parts.size(); ++i) {
+            Part &part = parts[i];
+            BrPageItem item = whole.items.at(i);
+            if (isRich(i) || part.cuttable) {
+                const double from = isRich(i) ? part.shown : std::max(part.bounds.top(), top);
+                const double to = std::min(part.bounds.bottom(), isRich(i) ? richEnd.value(i, limit) : limit);
+                if (to - from <= kEpsilon)
+                    continue;
+                if (isRich(i)) {
+                    item.textOffset = from - part.bounds.top();
+                    part.shown = to;
+                }
+                if (item.points.isEmpty()) {
+                    item.rect.setTop(from);
+                    item.rect.setBottom(to);
+                } else {
+                    item.points[0].setY(from);
+                    item.points[1].setY(to);
+                }
+            } else {
+                if (part.placed || part.block.bottom() > limit + kEpsilon)
+                    continue;
+                part.placed = true;
+            }
+            item.rect.translate(0, dy);
+            item.points.translate(0, dy);
+            items << item;
+        }
+    };
+
+    double top = 0.0;
+    while (!aborted()) {
+        const double available = bottomLimit() - m_y;
+        if (height - top <= available + kEpsilon) {
+            place(top, std::numeric_limits<double>::max());
+            m_y += height - top;
+            return;
+        }
+        double limit = top + available;
+        double next = nextTop(limit);
+        if (next <= top + kEpsilon) {
+            if (pageHasBody()) { // nothing fits here, but it may on an empty page
+                newPage();
+                continue;
+            }
+            // Taller than a page: it goes over the bottom, as there is nowhere else to put it.
+            limit = top + std::max(available, 1.0);
+            const double reference = limit;
+            forEachLeftOver(reference, [&](int, double pieceTop, double pieceBottom) {
+                if (pieceTop <= top + kEpsilon)
+                    limit = std::max(limit, pieceBottom);
+            });
+            next = nextTop(limit);
+        }
+        place(top, limit);
+        top = next;
+        newPage();
+    }
 }
 
 bool BrEngine::bandPrintsOnThisPage(BrBand *band) const

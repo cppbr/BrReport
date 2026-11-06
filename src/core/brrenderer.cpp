@@ -123,9 +123,10 @@ void BrRenderer::renderItem(QPainter *p, const BrPageItem &item, double deviceDp
         auto doc = BrTextMetrics::richDocument(item.font, item.text, item.rect.width(), item.alignment);
         const double refPxToUnits = 25.4 * UnitsPerMm / BrTextMetrics::referenceDpi();
         p->save();
-        p->translate(item.rect.topLeft() * UnitsPerMm);
+        p->translate((item.rect.topLeft() - QPointF(0, item.textOffset)) * UnitsPerMm);
         p->scale(refPxToUnits, refPxToUnits);
-        const QRectF clip(0, 0, item.rect.width() * BrTextMetrics::referenceDpi() / 25.4,
+        const QRectF clip(0, item.textOffset * BrTextMetrics::referenceDpi() / 25.4,
+                          item.rect.width() * BrTextMetrics::referenceDpi() / 25.4,
                           item.rect.height() * BrTextMetrics::referenceDpi() / 25.4);
         QAbstractTextDocumentLayout::PaintContext context;
         context.palette.setColor(QPalette::Text, item.textColor);

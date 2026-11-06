@@ -37,6 +37,7 @@ class BRREPORT_EXPORT BrBand : public BrContainer
     Q_PROPERTY(double height READ height WRITE setHeight)
     Q_PROPERTY(Br::BandType bandType READ bandType WRITE setBandType)
     Q_PROPERTY(Br::PageBreak pageBreak READ pageBreak WRITE setPageBreak)
+    Q_PROPERTY(bool allowSplit READ allowSplit WRITE setAllowSplit)
     Q_PROPERTY(int carbonCopies READ carbonCopies WRITE setCarbonCopies)
     Q_PROPERTY(QColor alternateBackground READ alternateBackground WRITE setAlternateBackground)
     Q_PROPERTY(bool printOnFirstPage READ printOnFirstPage WRITE setPrintOnFirstPage)
@@ -56,6 +57,16 @@ public:
 
     Br::PageBreak pageBreak() const { return m_pageBreak; }
     void setPageBreak(Br::PageBreak pageBreak) { m_pageBreak = pageBreak; }
+
+    /*!
+     * Prints the part of the band that fits on the page and continues the rest on
+     * the next one (long memos, contracts), instead of moving the whole band. Off by
+     * default. A band taller than a page is always split. Lines of text are not cut,
+     * and neither are images, barcodes or charts. Not used by bands with columns,
+     * by bands that are repeated on every page or on continuous pages.
+     */
+    bool allowSplit() const { return m_allowSplit; }
+    void setAllowSplit(bool on) { m_allowSplit = on; }
 
     /*! Number of times the band is printed in sequence (e.g. invoice copies). */
     int carbonCopies() const { return m_carbonCopies; }
@@ -98,6 +109,7 @@ public:
 private:
     Br::BandType m_type;
     Br::PageBreak m_pageBreak = Br::PageBreak::None;
+    bool m_allowSplit = false;
     int m_carbonCopies = 1;
     QColor m_alternateBackground;
     bool m_printOnFirstPage = true;

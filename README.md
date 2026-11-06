@@ -43,7 +43,7 @@ applications with a ready-made preview window, or in console and server programs
 - **Rich text**: HTML inside texts (`<b>`, `<i>`, colors, lists, simple tables).
 - **Charts**: pie, bars, horizontal bars and lines, from static values or a data source.
 - **Barcodes**: QR Code, Code 128, EAN-13 and Interleaved 2 of 5.
-- **Automatic layout**: page breaks, growing bands for long texts, objects pushed down by the ones
+- **Automatic layout**: page breaks, growing bands for long texts, bands split across pages, objects pushed down by the ones
   that grow above them, cells that stretch to the band height, aligned objects, borders and
   backgrounds.
 - **Band options**: zebra rows, multi-column details (labels and cards), group headers kept with
@@ -391,7 +391,6 @@ The detailed list of pending work is in [TODO.md](TODO.md).
 - More barcodes: PDF417, Data Matrix, Code 39
 - Designer: multi-page templates
 - More translations of the preview and the designer
-- Bands split across pages (very long texts)
 - XLSX, RTF and plain-text export
 - Translations of the preview window
 

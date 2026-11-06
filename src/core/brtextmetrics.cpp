@@ -20,6 +20,7 @@
 #include <QFontMetricsF>
 #include <QImage>
 #include <QAbstractTextDocumentLayout>
+#include <QTextBlock>
 #include <QTextDocument>
 #include <QTextLayout>
 #include <QTextOption>
@@ -134,6 +135,23 @@ std::unique_ptr<QTextDocument> BrTextMetrics::richDocument(const QFont &font, co
     doc->setHtml(html);
     doc->setTextWidth(std::max(1.0, widthMm * kRefDpi / 25.4));
     return doc;
+}
+
+QList<QPair<double, double>> BrTextMetrics::richTextLines(const QFont &font, const QString &html,
+                                                         double widthMm)
+{
+    QList<QPair<double, double>> lines;
+    const auto doc = richDocument(font, html, widthMm);
+    doc->size(); // lays out the whole document
+    for (QTextBlock block = doc->begin(); block.isValid(); block = block.next()) {
+        const double top = doc->documentLayout()->blockBoundingRect(block).top();
+        const QTextLayout *layout = block.layout();
+        for (int i = 0; i < layout->lineCount(); ++i) {
+            const QRectF line = layout->lineAt(i).rect();
+            lines << qMakePair(pxToMm(top + line.top()), pxToMm(top + line.bottom()));
+        }
+    }
+    return lines;
 }
 
 double BrTextMetrics::richTextHeight(const QFont &font, const QString &html, double widthMm)

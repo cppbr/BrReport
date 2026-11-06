@@ -54,6 +54,9 @@ public:
     /*! Height in mm of HTML text laid out at \a widthMm. */
     static double richTextHeight(const QFont &font, const QString &html, double widthMm);
 
+    /*! Top and bottom (mm, from the top of the text) of each line of HTML text. */
+    static QList<QPair<double, double>> richTextLines(const QFont &font, const QString &html, double widthMm);
+
     /*!
      * Creates a QTextDocument for HTML text laid out at \a widthMm on the reference
      * device (units: reference pixels, see referenceDpi()).

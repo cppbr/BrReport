@@ -167,6 +167,8 @@ public:
     virtual double measureHeight(BrRenderContext &ctx, double width);
     /*! Emits the drawing items for \a rect (absolute page mm). */
     virtual void render(BrRenderContext &ctx, const QRectF &rect, BrPage &page);
+    /*! Whether a page break can pass through the control when its band is split. */
+    virtual bool isSplittable() const { return false; }
 
 protected:
     /*! For subclasses whose parent is not a container (e.g. bands owned by a pager). */
@@ -219,6 +221,7 @@ public:
     bool checkPrint(BrRenderContext &ctx) override;
     void prepare(BrRenderContext &ctx) override;
     double measureHeight(BrRenderContext &ctx, double width) override;
+    bool isSplittable() const override { return true; }
     void render(BrRenderContext &ctx, const QRectF &rect, BrPage &page) override;
 
     struct Placement

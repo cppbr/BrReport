@@ -67,6 +67,7 @@ struct BRREPORT_EXPORT BrPageItem
     QColor textColor = Qt::black;
     int alignment = Qt::AlignLeft | Qt::AlignVCenter; //!< Qt::Alignment flags.
     double angle = 0.0; //!< Counter-clockwise rotation in degrees, around the rect center.
+    double textOffset = 0.0; //!< RichText: mm of the text above rect (shown on the previous page).
 
     // Image
     QImage image;

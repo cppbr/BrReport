@@ -7,6 +7,10 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Bands can be split across pages (`allowSplit`, *Allow split* in the designer): the part that fits
+  is printed and the rest continues on the next page, for very long memos and contracts, in plain
+  or HTML text. Lines of text, images, barcodes and charts are not cut. A band taller than a page is
+  always split, instead of going over the bottom of the page.
 - The designer can remember the window layout, the zoom and the recent files
   (`BrDesignerWidget::saveSettings()` / `restoreSettings()`, *File > Recent files*); `brdesigner`
   does it.

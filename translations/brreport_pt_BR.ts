@@ -1358,6 +1358,10 @@ Campos: %2</translation>
         <translation>Inferior</translation>
     </message>
     <message>
+        <source>Allow split</source>
+        <translation>Permitir dividir</translation>
+    </message>
+    <message>
         <source>Carbon copies</source>
         <translation>Vias</translation>
     </message>

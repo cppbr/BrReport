@@ -104,6 +104,7 @@ public:
 
     void prepare(BrRenderContext &ctx) override;
     double measureHeight(BrRenderContext &ctx, double width) override;
+    bool isSplittable() const override { return true; }
     void render(BrRenderContext &ctx, const QRectF &rect, BrPage &page) override;
 
 protected:

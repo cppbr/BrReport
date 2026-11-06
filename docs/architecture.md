@@ -80,7 +80,10 @@ printRecord():
    stretched memos; with `autoExpand()` the band grows to fit.
 4. If the band does not fit above the reserved bottom area, a new page is started (unless the page is
    still empty, which prevents infinite loops with bands taller than a page).
-5. `render()` appends `BrPageItem`s to the current page; `AfterPrint` runs.
+5. `render()` appends `BrPageItem`s to the current page; `AfterPrint` runs. A band with `allowSplit()`
+   that does not fit, or one that does not fit on an empty page, is rendered apart and its items are
+   placed page by page. What does not fit whole goes to the next page: lines of text and controls
+   whose `isSplittable()` is false. Backgrounds, borders and rich text continue there.
 
 The reserved bottom area is the sum of the report Footer bands plus the ColumnFooter bands of every
 open pager and the Footer bands of open groups/sub-details.

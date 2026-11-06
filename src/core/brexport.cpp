@@ -236,7 +236,8 @@ QString BrExport::toSvg(const BrPage &page)
               << "\"><div xmlns=\"http://www.w3.org/1999/xhtml\" style=\"font-family:'"
               << it.font.family().toHtmlEscaped() << "';font-size:" << num(Br::ptToMm(it.font.pointSizeF()))
               << "px;color:" << svgColor(it.textColor) << ";text-align:" << align
-              << ";line-height:1.15\">" << it.text << "</div></foreignObject>\n";
+              << ";line-height:1.15;margin-top:" << num(-it.textOffset) << "px\">" << it.text
+              << "</div></foreignObject>\n";
             break;
         }
         }

@@ -23,26 +23,29 @@
 
 namespace {
 const quint32 kMagic = 0x42525054; // "BRPT"
-const quint16 kFormatVersion = 1;
+const quint16 kFormatVersion = 2; // 2: textOffset
 
 void writeItem(QDataStream &out, const BrPageItem &it)
 {
     out << quint8(it.kind) << it.rect << it.penColor << it.penWidth << qint32(it.penStyle)
         << it.brushColor << it.radius << it.points << it.text << it.font << it.textColor
-        << qint32(it.alignment) << it.angle;
+        << qint32(it.alignment) << it.angle << it.textOffset;
     const bool hasImage = !it.image.isNull();
     out << hasImage;
     if (hasImage)
         out << it.image;
 }
 
-void readItem(QDataStream &in, BrPageItem &it)
+void readItem(QDataStream &in, BrPageItem &it, quint16 version)
 {
     quint8 kind = 0;
     qint32 penStyle = 0, alignment = 0;
     bool hasImage = false;
     in >> kind >> it.rect >> it.penColor >> it.penWidth >> penStyle >> it.brushColor >> it.radius
-        >> it.points >> it.text >> it.font >> it.textColor >> alignment >> it.angle >> hasImage;
+        >> it.points >> it.text >> it.font >> it.textColor >> alignment >> it.angle;
+    if (version >= 2)
+        in >> it.textOffset;
+    in >> hasImage;
     if (hasImage)
         in >> it.image;
     it.kind = BrPageItem::Kind(kind);
@@ -168,7 +171,7 @@ bool BrDocument::load(QIODevice *device)
         in >> page.size >> itemCount;
         for (qint32 i = 0; i < itemCount && in.status() == QDataStream::Ok; ++i) {
             BrPageItem item;
-            readItem(in, item);
+            readItem(in, item, version);
             page.items.append(item);
         }
         doc.pages.append(page);

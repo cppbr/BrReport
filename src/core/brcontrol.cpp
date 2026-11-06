@@ -285,8 +285,12 @@ void BrContainer::render(BrRenderContext &ctx, const QRectF &rect, BrPage &page)
     renderFrame(rect, page);
     QList<Placement> placements;
     layoutChildren(ctx, rect.width(), rect.height(), false, &placements);
-    for (const Placement &p : placements)
-        p.control->render(ctx, p.rect.translated(rect.topLeft()), page);
+    for (const Placement &p : placements) {
+        const QRectF childRect = p.rect.translated(rect.topLeft());
+        if (!p.control->isSplittable())
+            ctx.keepTogether(childRect);
+        p.control->render(ctx, childRect, page);
+    }
 }
 
 // ---------------------------------------------------------------------------

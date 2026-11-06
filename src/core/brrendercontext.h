@@ -73,6 +73,8 @@ public:
      * data-aware objects show placeholders such as "[field]".
      */
     virtual bool isDesignMode() const { return false; }
+    /*! Tells that a page break must not pass through \a rect, which is being rendered. */
+    virtual void keepTogether(const QRectF &rect) { Q_UNUSED(rect) }
 };
 
 #endif // BRRENDERCONTEXT_H

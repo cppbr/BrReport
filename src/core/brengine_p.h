@@ -61,6 +61,11 @@ public:
     int recNo() const override;
     int detailCount() const override { return m_detailCount; }
     int carbonCopy() const override { return m_carbon; }
+    void keepTogether(const QRectF &rect) override
+    {
+        if (m_keepAreas)
+            *m_keepAreas << rect;
+    }
     QVariant fieldValue(const QString &name, bool *found = nullptr) const override;
     QDateTime reportDateTime() const override { return m_dateTime; }
 
@@ -112,6 +117,7 @@ private:
 
     void printSlot(BrPager *pager, int bandType, Mode mode);
     void printBand(BrBand *band, Mode mode, double *fixedY = nullptr);
+    void printSplit(BrBand *band, double x, double width, double height);
 
     void newPage();
     void closePage();
@@ -158,6 +164,7 @@ private:
     double m_rowHeight = 0.0;
     int m_detailCount = 0;
     int m_carbon = 1;
+    QList<QRectF> *m_keepAreas = nullptr; // areas that printSplit() must not cut
     QString m_error;
 };
 

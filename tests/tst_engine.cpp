@@ -17,6 +17,8 @@
 
 #include "brreportcore.h"
 
+#include <QBuffer>
+#include <QImage>
 #include <QTest>
 
 namespace {
@@ -45,6 +47,24 @@ QList<QVariantMap> salesRows()
                             {QStringLiteral("city"), QString::fromLatin1(d.city)},
                             {QStringLiteral("amount"), d.amount}};
     return rows;
+}
+
+QString numberedLines(int count)
+{
+    QStringList lines;
+    for (int i = 0; i < count; ++i)
+        lines << QStringLiteral("line %1").arg(i);
+    return lines.join(QLatin1Char('\n'));
+}
+
+bool isBlank(const QImage &image)
+{
+    const QRgb background = image.pixel(0, 0);
+    for (int y = 0; y < image.height(); ++y)
+        for (int x = 0; x < image.width(); ++x)
+            if (image.pixel(x, y) != background)
+                return false;
+    return true;
 }
 
 QStringList allText(const BrDocument &doc)
@@ -224,6 +244,262 @@ private slots:
         QVERIFY(report.prepare());
         // A break after each record, but no empty page at the end.
         QCOMPARE(report.document().pageCount(), 4);
+    }
+
+    void splitBandContinuesOnNextPage()
+    {
+        BrReport report;
+        report.setPageSizeMm(100, 100);
+        new BrLabel(QStringLiteral("before"), report.addBand(Br::BandType::Detail, 60));
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        band->setAllowSplit(true);
+        auto *memo = new BrMemo(band);
+        memo->setGeometry(0, 0, 80, 5);
+        memo->setText(numberedLines(60));
+        new BrLabel(QStringLiteral("after"), report.addBand(Br::BandType::Detail, 5));
+        QVERIFY(report.prepare());
+
+        const BrDocument &doc = report.document();
+        QVERIFY(doc.pageCount() >= 2);
+        QVERIFY(doc.pageText(0).contains(QStringLiteral("line 0")));
+
+        // Every line once and in order, none out of the printable area
+        QStringList printed;
+        for (const QString &text : allText(doc))
+            if (text.startsWith(QStringLiteral("line ")))
+                printed << text;
+        QCOMPARE(printed, numberedLines(60).split(QLatin1Char('\n')));
+        const QRectF content = report.contentRect();
+        for (const BrPage &page : doc.pages)
+            for (const BrPageItem &item : page.items) {
+                QVERIFY(item.rect.bottom() <= content.bottom() + 0.01);
+                QVERIFY(item.rect.top() >= content.top() - 0.01);
+            }
+
+        // The part on the next page starts at the top, and the next band follows the text
+        double lastBottom = 0, afterTop = 0;
+        for (const BrPageItem &item : doc.pages.last().items) {
+            if (item.text == QStringLiteral("after")) {
+                afterTop = item.rect.top();
+            } else {
+                lastBottom = std::max(lastBottom, item.rect.bottom());
+            }
+        }
+        QVERIFY(doc.pages.last().items.size() > 1);
+        QVERIFY(afterTop >= lastBottom - 0.01);
+    }
+
+    void bandWithoutSplitMovesWhole()
+    {
+        BrReport report;
+        report.setPageSizeMm(100, 100);
+        new BrLabel(QStringLiteral("before"), report.addBand(Br::BandType::Detail, 60));
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        auto *memo = new BrMemo(band);
+        memo->setGeometry(0, 0, 80, 5);
+        memo->setText(numberedLines(15));
+        QVERIFY(report.prepare());
+        QCOMPARE(report.document().pageCount(), 2);
+        QVERIFY(!report.document().pageText(0).contains(QStringLiteral("line 0")));
+    }
+
+    void bandTallerThanThePageIsAlwaysSplit()
+    {
+        BrReport report;
+        report.setPageSizeMm(100, 100);
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        auto *memo = new BrMemo(band);
+        memo->setGeometry(0, 0, 80, 5);
+        memo->setText(numberedLines(100));
+        QVERIFY(report.prepare());
+        const BrDocument &doc = report.document();
+        QVERIFY(doc.pageCount() >= 2);
+        QCOMPARE(allText(doc).filter(QStringLiteral("line ")).size(), 100);
+        for (const BrPage &page : doc.pages)
+            for (const BrPageItem &item : page.items)
+                QVERIFY(item.rect.bottom() <= report.contentRect().bottom() + 0.01);
+    }
+
+    void splitLeavesRoomForTheFooter()
+    {
+        BrReport report;
+        report.setPageSizeMm(100, 100);
+        new BrLabel(QStringLiteral("page footer"), report.addBand(Br::BandType::Footer, 10));
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        band->setAllowSplit(true);
+        auto *memo = new BrMemo(band);
+        memo->setGeometry(0, 0, 80, 5);
+        memo->setText(numberedLines(60));
+        QVERIFY(report.prepare());
+        const double limit = report.contentRect().bottom() - 10;
+        for (const BrPage &page : report.document().pages)
+            for (const BrPageItem &item : page.items)
+                if (item.text != QStringLiteral("page footer"))
+                    QVERIFY(item.rect.bottom() <= limit + 0.01);
+    }
+
+    void splitDoesNotCutLinesSideBySide()
+    {
+        BrReport report;
+        report.setPageSizeMm(100, 100);
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        band->setAllowSplit(true);
+        auto *left = new BrMemo(band);
+        left->setGeometry(0, 0, 40, 5);
+        left->setText(numberedLines(70));
+        auto *right = new BrMemo(band);
+        right->setGeometry(45, 0, 40, 5);
+        QFont big = right->font();
+        big.setPointSizeF(big.pointSizeF() * 1.7);
+        right->setFont(big);
+        right->setText(numberedLines(40));
+        QVERIFY(report.prepare());
+
+        QCOMPARE(allText(report.document()).filter(QStringLiteral("line ")).size(), 70 + 40);
+        for (const BrPage &page : report.document().pages)
+            for (const BrPageItem &item : page.items)
+                QVERIFY(item.rect.bottom() <= report.contentRect().bottom() + 0.01);
+    }
+
+    void splitCutsFramesAndBackground()
+    {
+        BrReport report;
+        report.setPageSizeMm(100, 100);
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        band->setAllowSplit(true);
+        band->setBackground(Qt::yellow);
+        auto *memo = new BrMemo(band);
+        memo->setGeometry(0, 0, 80, 5);
+        memo->setText(numberedLines(100));
+        QVERIFY(report.prepare());
+
+        const BrDocument &doc = report.document();
+        QVERIFY(doc.pageCount() >= 2);
+        double total = 0;
+        for (const BrPage &page : doc.pages) {
+            int backgrounds = 0;
+            for (const BrPageItem &item : page.items) {
+                if (item.kind == BrPageItem::Rect && item.brushColor == QColor(Qt::yellow)) {
+                    ++backgrounds;
+                    total += item.rect.height();
+                }
+            }
+            QCOMPARE(backgrounds, 1);
+        }
+        double lines = BrTextMetrics::lineHeight(memo->font()) * 100;
+        QVERIFY(total >= lines - 0.01); // the whole text has a background
+    }
+
+    void splitKeepsImagesWhole()
+    {
+        BrReport report;
+        report.setPageSizeMm(100, 100);
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        band->setAllowSplit(true);
+        auto *memo = new BrMemo(band);
+        memo->setGeometry(0, 0, 40, 5);
+        memo->setText(numberedLines(70));
+        QImage picture(10, 10, QImage::Format_RGB32);
+        picture.fill(Qt::red);
+        auto *image = new BrImage(band);
+        image->setImage(picture);
+        const double height = 30;
+        image->setGeometry(50, 70, 30, height); // on the page break
+        QVERIFY(report.prepare());
+
+        int images = 0;
+        for (const BrPage &page : report.document().pages)
+            for (const BrPageItem &item : page.items)
+                if (item.kind == BrPageItem::Image) {
+                    ++images;
+                    QVERIFY(item.rect.bottom() <= report.contentRect().bottom() + 0.01);
+                }
+        QCOMPARE(images, 1);
+    }
+
+    void splitRichText()
+    {
+        QString html;
+        for (int i = 0; i < 80; ++i)
+            html += QStringLiteral("<p>paragraph %1</p>").arg(i);
+
+        BrReport report;
+        report.setPageSizeMm(100, 100);
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        band->setAllowSplit(true);
+        auto *memo = new BrMemo(band);
+        memo->setGeometry(0, 0, 80, 5);
+        memo->setAllowHtml(true);
+        memo->setText(html);
+        QVERIFY(report.prepare());
+
+        const BrDocument &doc = report.document();
+        QVERIFY(doc.pageCount() >= 2);
+        double offset = -1, shown = 0;
+        for (const BrPage &page : doc.pages) {
+            const auto items = page.items;
+            for (const BrPageItem &item : items) {
+                if (item.kind != BrPageItem::RichText)
+                    continue;
+                QVERIFY(item.rect.bottom() <= report.contentRect().bottom() + 0.01);
+                QVERIFY(item.textOffset > offset); // each page shows the next part
+                offset = item.textOffset;
+                shown += item.rect.height();
+            }
+        }
+        QVERIFY(qAbs(shown - BrTextMetrics::richTextHeight(memo->font(), html, 80)) < 0.01);
+
+        // The second part is drawn, from the top of the page
+        const QImage image = BrRenderer::toImage(doc.pages.at(1), 96);
+        QVERIFY(!isBlank(image.copy(0, 0, image.width(), image.height() / 3)));
+
+        // The offset is kept in prepared reports
+        QBuffer buffer;
+        buffer.open(QIODevice::ReadWrite);
+        QVERIFY(doc.save(&buffer));
+        buffer.seek(0);
+        BrDocument loaded;
+        QVERIFY(loaded.load(&buffer));
+        QCOMPARE(loaded.pages.at(1).items.size(), doc.pages.at(1).items.size());
+        for (int i = 0; i < doc.pages.at(1).items.size(); ++i)
+            QCOMPARE(loaded.pages.at(1).items.at(i).textOffset, doc.pages.at(1).items.at(i).textOffset);
+    }
+
+    void splitIsKeptInReportFiles()
+    {
+        BrReport report;
+        report.addBand(Br::BandType::Detail, 5)->setAllowSplit(true);
+        BrReport loaded;
+        QVERIFY(loaded.loadFromJson(report.toJson()));
+        QVERIFY(loaded.bands(Br::BandType::Detail).first()->allowSplit());
+    }
+
+    void splitStopsAtTheMaximumOfPages()
+    {
+        BrReport report;
+        report.setPageSizeMm(100, 100);
+        report.setMaxPages(2);
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        auto *memo = new BrMemo(band);
+        memo->setGeometry(0, 0, 80, 5);
+        memo->setText(numberedLines(1000));
+        report.prepare();
+        QCOMPARE(report.document().pageCount(), 2);
+    }
+
+    void splitDoesNotApplyToColumnsOrContinuousPages()
+    {
+        BrReport report;
+        report.setPageSizeMm(100, 100);
+        report.setContinuous(true);
+        BrBand *band = report.addBand(Br::BandType::Detail, 5);
+        band->setAllowSplit(true);
+        auto *memo = new BrMemo(band);
+        memo->setGeometry(0, 0, 80, 5);
+        memo->setText(numberedLines(100));
+        QVERIFY(report.prepare());
+        QCOMPARE(report.document().pageCount(), 1);
+        QCOMPARE(allText(report.document()).filter(QStringLiteral("line ")).size(), 100);
     }
 
     void stretchingMemo()

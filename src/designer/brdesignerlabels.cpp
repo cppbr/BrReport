@@ -44,6 +44,7 @@ namespace {
     QT_TRANSLATE_NOOP("BrProperty", "Before"),
     QT_TRANSLATE_NOOP("BrProperty", "Borders"),
     QT_TRANSLATE_NOOP("BrProperty", "Bottom"),
+    QT_TRANSLATE_NOOP("BrProperty", "Allow split"),
     QT_TRANSLATE_NOOP("BrProperty", "Carbon copies"),
     QT_TRANSLATE_NOOP("BrProperty", "Carbon copy"),
     QT_TRANSLATE_NOOP("BrProperty", "Center"),
