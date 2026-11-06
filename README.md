@@ -309,7 +309,8 @@ BrTranslations::install();                                          // system la
 
 - C++17 compiler (GCC, Clang, MSVC, MinGW)
 - CMake 3.16 or newer
-- Qt 5.15 or Qt 6: Core and Gui; Widgets and PrintSupport for the preview; Sql for SQL data sources
+- Qt 5.15 or Qt 6: Core and Gui; Widgets and PrintSupport for the preview; Sql for SQL data sources;
+  Svg, optional, for SVG images
 
 ### Compilation
 
@@ -328,6 +329,7 @@ cmake --install build --prefix /usr/local
 | `BRREPORT_BUILD_WIDGETS` | `ON` | Preview and printing library |
 | `BRREPORT_BUILD_DESIGNER` | `ON` | Report designer library and `brdesigner` |
 | `BRREPORT_WITH_SQL` | `ON` | SQL data source (links Qt SQL) |
+| `BRREPORT_WITH_SVG` | `ON` | SVG images kept as vectors (links Qt SVG, if found) |
 | `BRREPORT_BUILD_EXAMPLES` | `ON` | Example programs |
 | `BRREPORT_BUILD_TOOLS` | `ON` | `brview` viewer and `brdesigner` application |
 | `BRREPORT_BUILD_TESTS` | `ON` | Unit tests |
