@@ -15,7 +15,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 - [ ] See the first run of the CI (`.github/workflows/ci.yml`: Linux, Windows with MSVC and MinGW,
       macOS, Qt 5.15 and Qt 6) and add the build badge to the README.
 - [ ] Try the Conan and vcpkg recipes in `packaging/`, and fill the repository of the vcpkg port.
-- [ ] More translations (Spanish first).
 
 ## Known limitations
 

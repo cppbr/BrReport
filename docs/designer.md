@@ -78,7 +78,7 @@ with the name hidden, cannot be renamed; objects with *Lock position and size* c
 
 ## Language
 
-The designer is translated into Brazilian Portuguese. Call `BrTranslations::install()` after creating
+The designer is translated into Brazilian Portuguese and Spanish. Call `BrTranslations::install()` after creating
 the `QApplication` to use the system language (`brdesigner` does it automatically).
 
 ## Embedding the designer

@@ -21,6 +21,7 @@ follows [Semantic Versioning](https://semver.org/).
   writes complete report files.
 
 ### Added
+- Spanish translation of the preview and the designer.
 - Conan and vcpkg recipes, in `packaging/`.
 - API reference with Doxygen (`cmake --build build --target docs`).
 - SVG images, kept as vectors in PDF, from files, report files and data fields (`BrImage::svg`). QtSvg

@@ -1757,6 +1757,24 @@ private slots:
         QCOMPARE(texts(page), QStringLiteral("Page # of ##"));
     }
 
+    void spanishTranslation()
+    {
+        QVERIFY(BrTranslations::availableLanguages().contains(QStringLiteral("es")));
+        QVERIFY(BrTranslations::install(QLocale(QLocale::Spanish, QLocale::Spain)));
+        {
+            BrDesignerWidget w;
+            QStringList menus;
+            for (QAction *a : w.menuBar()->actions())
+                menus << a->text().remove(QLatin1Char('&'));
+            QVERIFY2(menus.contains(QStringLiteral("Archivo")), qPrintable(menus.join(QLatin1Char(','))));
+            QVERIFY(menus.contains(QStringLiteral("Informe")));
+            QCOMPARE(BrPropertyEditor::labelFor(QStringLiteral("watermarkText")), QStringLiteral("Texto de la marca de agua"));
+            BrPreviewDialog preview;
+            QCOMPARE(preview.windowTitle(), QStringLiteral("Vista previa de impresión"));
+        }
+        BrTranslations::uninstall();
+    }
+
     void portugueseTranslation()
     {
         QVERIFY(BrTranslations::availableLanguages().contains(QStringLiteral("pt_BR")));
