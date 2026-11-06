@@ -36,6 +36,10 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QDir>
+#include <QDockWidget>
+#include <QFile>
+#include <QMenu>
 #include <QMenuBar>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
@@ -45,9 +49,11 @@
 #include <QScrollBar>
 #include <QSpinBox>
 #include <QSqlDatabase>
+#include <QSettings>
 #include <QSqlQuery>
 #include <QStatusBar>
 #include <QTableWidget>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QTextBlock>
 #include <QToolButton>
@@ -570,6 +576,127 @@ private slots:
         const double distance = bottom - f.toScene(moved, QPointF()).y();
         f.drag(f.toScene(moved, QPointF(5, 3)), QPointF(0, distance + 0.4));
         QCOMPARE(moved->y(), std::round(moved->y()));
+    }
+
+    void recentFilesAreListedAndOpened()
+    {
+        QTemporaryDir dir;
+        const auto path = [&dir](int i) { return dir.filePath(QStringLiteral("r&d %1.brt").arg(i)); };
+        {
+            BrDesignerWidget source;
+            for (int i = 0; i < 10; ++i) {
+                QVERIFY(source.report()->save(path(i)));
+            }
+        }
+
+        BrDesignerWidget widget;
+        auto *menu = widget.findChild<QMenu *>(QStringLiteral("recentFilesMenu"));
+        QVERIFY(menu);
+        QVERIFY(!menu->isEnabled());
+
+        for (int i = 0; i < 10; ++i)
+            QVERIFY(widget.openFile(path(i)));
+        QVERIFY(widget.openFile(path(5))); // back to the top, not listed twice
+        QVERIFY(menu->isEnabled());
+        QList<QAction *> actions = menu->actions();
+        QCOMPARE(actions.size(), 8 + 2); // the separator and Clear list
+        QCOMPARE(actions.first()->toolTip(), QDir::toNativeSeparators(path(5)));
+        QCOMPARE(actions.at(1)->toolTip(), QDir::toNativeSeparators(path(9)));
+        QCOMPARE(actions.first()->text(), QStringLiteral("&1 r&&d 5.brt"));
+
+        // Choosing one opens it, even though that rebuilds the menu
+        actions.at(1)->trigger();
+        QCoreApplication::processEvents();
+        QCOMPARE(widget.fileName(), path(9));
+        QCOMPARE(menu->actions().first()->toolTip(), QDir::toNativeSeparators(path(9)));
+
+        menu->actions().last()->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(!menu->isEnabled());
+    }
+
+    void savingAddsToRecentFiles()
+    {
+        QTemporaryDir dir;
+        const QString file = dir.filePath(QStringLiteral("saved.brt"));
+        BrDesignerWidget widget;
+        auto *menu = widget.findChild<QMenu *>(QStringLiteral("recentFilesMenu"));
+        widget.report()->save(file);
+        QVERIFY(widget.openFile(file));
+        menu->actions().last()->trigger(); // clear
+        QCoreApplication::processEvents();
+        QVERIFY(widget.save());
+        QCOMPARE(menu->actions().first()->toolTip(), QDir::toNativeSeparators(file));
+    }
+
+    void missingRecentFileLeavesTheList()
+    {
+        QTemporaryDir dir;
+        const QString kept = dir.filePath(QStringLiteral("kept.brt"));
+        const QString gone = dir.filePath(QStringLiteral("gone.brt"));
+        BrDesignerWidget widget;
+        widget.report()->save(kept);
+        widget.report()->save(gone);
+        QVERIFY(widget.openFile(kept));
+        QVERIFY(widget.openFile(gone));
+        QVERIFY(QFile::remove(gone));
+
+        auto *menu = widget.findChild<QMenu *>(QStringLiteral("recentFilesMenu"));
+        menu->actions().first()->trigger();
+        QTimer::singleShot(0, this, []() { QApplication::activeModalWidget()->close(); }); // the warning
+        QCoreApplication::processEvents();
+        QCOMPARE(menu->actions().size(), 1 + 2);
+        QCOMPARE(menu->actions().first()->toolTip(), QDir::toNativeSeparators(kept));
+    }
+
+    void settingsAreRestored()
+    {
+        QTemporaryDir dir;
+        const QString file = dir.filePath(QStringLiteral("report.brt"));
+        QSettings settings(dir.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat);
+        double scale = 0;
+        {
+            BrDesignerWidget widget;
+            widget.report()->save(file);
+            QVERIFY(widget.openFile(file));
+            widget.resize(900, 640);
+            widget.show();
+            widget.findChild<QDockWidget *>(QStringLiteral("dataDock"))->hide();
+            action(&widget, QStringLiteral("Zoom in"))->trigger();
+            scale = widget.findChild<BrDesignView *>()->transform().m11();
+            widget.saveSettings(settings);
+        }
+
+        BrDesignerWidget widget;
+        widget.restoreSettings(settings);
+        widget.show();
+        QCoreApplication::processEvents();
+        QCOMPARE(widget.height(), 640); // the width is limited by the offscreen screen
+        QVERIFY(widget.findChild<QDockWidget *>(QStringLiteral("dataDock"))->isHidden());
+        QVERIFY(!widget.findChild<QDockWidget *>(QStringLiteral("propertiesDock"))->isHidden());
+        QCOMPARE(widget.findChild<BrDesignView *>()->transform().m11(), scale);
+        auto *menu = widget.findChild<QMenu *>(QStringLiteral("recentFilesMenu"));
+        QCOMPARE(menu->actions().first()->toolTip(), QDir::toNativeSeparators(file));
+    }
+
+    void emptySettingsKeepTheDefaults()
+    {
+        QTemporaryDir dir;
+        QSettings settings(dir.filePath(QStringLiteral("settings.ini")), QSettings::IniFormat);
+        BrDesignerWidget widget;
+        const QSize size = widget.size();
+        const double scale = widget.findChild<BrDesignView *>()->transform().m11();
+        widget.restoreSettings(settings);
+        QCOMPARE(widget.size(), size);
+        QCOMPARE(widget.findChild<BrDesignView *>()->transform().m11(), scale);
+    }
+
+    void saveHandlerHidesRecentFiles()
+    {
+        BrDesignerWidget widget;
+        widget.setSaveHandler([](const QByteArray &) { return true; });
+        auto *menu = widget.findChild<QMenu *>(QStringLiteral("recentFilesMenu"));
+        QVERIFY(!menu->menuAction()->isVisible());
     }
 
     void distributeKeepsTheOutermostObjects()

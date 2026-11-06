@@ -44,6 +44,10 @@
         <translation>Salvar &amp;como...</translation>
     </message>
     <message>
+        <source>Recent &amp;files</source>
+        <translation>Arquivos &amp;recentes</translation>
+    </message>
+    <message>
         <source>&amp;Preview</source>
         <translation>&amp;Visualizar</translation>
     </message>
@@ -348,6 +352,10 @@
     <message>
         <source>Save the changes to the report?</source>
         <translation>Salvar as alterações do relatório?</translation>
+    </message>
+    <message>
+        <source>&amp;Clear list</source>
+        <translation>&amp;Limpar lista</translation>
     </message>
     <message>
         <source>%1%2 - Report Designer</source>

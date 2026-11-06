@@ -121,10 +121,11 @@ int main(int argc, char *argv[])
     BrTranslations::install(); // user interface in the system language (e.g. pt_BR)
 
     BrDesignerWidget designer;
+    QSettings settings;
+    designer.restoreSettings(settings);
 
 #ifdef BRREPORT_HAS_SQL
     // Reconnect to SQLite databases automatically (no password needed).
-    QSettings settings;
     if (settings.value(QStringLiteral("db/driver")).toString() == QLatin1String("QSQLITE")
         && !settings.value(QStringLiteral("db/database")).toString().isEmpty()) {
         QString error;
@@ -143,5 +144,7 @@ int main(int argc, char *argv[])
     if (args.size() > 1)
         designer.openFile(args.at(1));
     designer.show();
-    return app.exec();
+    const int result = app.exec();
+    designer.saveSettings(settings);
+    return result;
 }

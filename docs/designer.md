@@ -104,10 +104,20 @@ designer->setSaveHandler([id](const QByteArray &json) {
 });
 ```
 
-With a save handler, *Save* calls the handler, and *Open* and *Save as* are hidden. The
+With a save handler, *Save* calls the handler, and *Open*, *Save as* and *Recent files* are hidden. The
 `modifiedChanged()`, `saved()` and `fileNameChanged()` signals let the application follow the
 state, `maybeSave()` asks the user to save pending changes, and `fileMenu()` / `dataMenu()` accept
 extra actions.
+
+The window layout, the zoom and the recent files are kept only if the application asks for it, in
+the `QSettings` it chooses. `brdesigner` does this:
+
+```cpp
+QSettings settings;
+designer->restoreSettings(settings);   // before show() and before openFile()
+// ... and when the designer is closed:
+designer->saveSettings(settings);
+```
 
 Printing a designed report in the application:
 

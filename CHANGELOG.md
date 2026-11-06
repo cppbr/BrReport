@@ -7,6 +7,9 @@ follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- The designer can remember the window layout, the zoom and the recent files
+  (`BrDesignerWidget::saveSettings()` / `restoreSettings()`, *File > Recent files*); `brdesigner`
+  does it.
 - Multi-selection in the designer: *Format > Distribute horizontally / vertically*, and the position
   and size in the *Properties* panel apply to every selected object, one value at a time. Values
   that differ among the objects show as blank.

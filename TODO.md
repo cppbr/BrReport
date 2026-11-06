@@ -2,10 +2,6 @@
 
 Planned work, roughly in order of priority. See also the roadmap in the [README](README.md#roadmap).
 
-## Designer (end users)
-
-- [ ] Remember window layout, zoom and recent files (QSettings) in `brdesigner`.
-
 ## Report engine
 
 - [ ] **Bands split across pages** (very long memos, contracts): print the part that fits and

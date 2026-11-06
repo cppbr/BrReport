@@ -43,6 +43,7 @@
 #include <QDialogButtonBox>
 #include <QDockWidget>
 #include <QDrag>
+#include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
@@ -63,6 +64,7 @@
 #include <QMimeData>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSettings>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTimer>
@@ -89,6 +91,9 @@
 #include <algorithm>
 
 namespace {
+
+const char kSettingsGroup[] = "designer";
+const int kMaxRecentFiles = 8;
 
 bool isLayoutObject(const QObject *o)
 {
@@ -457,7 +462,10 @@ struct BrDesignerWidget::Private
     QAction *snapAction = nullptr;
     QList<QAction *> fileOnlyActions;
     QList<QAction *> developerActions;
+    QMenu *recentMenu = nullptr;
+    QStringList recentFiles;
     double zoom = 1.0;
+    bool zoomRestored = false;
     bool syncing = false;
     bool developerMode = false;
 };
@@ -532,7 +540,11 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
     saveAct->setShortcut(QKeySequence::Save);
     QAction *saveAsAct = m_fileMenu->addAction(tr("Save &as..."), this, &BrDesignerWidget::saveAs);
     saveAsAct->setShortcut(QKeySequence::SaveAs);
-    d->fileOnlyActions = {openAct, saveAsAct};
+    d->recentMenu = m_fileMenu->addMenu(tr("Recent &files"));
+    d->recentMenu->setObjectName(QStringLiteral("recentFilesMenu"));
+    d->recentMenu->setToolTipsVisible(true);
+    updateRecentMenu();
+    d->fileOnlyActions = {openAct, saveAsAct, d->recentMenu->menuAction()};
     m_fileMenu->addSeparator();
     QAction *previewAct = m_fileMenu->addAction(icon("document-print-preview", QStyle::SP_FileDialogContentsView),
                                                 tr("&Preview"), this, &BrDesignerWidget::preview);
@@ -770,8 +782,11 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
 
     newReport();
     setZoom(1.0);
-    // Fit the page to the window once it is shown.
-    QTimer::singleShot(0, fitAct, &QAction::trigger);
+    // Fit the page to the window once it is shown, unless the zoom was restored.
+    QTimer::singleShot(0, this, [this, fitAct]() {
+        if (!d->zoomRestored)
+            fitAct->trigger();
+    });
 }
 
 BrDesignerWidget::~BrDesignerWidget()
@@ -897,6 +912,7 @@ bool BrDesignerWidget::openFile(const QString &fileName)
         return false;
     }
     m_fileName = file;
+    addRecentFile(file);
     updateTitle();
     emit fileNameChanged(m_fileName);
     return true;
@@ -917,6 +933,7 @@ bool BrDesignerWidget::save()
         QMessageBox::warning(this, tr("Save report"), tr("Could not write '%1'.").arg(m_fileName));
         return false;
     }
+    addRecentFile(m_fileName);
     d->undo.setClean();
     emit saved();
     return true;
@@ -951,6 +968,69 @@ void BrDesignerWidget::closeEvent(QCloseEvent *event)
         event->accept();
     else
         event->ignore();
+}
+
+void BrDesignerWidget::saveSettings(QSettings &settings) const
+{
+    settings.beginGroup(QLatin1String(kSettingsGroup));
+    settings.setValue(QStringLiteral("geometry"), saveGeometry());
+    settings.setValue(QStringLiteral("windowState"), saveState());
+    settings.setValue(QStringLiteral("zoom"), d->zoom);
+    settings.setValue(QStringLiteral("recentFiles"), d->recentFiles);
+    settings.endGroup();
+}
+
+void BrDesignerWidget::restoreSettings(QSettings &settings)
+{
+    settings.beginGroup(QLatin1String(kSettingsGroup));
+    restoreGeometry(settings.value(QStringLiteral("geometry")).toByteArray());
+    restoreState(settings.value(QStringLiteral("windowState")).toByteArray());
+    if (settings.contains(QStringLiteral("zoom"))) {
+        setZoom(settings.value(QStringLiteral("zoom")).toDouble());
+        d->zoomRestored = true;
+    }
+    d->recentFiles = settings.value(QStringLiteral("recentFiles")).toStringList().mid(0, kMaxRecentFiles);
+    settings.endGroup();
+    updateRecentMenu();
+}
+
+void BrDesignerWidget::addRecentFile(const QString &fileName)
+{
+    const QString path = QFileInfo(fileName).absoluteFilePath();
+    d->recentFiles.removeAll(path);
+    d->recentFiles.prepend(path);
+    d->recentFiles = d->recentFiles.mid(0, kMaxRecentFiles);
+    updateRecentMenu();
+}
+
+void BrDesignerWidget::openRecentFile(const QString &fileName)
+{
+    // A file that is gone leaves the list; one that failed to open may be fixed later.
+    if (!openFile(fileName) && !QFileInfo::exists(fileName)) {
+        d->recentFiles.removeAll(fileName);
+        updateRecentMenu();
+    }
+}
+
+void BrDesignerWidget::updateRecentMenu()
+{
+    d->recentMenu->clear();
+    d->recentMenu->setEnabled(!d->recentFiles.isEmpty());
+    for (int i = 0; i < d->recentFiles.size(); ++i) {
+        const QString path = d->recentFiles.at(i);
+        QString name = QFileInfo(path).fileName();
+        name.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        QAction *a = d->recentMenu->addAction(QStringLiteral("&%1 %2").arg(i + 1).arg(name));
+        a->setToolTip(QDir::toNativeSeparators(path));
+        // Queued: opening the file rebuilds this menu, deleting the action.
+        connect(a, &QAction::triggered, this, [this, path]() { openRecentFile(path); }, Qt::QueuedConnection);
+    }
+    d->recentMenu->addSeparator();
+    QAction *clear = d->recentMenu->addAction(tr("&Clear list"));
+    connect(clear, &QAction::triggered, this, [this]() {
+        d->recentFiles.clear();
+        updateRecentMenu();
+    }, Qt::QueuedConnection);
 }
 
 void BrDesignerWidget::updateTitle()

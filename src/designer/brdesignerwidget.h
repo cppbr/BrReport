@@ -29,6 +29,7 @@ class BrDataSource;
 class BrReport;
 class QJsonObject;
 class QMenu;
+class QSettings;
 
 /*!
  * Visual report designer: page with bands and objects, toolbox, structure tree,
@@ -86,6 +87,21 @@ public:
     void setDeveloperMode(bool on);
     bool isDeveloperMode() const;
 
+    /*!
+     * Stores what the user arranged: window size, docks and toolbars, zoom and the
+     * recent files. The designer never touches the settings on its own, so an
+     * application chooses where they go, or leaves them out.
+     *
+     * \code
+     * QSettings settings;
+     * designer->restoreSettings(settings);   // before show() and before openFile()
+     * // ... and when the designer is closed:
+     * designer->saveSettings(settings);
+     * \endcode
+     */
+    void saveSettings(QSettings &settings) const;
+    void restoreSettings(QSettings &settings);
+
     /*! Menus, so applications can add their own actions. */
     QMenu *fileMenu() const { return m_fileMenu; }
     QMenu *dataMenu() const { return m_dataMenu; }
@@ -127,6 +143,9 @@ private:
     void rebuildTree();
     void rebuildDataPanel();
     void updateTitle();
+    void addRecentFile(const QString &fileName);
+    void openRecentFile(const QString &fileName);
+    void updateRecentMenu();
     void syncFromScene();
     void syncFromTree();
     void showProperties();
