@@ -24,6 +24,7 @@
 #define BRREPORT_VERSION_STR "@PROJECT_VERSION@"
 
 #cmakedefine BRREPORT_HAS_SQL
+#cmakedefine BRREPORT_HAS_SVG
 #cmakedefine BRREPORT_STATIC
 
 #endif // BRREPORT_CONFIG_H

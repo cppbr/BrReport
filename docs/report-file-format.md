@@ -70,7 +70,7 @@ Any report built in code can be saved with `report.save("file.brt")` (every exam
 | `DBText`, `DBMemo` | | `dataField`, `dataFormula`, `displayFormat`, `prefix`, `suffix` |
 | `DBResult` | | `dataField`/`dataFormula`, `resultType`, `resetAfterPrint`, `displayFormat` |
 | `SystemInfo` | | `info`, `format`, `displayFormat` |
-| `Image`, `DBImage` | | `image` (embedded PNG) / `dataField`, `scaling` |
+| `Image`, `DBImage` | | `image` (embedded PNG) or `svg` (XML) / `dataField`, `scaling` |
 | `Draw` | | `kind`, `penColor`, `penWidth`, `penStyle`, `fillColor`, `radius` |
 | `Barcode`, `DBBarcode` | | `barcodeType`, `text` / `dataField`, `showText`, `qrErrorCorrection`, `quietZone` |
 | `Chart` | | `chartType`, `title`, `labels`, `seriesData`, `dataSourceName`, `labelField`, `valueFields`, `showLegend`, `showValues`, `valueFormat` |

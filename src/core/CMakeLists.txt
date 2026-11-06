@@ -69,6 +69,9 @@ target_link_libraries(BrReportCore PUBLIC ${BRREPORT_QT}::Core ${BRREPORT_QT}::G
 if(BRREPORT_WITH_SQL)
     target_link_libraries(BrReportCore PUBLIC ${BRREPORT_QT}::Sql)
 endif()
+if(BRREPORT_HAS_SVG)
+    target_link_libraries(BrReportCore PRIVATE ${BRREPORT_QT}::Svg)
+endif()
 
 set_target_properties(BrReportCore PROPERTIES
     VERSION ${PROJECT_VERSION}

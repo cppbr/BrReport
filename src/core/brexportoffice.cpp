@@ -508,12 +508,14 @@ bool BrExport::toRtf(const BrDocument &doc, const QString &fileName)
                 if (item.points.size() >= 2)
                     shapes += rtfShapeOf(item, ++order);
                 break;
-            case BrPageItem::Polygon: {
-                // Pie slices and the like: drawn as an image.
-                const QRectF bounds = item.points.boundingRect();
+            case BrPageItem::Polygon:
+            case BrPageItem::Svg: {
+                // Pie slices, vector images: drawn as an image.
+                const QRectF bounds = item.points.isEmpty() ? item.rect : item.points.boundingRect();
                 BrPage piece;
                 piece.size = bounds.size();
                 BrPageItem moved = item;
+                moved.rect.translate(-bounds.topLeft());
                 moved.points.translate(-bounds.topLeft());
                 piece.items << moved;
                 body += rtfImage(bounds, BrRenderer::toImage(piece, 150.0, Qt::transparent));

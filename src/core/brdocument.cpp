@@ -23,7 +23,7 @@
 
 namespace {
 const quint32 kMagic = 0x42525054; // "BRPT"
-const quint16 kFormatVersion = 2; // 2: textOffset
+const quint16 kFormatVersion = 3; // 2: textOffset; 3: Svg items
 
 void writeItem(QDataStream &out, const BrPageItem &it)
 {

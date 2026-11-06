@@ -7,7 +7,6 @@ Planned work, roughly in order of priority. See also the roadmap in the [README]
 
 ## Objects and output
 
-- [ ] SVG images (QtSvg, optional dependency) kept as vectors in PDF.
 
 ## Examples
 

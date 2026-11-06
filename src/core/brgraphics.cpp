@@ -17,6 +17,13 @@
 
 #include "brgraphics.h"
 
+#include "brreport_config.h"
+
+#include <QFile>
+#ifdef BRREPORT_HAS_SVG
+#include <QSvgRenderer>
+#endif
+
 #include "brrendercontext.h"
 
 #include <QPixmap>
@@ -27,8 +34,47 @@
 
 BrImage::BrImage(BrContainer *parent) : BrControl(parent) {}
 
+namespace {
+
+bool isSvgFile(const QString &fileName)
+{
+    return fileName.endsWith(QLatin1String(".svg"), Qt::CaseInsensitive);
+}
+
+QString readSvg(const QString &fileName)
+{
+    QFile file(fileName);
+    return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString();
+}
+
+/*! Size in mm of an SVG image, at 96 dpi; invalid if it cannot be drawn. */
+QSizeF svgSize(const QString &xml)
+{
+#ifdef BRREPORT_HAS_SVG
+    const QSvgRenderer svg(xml.toUtf8());
+    if (svg.isValid())
+        return QSizeF(svg.defaultSize()) * (25.4 / 96.0);
+#else
+    Q_UNUSED(xml)
+#endif
+    return {};
+}
+
+} // namespace
+
 bool BrImage::load(const QString &fileName)
 {
+#ifdef BRREPORT_HAS_SVG
+    if (isSvgFile(fileName)) {
+        const QString xml = readSvg(fileName);
+        if (!svgSize(xml).isValid())
+            return false;
+        m_svg = xml;
+        m_image = QImage();
+        return true;
+    }
+#endif
+    m_svg.clear();
     return m_image.load(fileName);
 }
 
@@ -37,18 +83,13 @@ QImage BrImage::currentImage(BrRenderContext &)
     return m_image;
 }
 
-void BrImage::render(BrRenderContext &ctx, const QRectF &rect, BrPage &page)
+QString BrImage::currentSvg(BrRenderContext &)
 {
-    renderFrame(rect, page);
-    const QImage img = currentImage(ctx);
-    if (img.isNull() || rect.isEmpty())
-        return;
+    return m_svg;
+}
 
-    // "Natural" size of the image: use its own resolution, or 96 dpi if unknown.
-    const double dpiX = img.dotsPerMeterX() > 0 ? img.dotsPerMeterX() * 0.0254 : 96.0;
-    const double dpiY = img.dotsPerMeterY() > 0 ? img.dotsPerMeterY() * 0.0254 : 96.0;
-    const QSizeF natural(img.width() * 25.4 / dpiX, img.height() * 25.4 / dpiY);
-
+QRectF BrImage::placement(const QRectF &rect, const QSizeF &natural) const
+{
     QRectF target = rect;
     switch (m_scaling) {
     case Br::ImageScale::Stretch:
@@ -68,6 +109,42 @@ void BrImage::render(BrRenderContext &ctx, const QRectF &rect, BrPage &page)
         target.moveCenter(rect.center());
         break;
     }
+    return target;
+}
+
+void BrImage::render(BrRenderContext &ctx, const QRectF &rect, BrPage &page)
+{
+    renderFrame(rect, page);
+    if (rect.isEmpty())
+        return;
+    const QString xml = currentSvg(ctx);
+    const QSizeF svg = xml.isEmpty() ? QSizeF() : svgSize(xml);
+    if (svg.isValid()) {
+        QRectF target = placement(rect, svg);
+        if (!rect.contains(target)) { // vectors cannot be cropped by the source: fit them
+            QSizeF fitted = svg;
+            fitted.scale(rect.size(), Qt::KeepAspectRatio);
+            target = QRectF(QPointF(), fitted);
+            target.moveCenter(rect.center());
+        }
+        BrPageItem item;
+        item.kind = BrPageItem::Svg;
+        item.rect = target;
+        item.text = xml;
+        page.items << item;
+        return;
+    }
+
+    const QImage img = currentImage(ctx);
+    if (img.isNull())
+        return;
+
+    // "Natural" size of the image: use its own resolution, or 96 dpi if unknown.
+    const double dpiX = img.dotsPerMeterX() > 0 ? img.dotsPerMeterX() * 0.0254 : 96.0;
+    const double dpiY = img.dotsPerMeterY() > 0 ? img.dotsPerMeterY() * 0.0254 : 96.0;
+    const QSizeF natural(img.width() * 25.4 / dpiX, img.height() * 25.4 / dpiY);
+
+    const QRectF target = placement(rect, natural);
 
     // Clip images larger than the control by cropping the source.
     const QRectF visible = target.intersected(rect);
@@ -119,6 +196,20 @@ QImage BrDBImage::currentImage(BrRenderContext &ctx)
     default:
         return {};
     }
+}
+
+QString BrDBImage::currentSvg(BrRenderContext &ctx)
+{
+    if (ctx.isDesignMode())
+        return {};
+    const QVariant v = ctx.fieldValue(m_dataField);
+    if (v.userType() == QMetaType::QByteArray) {
+        const QByteArray bytes = v.toByteArray();
+        return bytes.left(1024).contains("<svg") ? QString::fromUtf8(bytes) : QString();
+    }
+    if (v.userType() == QMetaType::QString && isSvgFile(v.toString()))
+        return readSvg(v.toString());
+    return {};
 }
 
 // ---------------------------------------------------------------------------

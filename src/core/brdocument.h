@@ -47,7 +47,8 @@ struct BRREPORT_EXPORT BrPageItem
         Ellipse, //!< Ellipse inscribed in rect.
         Polygon, //!< Closed polygon (points).
         Image,   //!< Image stretched into rect.
-        RichText //!< HTML text (text) laid out in rect, using font and textColor as defaults.
+        RichText, //!< HTML text (text) laid out in rect, using font and textColor as defaults.
+        Svg      //!< SVG image (its XML in text) stretched into rect, kept as vectors.
     };
 
     Kind kind = Rect;

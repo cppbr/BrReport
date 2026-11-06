@@ -27,14 +27,22 @@ class BRREPORT_EXPORT BrImage : public BrControl
 {
     Q_OBJECT
     Q_PROPERTY(QImage image READ image WRITE setImage)
+    Q_PROPERTY(QString svg READ svg WRITE setSvg)
     Q_PROPERTY(Br::ImageScale scaling READ scaling WRITE setScaling)
 public:
     explicit BrImage(BrContainer *parent = nullptr);
 
     QImage image() const { return m_image; }
     void setImage(const QImage &image) { m_image = image; }
-    /*! Loads the image from a file or Qt resource (":/logo.png"). */
+    /*!
+     * Loads the image from a file or Qt resource (":/logo.png"). A ".svg" file is
+     * kept as vectors, when BrReport is built with QtSvg.
+     */
     bool load(const QString &fileName);
+
+    /*! XML of an SVG image; it prints instead of image(), sharp at any size. */
+    QString svg() const { return m_svg; }
+    void setSvg(const QString &xml) { m_svg = xml; }
 
     Br::ImageScale scaling() const { return m_scaling; }
     void setScaling(Br::ImageScale scaling) { m_scaling = scaling; }
@@ -44,15 +52,21 @@ public:
 protected:
     /*! Image to print for the current record. */
     virtual QImage currentImage(BrRenderContext &ctx);
+    /*! SVG to print for the current record, empty to print currentImage(). */
+    virtual QString currentSvg(BrRenderContext &ctx);
 
 private:
+    /*! Where an image of \a natural size goes inside \a rect. */
+    QRectF placement(const QRectF &rect, const QSizeF &natural) const;
+
     QImage m_image;
+    QString m_svg;
     Br::ImageScale m_scaling = Br::ImageScale::KeepAspect;
 };
 
 /*!
  * Image from a data field. The field may contain the encoded image
- * bytes (QByteArray: PNG, JPEG, ...), a QImage/QPixmap, or a file name.
+ * bytes (QByteArray: PNG, JPEG, SVG...), a QImage/QPixmap, or a file name.
  */
 class BRREPORT_EXPORT BrDBImage : public BrImage
 {
@@ -67,6 +81,7 @@ public:
 
 protected:
     QImage currentImage(BrRenderContext &ctx) override;
+    QString currentSvg(BrRenderContext &ctx) override;
 
 private:
     QString m_dataField;

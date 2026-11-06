@@ -22,8 +22,13 @@
 #include <QTextDocument>
 
 #include "brtextmetrics.h"
+#include "brreport_config.h"
+
 #include <QPainter>
 #include <QPainterPath>
+#ifdef BRREPORT_HAS_SVG
+#include <QSvgRenderer>
+#endif
 #include <QtMath>
 
 namespace {
@@ -117,6 +122,14 @@ void BrRenderer::renderItem(QPainter *p, const BrPageItem &item, double deviceDp
         if (!item.image.isNull())
             p->drawImage(toUnits(item.rect), item.image);
         break;
+    case BrPageItem::Svg: {
+#ifdef BRREPORT_HAS_SVG
+        QSvgRenderer svg(item.text.toUtf8());
+        if (svg.isValid())
+            svg.render(p, toUnits(item.rect));
+#endif
+        break;
+    }
     case BrPageItem::RichText: {
         if (item.text.isEmpty())
             return;

@@ -225,6 +225,12 @@ QString BrExport::toSvg(const BrPage &page)
             if (!it.image.isNull())
                 s << svgImage(it);
             break;
+        case BrPageItem::Svg:
+            s << "<image x=\"" << num(it.rect.x()) << "\" y=\"" << num(it.rect.y()) << "\" width=\""
+              << num(it.rect.width()) << "\" height=\"" << num(it.rect.height())
+              << "\" preserveAspectRatio=\"none\" href=\"data:image/svg+xml;base64,"
+              << QString::fromLatin1(it.text.toUtf8().toBase64()) << "\"/>\n";
+            break;
         case BrPageItem::RichText: {
             QString align = QStringLiteral("left");
             if (it.alignment & Qt::AlignHCenter)

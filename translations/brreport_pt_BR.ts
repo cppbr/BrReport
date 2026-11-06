@@ -2139,8 +2139,8 @@ Campos: %2</translation>
         <translation>Imagem</translation>
     </message>
     <message>
-        <source>Images (*.png *.jpg *.jpeg *.bmp *.gif)</source>
-        <translation>Imagens (*.png *.jpg *.jpeg *.bmp *.gif)</translation>
+        <source>Images (*.png *.jpg *.jpeg *.bmp *.gif *.svg)</source>
+        <translation>Imagens (*.png *.jpg *.jpeg *.bmp *.gif *.svg)</translation>
     </message>
     <message>
         <source>Edit... (%1)</source>

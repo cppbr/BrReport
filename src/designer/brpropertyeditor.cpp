@@ -22,6 +22,7 @@
 
 #include "brchart.h"
 #include "brcontrol.h"
+#include "brgraphics.h"
 #include "brreport.h"
 #include "brreportfile.h"
 #include "brdatasource.h"
@@ -172,7 +173,7 @@ bool editText(QWidget *parent, const QString &title, QString &text, bool monospa
 const QSet<QByteArray> &hiddenProperties()
 {
     static const QSet<QByteArray> hidden = {"queries", "parameters", "maxPages", "geometry",
-                                              "verticalGuides", "horizontalGuides", "protection"};
+                                              "verticalGuides", "horizontalGuides", "protection", "svg"};
     return hidden;
 }
 
@@ -743,7 +744,11 @@ QWidget *BrPropertyEditor::createEditor(const QMetaProperty &p, QObject *object)
         auto *h = new QHBoxLayout(row);
         h->setContentsMargins(0, 0, 0, 0);
         const QImage img = value.value<QImage>();
-        auto *info = new QLabel(img.isNull() ? tr("(none)") : tr("%1 x %2").arg(img.width()).arg(img.height()), row);
+        const bool hasSvg = !object->property("svg").toString().isEmpty();
+        auto *info = new QLabel(hasSvg ? QStringLiteral("SVG")
+                                : img.isNull() ? tr("(none)")
+                                               : tr("%1 x %2").arg(img.width()).arg(img.height()),
+                                row);
         auto *load = new QPushButton(tr("Load..."), row);
         auto *clear = new QToolButton(row);
         clear->setText(QStringLiteral("✕"));
@@ -752,12 +757,19 @@ QWidget *BrPropertyEditor::createEditor(const QMetaProperty &p, QObject *object)
         h->addWidget(clear);
         connect(load, &QPushButton::clicked, this, [this, cname]() {
             const QString file = QFileDialog::getOpenFileName(this, tr("Image"), QString(),
-                                                              tr("Images (*.png *.jpg *.jpeg *.bmp *.gif)"));
-            QImage image;
-            if (!file.isEmpty() && image.load(file))
-                apply(cname, image);
+                                                              tr("Images (*.png *.jpg *.jpeg *.bmp *.gif *.svg)"));
+            if (file.isEmpty())
+                return;
+            BrImage loaded;
+            if (loaded.load(file)) {
+                apply("svg", loaded.svg());
+                apply(cname, loaded.image());
+            }
         });
-        connect(clear, &QToolButton::clicked, this, [this, cname]() { apply(cname, QImage()); });
+        connect(clear, &QToolButton::clicked, this, [this, cname]() {
+            apply("svg", QString());
+            apply(cname, QImage());
+        });
         return row;
     }
     default:

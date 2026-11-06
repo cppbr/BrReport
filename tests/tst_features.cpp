@@ -18,7 +18,11 @@
 #include "brreportcore.h"
 
 #include <QBuffer>
+#include <QFile>
+#include <QTemporaryDir>
 #include <QTest>
+
+#include <algorithm>
 
 namespace {
 
@@ -239,6 +243,71 @@ private slots:
         QVERIFY(inStacked > 100);
         QVERIFY(report.document().pageText(0).contains(QStringLiteral("CODE39")));
     }
+
+#ifdef BRREPORT_HAS_SVG
+    void svgImagesAreKeptAsVectors()
+    {
+        const QByteArray xml = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"50\">"
+                               "<rect width=\"100\" height=\"50\" fill=\"#ff0000\"/></svg>";
+        QTemporaryDir dir;
+        const QString file = dir.filePath(QStringLiteral("logo.svg"));
+        QFile out(file);
+        QVERIFY(out.open(QIODevice::WriteOnly));
+        out.write(xml);
+        out.close();
+
+        BrReport report;
+        auto *band = report.addBand(Br::BandType::Detail, 40);
+        auto *image = new BrImage(band);
+        image->setGeometry(0, 0, 80, 40);
+        QVERIFY(image->load(file));
+        QVERIFY(image->image().isNull());
+        QVERIFY(report.prepare());
+
+        const BrDocument &doc = report.document();
+        const BrPageItem *item = nullptr;
+        for (const BrPageItem &it : doc.pages.first().items)
+            if (it.kind == BrPageItem::Svg)
+                item = &it;
+        QVERIFY(item);
+        QCOMPARE(item->rect.size(), QSizeF(80, 40)); // the aspect ratio of the image
+
+        const QImage page = BrRenderer::toImage(doc.pages.first(), 96);
+        const double k = 96 / 25.4;
+        QCOMPARE(page.pixelColor(item->rect.center().toPoint() * k), QColor(255, 0, 0));
+
+        // In a PDF it is drawn, there is no image object
+        const QString pdf = dir.filePath(QStringLiteral("out.pdf"));
+        QVERIFY(BrExport::toPdf(doc, pdf));
+        QFile in(pdf);
+        QVERIFY(in.open(QIODevice::ReadOnly));
+        QVERIFY(!in.readAll().contains("/Subtype /Image"));
+        QVERIFY(BrExport::toSvg(doc.pages.first()).contains(QStringLiteral("data:image/svg+xml;base64,")));
+
+        // It goes with the report file and with prepared reports
+        BrReport loaded;
+        QVERIFY(loaded.loadFromJson(report.toJson()));
+        QCOMPARE(loaded.findChild<BrImage *>()->svg(), QString::fromUtf8(xml));
+        QBuffer buffer;
+        buffer.open(QIODevice::ReadWrite);
+        QVERIFY(doc.save(&buffer));
+        buffer.seek(0);
+        BrDocument prepared;
+        QVERIFY(prepared.load(&buffer));
+        QVERIFY(std::any_of(prepared.pages.first().items.begin(), prepared.pages.first().items.end(),
+                            [](const BrPageItem &it) { return it.kind == BrPageItem::Svg; }));
+
+        // A field can hold SVG as well
+        QList<QVariantMap> rows = {{{QStringLiteral("logo"), xml}}};
+        BrListDataSource source(rows);
+        BrReport fromField;
+        fromField.setDataSource(&source);
+        (new BrDBImage(QStringLiteral("logo"), fromField.addBand(Br::BandType::Detail, 40)))->setGeometry(0, 0, 80, 40);
+        QVERIFY(fromField.prepare());
+        QVERIFY(std::any_of(fromField.document().pages.first().items.begin(), fromField.document().pages.first().items.end(),
+                            [](const BrPageItem &it) { return it.kind == BrPageItem::Svg; }));
+    }
+#endif
 
     void hideIfEmptyAndShrink()
     {
