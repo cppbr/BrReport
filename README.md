@@ -291,8 +291,8 @@ QT_QPA_PLATFORM=offscreen ./my-report-service
 
 ## Translations
 
-The preview window and the designer are available in **English** and **Brazilian Portuguese**. The
-translations are embedded in the libraries; install them once after creating the application:
+The preview window and the designer are available in **English**, **Brazilian Portuguese** and
+**Spanish**. The translations are embedded in the libraries; install them once after creating the application:
 
 ```cpp
 QApplication app(argc, argv);
