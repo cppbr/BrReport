@@ -239,6 +239,39 @@ bool BrReport::exportToHtml(const QString &fileName)
     return true;
 }
 
+bool BrReport::exportToXlsx(const QString &fileName)
+{
+    if (!ensurePrepared())
+        return false;
+    if (!BrExport::toXlsx(m_document, fileName)) {
+        m_error = QStringLiteral("Could not write XLSX file '%1'.").arg(fileName);
+        return false;
+    }
+    return true;
+}
+
+bool BrReport::exportToRtf(const QString &fileName)
+{
+    if (!ensurePrepared())
+        return false;
+    if (!BrExport::toRtf(m_document, fileName)) {
+        m_error = QStringLiteral("Could not write RTF file '%1'.").arg(fileName);
+        return false;
+    }
+    return true;
+}
+
+bool BrReport::exportToText(const QString &fileName)
+{
+    if (!ensurePrepared())
+        return false;
+    if (!BrExport::toTextFile(m_document, fileName)) {
+        m_error = QStringLiteral("Could not write text file '%1'.").arg(fileName);
+        return false;
+    }
+    return true;
+}
+
 QStringList BrReport::exportToImages(const QString &filePattern, double dpi)
 {
     if (!ensurePrepared())

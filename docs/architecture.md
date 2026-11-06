@@ -132,7 +132,7 @@ ellipse, polygon, image) in absolute millimeters:
 
 - `BrRenderer` paints it on any `QPainter` (screen, printer, `QPdfWriter`, `QImage`), using 1/100 mm
   logical units and converting font points to the device resolution;
-- `BrExport` writes PDF, images, SVG and HTML;
+- `BrExport` writes PDF, images, SVG, HTML, XLSX, RTF and plain text;
 - `BrDocument::save()/load()` store it in the binary `.brp` format (`QDataStream`, versioned).
 
 ## Text layout

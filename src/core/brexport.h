@@ -48,6 +48,29 @@ public:
 
     /*! Writes an HTML file with every page embedded as inline SVG. */
     static bool toHtml(const BrDocument &doc, const QString &fileName);
+
+    /*!
+     * Text of the document on a grid of characters, for dot-matrix and thermal printers.
+     * \a charWidthMm and \a lineHeightMm set the grid: the default is 10 characters per
+     * inch and 6 lines per inch. Pages are separated by a form feed. Only text is kept.
+     */
+    static QString toText(const BrDocument &doc, double charWidthMm = 2.54, double lineHeightMm = 4.233);
+    /*! Writes toText() to a file in UTF-8. */
+    static bool toTextFile(const BrDocument &doc, const QString &fileName, double charWidthMm = 2.54,
+                           double lineHeightMm = 4.233);
+
+    /*!
+     * Writes a spreadsheet with the text of the document: objects at the same height
+     * become a row and objects with the same left edge a column, in a single sheet.
+     * Text that reads as a number becomes a number. Images and shapes are left out.
+     */
+    static bool toXlsx(const BrDocument &doc, const QString &fileName);
+
+    /*!
+     * Writes a word processor document that keeps the layout of the pages: text in
+     * positioned frames, shapes and images. Rich text keeps its lines, not its styles.
+     */
+    static bool toRtf(const BrDocument &doc, const QString &fileName);
 };
 
 #endif // BREXPORT_H

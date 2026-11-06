@@ -15,7 +15,8 @@
 **BrReport** is a free and open source report generator for **C++ and Qt**. Reports are built from
 **bands**, **groups** and **sub-reports** filled with **objects** (texts, data fields, totals, images,
 shapes and barcodes). BrReport takes care of paging, grouping, totals and page numbering, and turns the
-result into a document you can **preview**, **print** or **export** to PDF, HTML, SVG and images.
+result into a document you can **preview**, **print** or **export** to PDF, HTML, SVG, images, XLSX,
+RTF and plain text.
 
 It is a native Qt library: no runtime, no scripting engine, no external tools. Use it in desktop
 applications with a ready-made preview window, or in console and server programs to generate PDFs.
@@ -266,6 +267,9 @@ See the [designer guide](docs/designer.md).
 report.exportToPdf("report.pdf");
 report.exportToHtml("report.html");
 report.exportToImages("page-%1.png", 150);      // one image per page, 150 dpi
+report.exportToXlsx("report.xlsx");             // the text in rows and columns
+report.exportToRtf("report.rtf");               // keeps the layout, editable in a word processor
+report.exportToText("report.txt");              // for dot-matrix and thermal printers
 report.saveDocument("report.brp");              // prepared document, open it later
 
 BrPrinting::preview(&report);                   // preview window (BrReport::Widgets)
@@ -389,7 +393,6 @@ Every example except `quick_start` opens the preview window, or exports with `--
 The detailed list of pending work is in [TODO.md](TODO.md).
 
 - More translations of the preview and the designer
-- XLSX, RTF and plain-text export
 - Translations of the preview window
 
 ## Bug reports

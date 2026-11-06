@@ -14,6 +14,8 @@ follows [Semantic Versioning](https://semver.org/).
   shorter (with `shiftOnStretch`, the default), so an empty line of an address leaves no gap.
 
 ### Added
+- Export to XLSX, RTF and plain text (for dot-matrix and thermal printers), from `BrReport`,
+  `BrExport`, the preview window and `brview`.
 - Barcodes: Code 39, Data Matrix (ECC 200, up to 144x144) and PDF417, with `BrDataMatrixEncoder` and
   `BrPdf417Encoder`.
 - Report templates with several pages: a sub-report with no data source and `positioning` set to

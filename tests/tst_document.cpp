@@ -92,6 +92,110 @@ private slots:
         QVERIFY(BrExport::toHtml(doc, dir.filePath(QStringLiteral("out.html"))));
     }
 
+    void plainText()
+    {
+        BrDocument doc;
+        BrPage first;
+        first.size = QSizeF(100, 50);
+        QFont font;
+        first.items << BrPageItem::makeText(QRectF(25.4, 4.3, 20, 4), QStringLiteral("name"), font, Qt::black,
+                                            Qt::AlignLeft | Qt::AlignVCenter);
+        first.items << BrPageItem::makeText(QRectF(50.8, 4.3, 25.4, 4), QStringLiteral("9.50"), font, Qt::black,
+                                            Qt::AlignRight | Qt::AlignVCenter);
+        first.items << BrPageItem::makeText(QRectF(0, 0, 100, 50), QStringLiteral("COPY"), font, Qt::gray,
+                                            Qt::AlignCenter, 45.0); // a watermark is not text of the report
+        BrPage second = first;
+        second.items.clear();
+        second.items << BrPageItem::makeText(QRectF(0, 0, 20, 4), QStringLiteral("end"), font, Qt::black,
+                                             Qt::AlignLeft | Qt::AlignVCenter);
+        doc.pages << first << second;
+
+        const QString text = BrExport::toText(doc);
+        QCOMPARE(text, QStringLiteral("\n          name            9.50\n\fend\n"));
+    }
+
+    void plainTextOfRichText()
+    {
+        BrDocument doc;
+        BrPage page;
+        page.size = QSizeF(200, 100);
+        BrPageItem item = BrPageItem::makeText(QRectF(0, 0, 100, 40), QStringLiteral("<p>one <b>two</b></p><p>three</p>"),
+                                               QFont(), Qt::black, Qt::AlignTop);
+        item.kind = BrPageItem::RichText;
+        page.items << item;
+        doc.pages << page;
+        const QString text = BrExport::toText(doc);
+        QVERIFY(text.contains(QStringLiteral("one two")));
+        QVERIFY(text.contains(QStringLiteral("three")));
+
+        // Only the part on this page of a split text
+        const double lineHeight = BrTextMetrics::richTextHeight(QFont(), QStringLiteral("x"), 100);
+        doc.pages.first().items.first().textOffset = lineHeight * 0.9;
+        QVERIFY(!BrExport::toText(doc).contains(QStringLiteral("one two")));
+        QVERIFY(BrExport::toText(doc).contains(QStringLiteral("three")));
+    }
+
+    void xlsx()
+    {
+        BrDocument doc;
+        BrPage page;
+        page.size = QSizeF(210, 297);
+        QFont bold;
+        bold.setBold(true);
+        const auto text = [&page](const QFont &font, double x, double y, const QString &value, int align) {
+            page.items << BrPageItem::makeText(QRectF(x, y, 30, 5), value, font, Qt::black, align);
+        };
+        text(bold, 10, 10, QStringLiteral("Name"), Qt::AlignLeft);
+        text(bold, 50, 10, QStringLiteral("Total"), Qt::AlignRight);
+        text(QFont(), 10, 16, QStringLiteral("A & B <c>"), Qt::AlignLeft);
+        text(QFont(), 50, 16, QStringLiteral("1.234,56"), Qt::AlignRight);
+        text(QFont(), 10, 22, QStringLiteral("00123"), Qt::AlignLeft); // a code, not a number
+        text(QFont(), 50, 22, QStringLiteral("1,234.5"), Qt::AlignRight);
+        doc.pages << page;
+
+        QTemporaryDir dir;
+        const QString file = dir.filePath(QStringLiteral("out.xlsx"));
+        QVERIFY(BrExport::toXlsx(doc, file));
+        QFile in(file);
+        QVERIFY(in.open(QIODevice::ReadOnly));
+        const QByteArray zip = in.readAll();
+        QVERIFY(zip.startsWith("PK"));
+        QVERIFY(zip.contains("xl/worksheets/sheet1.xml"));
+        QVERIFY(zip.contains("<c r=\"A1\" s=\"1\" t=\"inlineStr\"><is><t xml:space=\"preserve\">Name</t>"));
+        QVERIFY(zip.contains("A &amp; B &lt;c&gt;"));
+        QVERIFY(zip.contains("<c r=\"B2\" s=\"2\"><v>1234.56</v></c>"));
+        QVERIFY(zip.contains("<t xml:space=\"preserve\">00123</t>"));
+        QVERIFY(zip.contains("<c r=\"B3\" s=\"2\"><v>1234.5</v></c>"));
+    }
+
+    void rtf()
+    {
+        const BrDocument doc = makeDocument();
+        QTemporaryDir dir;
+        const QString file = dir.filePath(QStringLiteral("out.rtf"));
+        QVERIFY(BrExport::toRtf(doc, file));
+        QFile in(file);
+        QVERIFY(in.open(QIODevice::ReadOnly));
+        const QByteArray rtf = in.readAll();
+        QVERIFY(rtf.startsWith("{\\rtf1"));
+        QVERIFY(rtf.contains("\\pgwsxn11906"));
+        QVERIFY(rtf.contains("Hello <world> & \"friends\""));
+        QVERIFY(rtf.contains("\\shp"));
+        QVERIFY(rtf.contains("\\pngblip"));
+        // The braces of RTF groups are balanced
+        int depth = 0;
+        for (int i = 0; i < rtf.size(); ++i) {
+            if (rtf.at(i) == '\\')
+                ++i;
+            else if (rtf.at(i) == '{')
+                ++depth;
+            else if (rtf.at(i) == '}')
+                --depth;
+            QVERIFY(depth >= 0);
+        }
+        QCOMPARE(depth, 0);
+    }
+
     void landscape()
     {
         BrReport report;

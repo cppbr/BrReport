@@ -37,6 +37,7 @@ set(BRREPORT_CORE_SOURCES
     brengine.cpp
     brengine_p.h
     brexport.cpp
+    brexportoffice.cpp
     brexpression.cpp
     brformat.cpp
     brgraphics.cpp

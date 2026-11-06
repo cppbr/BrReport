@@ -316,6 +316,9 @@ public:
     bool exportToPdf(const QString &fileName);
     bool exportToHtml(const QString &fileName);
     QStringList exportToImages(const QString &filePattern, double dpi = 150.0);
+    bool exportToXlsx(const QString &fileName);
+    bool exportToRtf(const QString &fileName);
+    bool exportToText(const QString &fileName);
     bool saveDocument(const QString &fileName);
 
     BrReport *report() const override { return const_cast<BrReport *>(this); }

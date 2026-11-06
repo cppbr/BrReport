@@ -49,13 +49,17 @@ int main(int argc, char *argv[])
     parser.addOption({QStringLiteral("html"), QStringLiteral("Convert to HTML."), QStringLiteral("file")});
     parser.addOption({QStringLiteral("png"), QStringLiteral("Convert to PNG images (pattern with %1)."),
                       QStringLiteral("pattern")});
+    parser.addOption({QStringLiteral("xlsx"), QStringLiteral("Convert to an XLSX spreadsheet."), QStringLiteral("file")});
+    parser.addOption({QStringLiteral("rtf"), QStringLiteral("Convert to RTF."), QStringLiteral("file")});
+    parser.addOption({QStringLiteral("text"), QStringLiteral("Convert to plain text."), QStringLiteral("file")});
     parser.addOption({QStringLiteral("print"), QStringLiteral("Print with the system print dialog.")});
     parser.process(app);
 
     QTextStream err(stderr);
     QString fileName = parser.positionalArguments().value(0);
     const bool batch = parser.isSet(QStringLiteral("pdf")) || parser.isSet(QStringLiteral("html"))
-                       || parser.isSet(QStringLiteral("png"));
+                       || parser.isSet(QStringLiteral("png")) || parser.isSet(QStringLiteral("xlsx"))
+                       || parser.isSet(QStringLiteral("rtf")) || parser.isSet(QStringLiteral("text"));
     if (fileName.isEmpty()) {
         if (batch) {
             err << "brview: no input file" << Qt::endl;
@@ -85,6 +89,12 @@ int main(int argc, char *argv[])
             ok = ok && BrExport::toHtml(doc, parser.value(QStringLiteral("html")));
         if (parser.isSet(QStringLiteral("png")))
             ok = ok && !BrExport::toImages(doc, parser.value(QStringLiteral("png"))).isEmpty();
+        if (parser.isSet(QStringLiteral("xlsx")))
+            ok = ok && BrExport::toXlsx(doc, parser.value(QStringLiteral("xlsx")));
+        if (parser.isSet(QStringLiteral("rtf")))
+            ok = ok && BrExport::toRtf(doc, parser.value(QStringLiteral("rtf")));
+        if (parser.isSet(QStringLiteral("text")))
+            ok = ok && BrExport::toTextFile(doc, parser.value(QStringLiteral("text")));
         if (!ok)
             err << "brview: conversion failed" << Qt::endl;
         return ok ? 0 : 1;

@@ -245,11 +245,14 @@ void BrPreviewDialog::exportDocument()
     const QString pdf = tr("PDF document (*.pdf)");
     const QString html = tr("HTML page (*.html)");
     const QString png = tr("PNG images, one per page (*.png)");
+    const QString xlsx = tr("Excel spreadsheet (*.xlsx)");
+    const QString rtf = tr("Word processor document (*.rtf)");
+    const QString text = tr("Plain text (*.txt)");
     const QString brp = tr("BrReport document (*.brp)");
     QString filter = pdf;
     QString base = document().title.isEmpty() ? tr("report") : document().title;
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save as"), base + QStringLiteral(".pdf"),
-                                                    QStringList({pdf, html, png, brp}).join(QStringLiteral(";;")),
+                                                    QStringList({pdf, html, png, xlsx, rtf, text, brp}).join(QStringLiteral(";;")),
                                                     &filter);
     if (fileName.isEmpty())
         return;
@@ -268,6 +271,15 @@ void BrPreviewDialog::exportDocument()
         const QString pattern = fi.path() + QLatin1Char('/') + fi.completeBaseName()
                                 + QStringLiteral("-%1.") + fi.suffix();
         ok = !BrExport::toImages(document(), pattern).isEmpty();
+    } else if (filter == xlsx) {
+        ensureSuffix("xlsx");
+        ok = BrExport::toXlsx(document(), fileName);
+    } else if (filter == rtf) {
+        ensureSuffix("rtf");
+        ok = BrExport::toRtf(document(), fileName);
+    } else if (filter == text) {
+        ensureSuffix("txt");
+        ok = BrExport::toTextFile(document(), fileName);
     } else if (filter == brp) {
         ensureSuffix("brp");
         ok = document().save(fileName);

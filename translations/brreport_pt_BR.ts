@@ -1275,6 +1275,18 @@ Campos: %2</translation>
         <translation>Imagens PNG, uma por página (*.png)</translation>
     </message>
     <message>
+        <source>Excel spreadsheet (*.xlsx)</source>
+        <translation>Planilha do Excel (*.xlsx)</translation>
+    </message>
+    <message>
+        <source>Word processor document (*.rtf)</source>
+        <translation>Documento de texto (*.rtf)</translation>
+    </message>
+    <message>
+        <source>Plain text (*.txt)</source>
+        <translation>Texto puro (*.txt)</translation>
+    </message>
+    <message>
         <source>BrReport document (*.brp)</source>
         <translation>Documento BrReport (*.brp)</translation>
     </message>
