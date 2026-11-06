@@ -1,12 +1,6 @@
 # TODO
 
-Planned work, roughly in order of priority. See also the roadmap in the [README](README.md#roadmap).
-
-## Report engine
-
-
-## Objects and output
-
+Planned work, roughly in order of priority.
 
 ## Project
 
