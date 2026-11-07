@@ -1,8 +1,8 @@
 # Overlay port: vcpkg install brreport --overlay-ports=packaging/vcpkg
-# Fill REPO, REF and SHA512 once the repository is published.
+# Fill SHA512 once the tag v${VERSION} is pushed (vcpkg prints the right value on the first install).
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
-    REPO "<owner>/BrReport"
+    REPO "cppbr/BrReport"
     REF "v${VERSION}"
     SHA512 0
 )

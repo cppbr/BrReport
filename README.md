@@ -315,7 +315,7 @@ BrTranslations::install();                                          // system la
 ### Compilation
 
 ```sh
-git clone <repository-url> brreport
+git clone https://github.com/cppbr/BrReport.git brreport
 cd brreport
 cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/Qt/6.x/gcc_64
 cmake --build build

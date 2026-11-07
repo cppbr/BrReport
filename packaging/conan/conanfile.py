@@ -10,6 +10,8 @@ class BrReportConan(ConanFile):
     name = "brreport"
     version = "0.1.0"
     license = "Apache-2.0"
+    url = "https://github.com/cppbr/BrReport"
+    homepage = "https://github.com/cppbr/BrReport"
     description = "Band-oriented report generator for C++/Qt"
     topics = ("qt", "reports", "pdf", "barcode", "report-designer")
     settings = "os", "compiler", "build_type", "arch"
