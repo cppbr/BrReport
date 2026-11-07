@@ -31,6 +31,7 @@ file(GLOB BRREPORT_TS_FILES ${PROJECT_SOURCE_DIR}/translations/*.ts)
 find_package(${BRREPORT_QT} QUIET COMPONENTS LinguistTools)
 if(TARGET ${BRREPORT_QT}::lrelease)
     set(BRREPORT_QM_FILES)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/translations) # lrelease does not create it
     foreach(ts ${BRREPORT_TS_FILES})
         get_filename_component(base ${ts} NAME_WE)
         set(qm ${CMAKE_CURRENT_BINARY_DIR}/translations/${base}.qm)

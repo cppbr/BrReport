@@ -35,7 +35,8 @@ class BrReportConan(ConanFile):
             copy(self, pattern, root, self.export_sources_folder)
 
     def requirements(self):
-        self.requires("qt/[>=6.5 <7]")
+        # The public headers include Qt, so consumers need its headers and libraries too.
+        self.requires("qt/[>=6.5 <7]", transitive_headers=True, transitive_libs=True)
 
     def layout(self):
         cmake_layout(self)
