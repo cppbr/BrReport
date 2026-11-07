@@ -14,7 +14,16 @@ class BrReportConan(ConanFile):
     topics = ("qt", "reports", "pdf", "barcode", "report-designer")
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False], "widgets": [True, False], "designer": [True, False], "sql": [True, False]}
-    default_options = {"shared": True, "widgets": True, "designer": True, "sql": True}
+    default_options = {
+        "shared": True,
+        "widgets": True,
+        "designer": True,
+        "sql": True,
+        "qt/*:shared": True,     # the Qt recipe is static by default
+        "qt/*:qttools": True,    # lrelease, for the translations
+        "qt/*:with_pq": False,
+        "qt/*:with_odbc": False,
+    }
     package_type = "library"
 
     def export_sources(self):

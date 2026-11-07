@@ -334,6 +334,26 @@ cmake --install build --prefix /usr/local
 | `BRREPORT_BUILD_TOOLS` | `ON` | `brview` viewer and `brdesigner` application |
 | `BRREPORT_BUILD_TESTS` | `ON` | Unit tests |
 
+### Conan
+
+Recipe in `packaging/conan`, for Conan 2:
+
+```sh
+conan create packaging/conan --build=missing
+```
+
+- **SVG images are off by default**, because the Qt package of Conan does not include Qt SVG. To use
+  them, add `-o "qt/*:qtsvg=True"`. Without it, BrReport builds normally, but SVG images are not drawn.
+- PostgreSQL and ODBC drivers of Qt are off too: add `-o "qt/*:with_pq=True"` or
+  `-o "qt/*:with_odbc=True"` if you need them.
+- If your application already has Qt, do not build it again: declare it in your Conan profile, so
+  that there are not two copies of Qt in the same program.
+
+```ini
+[platform_requires]
+qt/6.12.0
+```
+
 ### Using BrReport in your project
 
 Installed package:
