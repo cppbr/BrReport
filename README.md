@@ -324,6 +324,18 @@ ctest --test-dir build
 cmake --install build --prefix /usr/local
 ```
 
+On Windows, open the *x64 Native Tools Command Prompt* of Visual Studio (or put the MinGW of Qt in the
+`PATH`) and choose a folder for the installation:
+
+```bat
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=C:\Qt\6.8.3\msvc2022_64
+cmake --build build
+ctest --test-dir build
+cmake --install build --prefix C:\libs\BrReport
+```
+
+The DLLs and the `brview` and `brdesigner` programs go to `C:\libs\BrReport\bin`.
+
 | Option | Default | Description |
 |---|---|---|
 | `BUILD_SHARED_LIBS` | `ON` | Shared or static libraries |
@@ -363,6 +375,35 @@ Installed package:
 find_package(BrReport REQUIRED)
 target_link_libraries(myapp PRIVATE BrReport::Widgets)   # BrReport::Core for headless use,
                                                          # BrReport::Designer for the designer
+```
+
+Tell CMake where BrReport and Qt are when they are not installed in a system folder:
+
+```sh
+cmake -S . -B build "-DCMAKE_PREFIX_PATH=C:/libs/BrReport;C:/Qt/6.8.3/msvc2022_64"
+```
+
+On Windows the program needs the DLLs of BrReport (`C:\libs\BrReport\bin`) and of Qt: add those
+folders to the `PATH` to run it, and copy the DLLs next to the program to distribute it
+(`windeployqt` copies the ones of Qt).
+
+Downloaded by CMake, with FetchContent (CMake 3.16 or newer, no installation needed):
+
+```cmake
+# Windows: executables and DLLs in one folder, so that the program runs from the build tree.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+include(FetchContent)
+set(BRREPORT_BUILD_EXAMPLES OFF)
+set(BRREPORT_BUILD_TOOLS OFF)
+set(BRREPORT_BUILD_TESTS OFF)
+FetchContent_Declare(BrReport
+    GIT_REPOSITORY https://github.com/cppbr/BrReport.git
+    GIT_TAG        main)   # or a release tag
+FetchContent_MakeAvailable(BrReport)
+
+add_executable(myapp main.cpp)
+target_link_libraries(myapp PRIVATE BrReport::Widgets)
 ```
 
 As a sub-project:
