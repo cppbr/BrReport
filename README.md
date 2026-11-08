@@ -3,6 +3,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/cppbr/BrReport/actions/workflows/ci.yml"><img src="https://github.com/cppbr/BrReport/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
   <img src="https://img.shields.io/badge/C%2B%2B-17-00599C.svg" alt="C++17">
   <img src="https://img.shields.io/badge/Qt-6.5%2B-41CD52.svg" alt="Qt 6.5+">

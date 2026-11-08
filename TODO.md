@@ -4,8 +4,6 @@ Planned work, roughly in order of priority.
 
 ## Project
 
-- [ ] See the first run of the CI (`.github/workflows/ci.yml`: Linux, Windows with MSVC and MinGW,
-      macOS) and add the build badge to the README.
 - [ ] Try the vcpkg port in `packaging/vcpkg` (the Conan recipe was tried on Linux).
 
 ## Known limitations
