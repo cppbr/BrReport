@@ -31,7 +31,7 @@ struct BrMatrixCode;
 class BRREPORT_EXPORT BrBarcodeEncoder
 {
 public:
-    struct Result
+    struct BRREPORT_EXPORT Result
     {
         QVector<int> widths; //!< Module widths (bar, space, bar, ...). Empty on error.
         QString humanText;   //!< Text to print below the bars (with check digits).

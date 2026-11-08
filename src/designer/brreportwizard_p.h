@@ -18,6 +18,8 @@
 #ifndef BRREPORTWIZARD_P_H
 #define BRREPORTWIZARD_P_H
 
+#include "brdesignerglobal.h"
+
 #include <QMap>
 #include <QVariantMap>
 #include <QWizard>
@@ -29,7 +31,7 @@ class BrDataSource;
  * application or a SQL query) and the fields, and get a report with a header,
  * column headers, detail, optional group, totals and page numbers.
  */
-class BrReportWizard : public QWizard
+class BRREPORT_DESIGNER_PRIVATE_EXPORT BrReportWizard : public QWizard
 {
     Q_OBJECT
 public:

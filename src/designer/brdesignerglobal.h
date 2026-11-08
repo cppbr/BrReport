@@ -28,4 +28,8 @@
 #  define BRREPORT_DESIGNER_EXPORT Q_DECL_IMPORT
 #endif
 
+// Internal classes (declared in *_p.h headers) exported only so the tests can use
+// them. They are not part of the public API and may change without notice.
+#define BRREPORT_DESIGNER_PRIVATE_EXPORT BRREPORT_DESIGNER_EXPORT
+
 #endif // BRDESIGNERGLOBAL_H

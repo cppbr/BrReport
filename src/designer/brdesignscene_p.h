@@ -24,6 +24,8 @@
 // This file is not part of the BrReport API. It may change without notice.
 //
 
+#include "brdesignerglobal.h"
+
 #include "brband.h"
 #include "brcontrol.h"
 #include "brdocument.h"
@@ -158,7 +160,7 @@ private:
  * Edits made with the mouse are applied to the report objects and announced
  * with layoutEdited().
  */
-class BrDesignScene : public QGraphicsScene
+class BRREPORT_DESIGNER_PRIVATE_EXPORT BrDesignScene : public QGraphicsScene
 {
     Q_OBJECT
 public:

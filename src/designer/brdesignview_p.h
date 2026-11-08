@@ -24,6 +24,8 @@
 // This file is not part of the BrReport API. It may change without notice.
 //
 
+#include "brdesignerglobal.h"
+
 #include <QGraphicsView>
 
 class BrDesignScene;
@@ -31,7 +33,7 @@ class BrGuideItem;
 class BrDesignView;
 
 /*! Ruler in millimeters along the view; dragging from it creates a guide. */
-class BrRuler : public QWidget
+class BRREPORT_DESIGNER_PRIVATE_EXPORT BrRuler : public QWidget
 {
     Q_OBJECT
 public:
@@ -61,7 +63,7 @@ private:
 };
 
 /*! View of the report layout with a ruler on the top and another on the left. */
-class BrDesignView : public QGraphicsView
+class BRREPORT_DESIGNER_PRIVATE_EXPORT BrDesignView : public QGraphicsView
 {
     Q_OBJECT
 public:

@@ -24,6 +24,8 @@
 // This file is not part of the BrReport API. It may change without notice.
 //
 
+#include "brdesignerglobal.h"
+
 #include <QDialog>
 #include <QList>
 #include <QSet>
@@ -43,7 +45,7 @@ class QTreeWidgetItem;
  * A syntax error blocks the OK button. A name that cannot be found is only a warning,
  * because the application may provide it when the report runs.
  */
-class BrExpressionEditor : public QDialog
+class BRREPORT_DESIGNER_PRIVATE_EXPORT BrExpressionEditor : public QDialog
 {
     Q_OBJECT
 public:

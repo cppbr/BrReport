@@ -49,6 +49,12 @@ message(STATUS "BrReport: using Qt ${${BRREPORT_QT}_VERSION}")
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
+# Windows has no rpath: put the DLLs and the executables in one folder so that the
+# tests, tools and examples run from the build tree.
+if(WIN32 AND CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR AND NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
+endif()
+
 if(NOT BUILD_SHARED_LIBS)
     set(BRREPORT_STATIC ON)
 endif()

@@ -18,6 +18,8 @@
 #ifndef BRPARAMETERSEDITOR_P_H
 #define BRPARAMETERSEDITOR_P_H
 
+#include "brdesignerglobal.h"
+
 #include <QDialog>
 #include <QVariantList>
 
@@ -25,7 +27,7 @@ class BrReport;
 class QTableWidget;
 
 /*! Designer dialog that declares the parameters of a report. */
-class BrParametersEditor : public QDialog
+class BRREPORT_DESIGNER_PRIVATE_EXPORT BrParametersEditor : public QDialog
 {
     Q_OBJECT
 public:

@@ -24,6 +24,8 @@
 // This file is not part of the BrReport API. It may change without notice.
 //
 
+#include "brdesignerglobal.h"
+
 #include "brglobal.h"
 
 #include <QMetaProperty>
@@ -39,7 +41,7 @@ class QFormLayout;
  * generated from the property types; a change is applied to every selected
  * object that has the property.
  */
-class BrPropertyEditor : public QScrollArea
+class BRREPORT_DESIGNER_PRIVATE_EXPORT BrPropertyEditor : public QScrollArea
 {
     Q_OBJECT
 public:
