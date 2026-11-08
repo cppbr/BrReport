@@ -8,7 +8,7 @@ class BrReportConan(ConanFile):
     """Run from the root of the repository: conan create packaging/conan --build=missing"""
 
     name = "brreport"
-    version = "0.1.0"
+    version = "0.2.0"
     license = "Apache-2.0"
     url = "https://github.com/cppbr/BrReport"
     homepage = "https://github.com/cppbr/BrReport"
