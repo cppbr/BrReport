@@ -795,6 +795,9 @@ BrDesignerWidget::BrDesignerWidget(QWidget *parent) : QMainWindow(parent), d(new
 
 BrDesignerWidget::~BrDesignerWidget()
 {
+    // The undo stack announces cleanChanged() while it is destroyed, when d may already
+    // be null (libc++ resets the unique_ptr before deleting): nothing must reach us then.
+    d->undo.disconnect(this);
     d->scene->setReport(nullptr);
 }
 
