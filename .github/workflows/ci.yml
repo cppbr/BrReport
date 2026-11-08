@@ -13,9 +13,8 @@ jobs:
       matrix:
         include:
           - { name: "Linux, Qt 6",          os: ubuntu-24.04, qt: "6.8.3" }
-          - { name: "Linux, Qt 5.15",       os: ubuntu-22.04, qt: "5.15.2" }
+          - { name: "Linux, Qt 6.5",        os: ubuntu-24.04, qt: "6.5.3" }
           - { name: "Windows MSVC, Qt 6",   os: windows-2022, qt: "6.8.3",  arch: win64_msvc2022_64 }
-          - { name: "Windows MSVC, Qt 5.15", os: windows-2022, qt: "5.15.2", arch: win64_msvc2019_64 }
           - { name: "Windows MinGW, Qt 6",  os: windows-2022, qt: "6.8.3",  arch: win64_mingw, tools: "tools_mingw1310" }
           - { name: "macOS, Qt 6",          os: macos-15,     qt: "6.8.3" }
     env:

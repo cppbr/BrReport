@@ -6,15 +6,20 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+- Qt 5.15 support: BrReport needs Qt 6.5 or newer. Qt 5.15 left standard support in May 2025 and
+  only gets fixes under paid extended maintenance.
+
+### Fixed
+- Builds and tests on Windows with MSVC and MinGW: the DLLs export everything the tests use, the
+  executables are placed beside the DLLs and the tests find the system fonts.
+
 ### Fixed
 - The watermark of a continuous page is centered on its final height.
 
 ### Changed
 - `hideIfEmpty` also gives up the space of the object: the objects below move up and the band gets
   shorter (with `shiftOnStretch`, the default), so an empty line of an address leaves no gap.
-
-### Fixed
-- BrReport builds with Qt 5.15 as promised, and the translations are embedded there too.
 
 ### Changed
 - The `master_detail_sql` and `grouped_sales` examples use declarative properties only, so `--save`

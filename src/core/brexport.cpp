@@ -258,9 +258,6 @@ bool BrExport::toHtml(const BrDocument &doc, const QString &fileName)
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return false;
     QTextStream s(&file);
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    s.setCodec("UTF-8");
-#endif
     const QString title = doc.title.isEmpty() ? QFileInfo(fileName).completeBaseName() : doc.title;
     s << "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>"
       << title.toHtmlEscaped() << "</title>\n<style>\n"

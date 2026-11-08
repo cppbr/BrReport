@@ -35,10 +35,6 @@
 
 #include <functional>
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-Q_DECLARE_METATYPE(QMarginsF)
-#endif
-
 class BrDataSource;
 
 /*! Text and/or image printed behind the content of every page. */

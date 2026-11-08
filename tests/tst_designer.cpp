@@ -1246,9 +1246,7 @@ private slots:
         auto *text = f.addText(f.first, QRectF(0, 0, 10, 5));
         auto *tree = f.widget.findChild<QTreeWidget *>();
         QVERIFY(QTest::qWaitForWindowExposed(&f.widget));
-#if QT_VERSION >= QT_VERSION_CHECK(6, 3, 0)
         QTest::failOnWarning(QRegularExpression(QStringLiteral("unable to save type")));
-#endif
 
         // The offscreen platform ends the drag at once, but only after asking for its data.
         QWindow *window = f.widget.windowHandle();

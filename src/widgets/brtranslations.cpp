@@ -41,11 +41,7 @@ QPointer<QTranslator> &qtTranslator()
 
 QString qtTranslationsPath()
 {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     return QLibraryInfo::path(QLibraryInfo::TranslationsPath);
-#else
-    return QLibraryInfo::location(QLibraryInfo::TranslationsPath);
-#endif
 }
 
 } // namespace

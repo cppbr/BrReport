@@ -250,12 +250,8 @@ QList<QMetaProperty> layoutProperties(const QObject *o)
 
 bool propertyIsStored(const QMetaProperty &p, const QObject *o)
 {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     Q_UNUSED(o)
     return p.isStored();
-#else
-    return p.isStored(o);
-#endif
 }
 
 // Human-friendly JSON: "type"/"name" first, "children" last, short values on one line.

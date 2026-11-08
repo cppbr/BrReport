@@ -5,7 +5,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
   <img src="https://img.shields.io/badge/C%2B%2B-17-00599C.svg" alt="C++17">
-  <img src="https://img.shields.io/badge/Qt-5.15%20%7C%206.x-41CD52.svg" alt="Qt 5.15 | 6.x">
+  <img src="https://img.shields.io/badge/Qt-6.5%2B-41CD52.svg" alt="Qt 6.5+">
   <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS%20%7C%20Android-lightgrey.svg" alt="Platforms">
   <img src="https://img.shields.io/badge/build-CMake-064F8C.svg" alt="CMake">
 </p>
@@ -309,7 +309,7 @@ BrTranslations::install();                                          // system la
 
 - C++17 compiler (GCC, Clang, MSVC, MinGW)
 - CMake 3.16 or newer
-- Qt 5.15 or Qt 6: Core and Gui; Widgets and PrintSupport for the preview; Sql for SQL data sources;
+- Qt 6.5 or newer: Core and Gui; Widgets and PrintSupport for the preview; Sql for SQL data sources;
   Svg, optional, for SVG images
 
 ### Compilation
